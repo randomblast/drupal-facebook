@@ -1,0 +1,258 @@
+<?php
+
+define('FB_USER_OPTION_ALLOW_ANON', 1);
+define('FB_USER_OPTION_REQUIRE_LOGIN', 2);
+define('FB_USER_OPTION_REQUIRE_ADD', 3);
+
+define('FB_USER_OPTION_CREATE_NEVER', 1);
+define('FB_USER_OPTION_CREATE_LOGIN', 2);
+define('FB_USER_OPTION_CREATE_ADD', 3);
+
+
+function fb_user_fb($fb, $fb_app, $op) {
+  if ($op == FB_OP_INITIALIZE) {
+    global $user;
+    $fb_app_data = fb_app_get_data($fb_app);
+    $fb_user_data = $fb_app_data['fb_user']; // our configuration
+
+    // Here we ask facebook to prompt the user to login or add the app.
+    if ($fb_user_data['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN)
+      $fb->require_login();
+    else if ($fb_user_data['require_login'] == FB_USER_OPTION_REQUIRE_ADD)
+      $fb->require_add();
+
+    // If we know the user's fbu, try to load the corresponding local account.
+    $fbu = fb_facebook_user();
+    if ($fbu && $user->fbu != $fbu) {
+      // Try the application-specific account.
+      $account = user_external_load("$fbu-$fb_app->apikey@facebook.com");
+      if (!$account)
+        // Try the cross-application account.
+        $account = user_external_load("$fbu@facebook.com");
+      if ($account) {
+        $account->fbu = $fbu;
+        $user = $account; // change the global user
+      }
+    }
+    // Later, if we do not create an account, we'll load the default user
+    // specified in the app config.
+
+
+    // Check if we need to create a local account for this user.
+    if (fb_facebook_user() &&
+        ($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_ADD &&
+         $fb->api_client->users_isAppAdded()) ||
+        ($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_LOGIN)) {
+      
+      // Check if the local account is already made.
+      if ($user->fbu != fb_facebook_user()) {
+        // We need to make a local account for this facebook user.
+        $user = fb_user_create_local_user(fb_facebook_user(), 
+                                          $fb_user_data['unique_account'],
+                                          array($fb_user_data['new_user_rid'] => TRUE));
+        watchdog('fb_user', t("Created new user !username for application %app",
+                              array('!username' => theme('username', $user),
+                                    '%app' => $fb_app->label)));
+        
+      }
+    }
+    
+    // It's possible the user was already created by another app.
+    // In this case we need to add our role.
+    if (fb_facebook_user() && $user->fbu == fb_facebook_user() &&
+        $fb_user_data['new_user_rid'] && !$user->roles[$fb_user_data['new_user_rid']]) {
+      // there should be an API for this...
+      db_query('INSERT INTO {users_roles} (uid, rid) VALUES (%d, %d)', 
+               $user->uid, $fb_app->rid);
+      watchdog('fb_user', t("Added role %role to existing user !username for application %app",
+                            array('!username' => theme('username', $user),
+                                  '%app' => $fb_app->label,
+                                  '%role' => $fb_app->rid)));
+      // Here, we need to somehow refresh the user's permissions! Otherwise
+      // they won't take effect until next page.
+      // sess_regenerate() might be the thing to call here, not sure.
+    }
+    
+    // Keep track of all our app users.  We need this info when updating
+    // profiles during cron.  We keep session keys in case user has an
+    // infinite session, and we can actually log in as them during cron.
+    // TODO: is this a violation of facebook terms?
+    db_query("REPLACE INTO {fb_app_user} (nid, fbu, added, time_access, session_key, session_key_expires) VALUES (%d, %d, %d, %d, '%s', %d)",
+             $fb_app->nid, fb_facebook_user(), 
+             $fb->api_client->users_isAppAdded(), time(),
+             $_REQUEST['fb_sig_session_key'], $_REQUEST['fb_sig_expires']
+    );
+
+    if (!$user->uid) {
+      if ($fbu = fb_facebook_user()) {
+        $uid = $fb_app_data['fb_user']['logged_in_uid'];
+      }
+      else {
+        $uid = $fb_app_data['fb_user']['not_logged_in_uid'];        
+      }
+      if ($uid) {
+        $user = user_load(array('uid' => $uid));
+        /* too verbose
+        watchdog('fb_user', t('Treating a facebook user as local user !user',
+                              array('!user' => $user->name,
+                              )));
+        */
+      }
+    }
+
+    // This is an experiment.  Trying to get login links to prompt for a facebook login.
+    if (strpos($_GET['q'],'user/login') === 0) {
+      $fb->require_login();
+    }
+    else if (strpos($_GET['q'],'user/register') === 0) {
+      $fb->require_add();
+    }
+    // Now do I need a goto or some such???
+
+    // debug
+    /*
+    drupal_set_message("To Drupal, you are " . theme('username', $user));
+    drupal_set_message("Facebook user id is " . fb_facebook_user());
+    drupal_set_message("Facebook logged in is " . $fb->get_loggedin_user());
+    */
+  }
+  
+  
+  }
+
+function fb_user_form_alter($form_id, &$form) {
+  //drupal_set_message("fb_user_form_alter($form_id) " . dpr($form, 1));
+
+  // Add our settings to the fb_app edit form.
+  if (is_array($form['fb_app_data'])) {
+    $node = $form['#node'];
+    $fb_app_data = fb_app_get_data($node->fb_app);
+    $fb_user_data = $fb_app_data['fb_user'];
+
+    $form['fb_app_data']['fb_user'] = array('#type' => 'fieldset',
+                                            '#title' => t('Facebook user settings'),
+                                            '#tree' => TRUE,
+                                            '#collapsible' => TRUE,
+                                            '#collapsed' => TRUE,
+    );
+
+    $form['fb_app_data']['fb_user']['require_login'] = 
+      array('#type' => 'radios',
+            '#title' => t('Require Login'),
+            '#description' => t('When viewing canvas pages, how strict do you want to be?  Most FBML applications will not want \'Allow anyone\' because facebook allows no persistent session; features like drupal_set_message() will not work properly.  Also facebook does not allow form submissions unless the user logs in.'),
+            '#options' => 
+            array(FB_USER_OPTION_ALLOW_ANON => t('Allow anyone'),
+                  FB_USER_OPTION_REQUIRE_LOGIN => t('Allow logged-in users'),
+                  FB_USER_OPTION_REQUIRE_ADD => t('Allow users who have added this app to their profile'),
+                  
+            ),
+            '#default_value' => $fb_user_data['require_login'],
+            '#required' => TRUE,
+      );
+    
+    
+    // TODO: fix this so that it prompts for username with autocomplete, not a uid.
+    $form['fb_app_data']['fb_user']['not_logged_in_uid'] =
+      array('#type' => 'textfield',
+            '#title' => t('Not logged in user (uid)'),
+            '#description' => t('If allowing non-logged in users, when such a user visits the site, which Drupal user should they be treated as?  Use 0 for the anonymous user.'),
+            '#default_value' => $fb_user_data['not_logged_in_uid'],
+      );
+    $form['fb_app_data']['fb_user']['logged_in_uid'] =
+      array('#type' => 'textfield',
+            '#title' => t('Logged in user (uid)'),
+            '#description' => t('If allowing logged in users, when such a user visits the site, and they do not have a local Drupal account, which Drupal user should they be treated as?  Use 0 for the Anonymous user, or create a dedicated account for this purpose.'),
+            '#default_value' => $fb_user_data['logged_in_uid'],
+      );
+
+    $form['fb_app_data']['fb_user']['create_account'] = 
+      array('#type' => 'radios',
+            '#title' => t('Create Local Account'),
+            '#description' => t('When logged-in facebook user visits this app, should we create a local account for them?'),
+            '#options' => array(FB_USER_OPTION_CREATE_NEVER => t('Never (I\'ll map the accounts some other way)'),
+                                FB_USER_OPTION_CREATE_LOGIN => t('If user has logged in'),
+                                FB_USER_OPTION_CREATE_ADD => t('If user has added this app'),
+                                
+            ),
+            '#default_value' => $fb_user_data['create_account'],
+            '#required' => TRUE,
+      );
+    // TODO: prompt for role with a select.  Don't make user figure out id
+    $form['fb_app_data']['fb_user']['new_user_rid'] =
+      array('#type' => 'textfield',
+            '#title' => t('New user role (rid)'),
+            '#description' => t('When creating an account, this role will be assigned.  Use this to give every user that adds the app a particular Drupal role.  Type a numerical role id.'),
+            '#default_value' => $fb_user_data['new_user_rid'],
+      );
+    
+    $form['fb_app_data']['fb_user']['unique_account'] =
+      array('#type' => 'checkbox',
+            '#title' => t('Make Local Account Unique'),
+            '#description' => t('When creating a local account, a unique account will apply only to this app.  A non-unique account will be shared by all apps which do not have this checked.'),
+            '#default_value' => $fb_user_data['unique_account'],
+      );
+    
+  }
+}
+
+
+function fb_user_create_local_user($fbu = NULL, $app_specific = FALSE, $roles = array()) {
+  global $fb;
+
+  if (!$fbu)
+    $fbu = fb_facebook_user();
+  if (!$fbu)
+    return; // User not logged into facebook, can't create local account
+
+  $info = $fb->api_client->users_getInfo($fbu, array('first_name', 'last_name'));
+  $username = $info[0]['first_name'] .' '. $info[0]['last_name'];
+  
+  // debugging.
+  //drupal_set_message("Facebook knows you as $username ($fbu)");
+  
+  // map fbu to uid, include apikey if user is app_specific
+  if ($app_specific)
+    // would rather use the shorter app id (not apikey), but no way to query it
+    $authmap = "$fbu-$fb_app->apikey@facebook.com";
+  else
+    $authmap = "$fbu@facebook.com";
+  
+  $account = user_external_load($authmap);
+  
+  if (!$account) {
+    // Create a new user in our system
+    // TODO: handle case when username is already taken.
+    $user_default = array('name' => $username,
+                          'pass' => user_password(),
+                          'init' => db_escape_string($username),
+                          'status' => 1,
+                          'authname_fb_auth' => $authmap,
+    );
+    $user_default['roles'][DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
+    foreach ($roles as $rid => $value)
+      if ($rid)
+        $user_default['roles'][$rid] = $value;
+    $user_default['fbu'] = $fbu; // Will get saved as user data.
+
+    $account = user_save('', $user_default);
+  }
+
+  if (!$account->fbu) {
+    // This should only happen on older, automatically created accounts.
+    $account->fbu = $fbu;
+    user_save($account, array('fbu' => $fbu));
+  }
+
+  return $account;
+}
+
+function fb_user_get_local_user($fbu, $fb_app) {
+  $result = db_query("SELECT am.* FROM authmap am WHERE am.authname='%s' OR am.authname='%s' ORDER BY am.authname",
+                     "$fbu-$fb_app->apikey@facebook.com", "$fbu@facebook.com");
+  if ($data = db_fetch_object($result)) {
+    $account = user_load(array('uid' => $data->uid));
+    return $account;
+  }
+}
+
+?>

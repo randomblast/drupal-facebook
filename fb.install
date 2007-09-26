@@ -1,0 +1,13 @@
+<?php
+
+function _fb_install_set_weight() {
+  db_query("UPDATE {system} SET weight=-2 WHERE name='fb'");
+}
+
+function fb_install() {
+  _fb_install_set_weight();
+}
+function fb_update_1() {
+  _fb_install_set_weight();  
+}
+?>

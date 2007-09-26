@@ -1,0 +1,70 @@
+<?php
+  /**
+   * @file
+   * Installs database tables and settings required by fb_app module.
+   * 
+   */
+  // TODO: some of these tables should be created by othe module install files.
+
+Function fb_app_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("
+CREATE TABLE IF NOT EXISTS {fb_app} (
+nid int(11) unsigned NOT NULL,
+label varchar(128) NOT NULL,
+apikey varchar(128) NOT NULL,
+secret varchar(128) NOT NULL,
+canvas varchar(128) NOT NULL,
+require_login int(4) NOT NULL,
+create_account int(4) NOT NULL,
+unique_account int(4) NOT NULL,
+rid int(10) unsigned NOT NULL,
+data longtext,
+PRIMARY KEY (nid),
+UNIQUE KEY (apikey)
+) /*!40100 DEFAULT CHARACTER SET UTF8 */;
+");
+      db_query("
+CREATE TABLE IF NOT EXISTS {fb_app_block} (
+nid int(11) unsigned NOT NULL,
+delta varchar(32) NOT NULL,
+format int(11) DEFAULT 0,
+body longtext NOT NULL,
+PRIMARY KEY (nid, delta)
+) /*!40100 DEFAULT CHARACTER SET UTF8 */;
+");
+      db_query("
+CREATE TABLE IF NOT EXISTS {fb_app_user} (
+nid int(11) unsigned NOT NULL,
+fbu int(11) unsigned NOT NULL,
+added int(4) unsigned NOT NULL,
+time_cron int(11) unsigned NOT NULL,
+time_access int(11) unsigned NOT NULL,
+session_key varchar(128) NOT NULL,
+session_key_expires int(11) unsigned NOT NULL,
+PRIMARY KEY (nid, fbu)
+) /*!40100 DEFAULT CHARACTER SET UTF8 */;
+");
+
+      // This table schema has to match the cache_filter table.
+      db_query("
+CREATE TABLE {fb_cache_filter} ( 
+cid varchar(255) NOT NULL default '', 
+data longblob, 
+expire int NOT NULL default '0', 
+created int NOT NULL default '0', 
+headers text, 
+PRIMARY KEY (cid), 
+INDEX expire (expire) 
+) /*!40100 DEFAULT CHARACTER SET UTF8 */;
+
+");
+
+  }
+  
+  drupal_set_message(t('Facebook Application module installed. Please grant yourself <a href="!perm">permissions</a> and then browse to <a href="!create">Create Content => Facebook Application</a> to get started.', array('!perm' => url('admin/user/access'), '!create' => url('node/add/fb-app'))));
+  
+}
+?>

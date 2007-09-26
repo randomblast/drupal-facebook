@@ -1,0 +1,394 @@
+<?php
+  /**
+   * @file
+   *   Defines a custom node type that stores a facebook application configuration.
+   */
+
+  // deprecated XXX
+define('FB_APP_REQ_PARAM', 'app'); // can't use anything that starts 'fb'.
+
+define('FB_APP_REQ_API_KEY', 'fb_sig_api_key');
+
+/**
+ * hook_fb
+ */
+function fb_app_fb($fb, $fb_app, $op, &$a3) {
+  
+  //drupal_set_message("fb_app_fb($fb_app->label, $op)" . dpr($fb_app, 1));
+
+  if ($op == FB_OP_GET_APP) {
+    // This operation determines which app the request is for.  Theoretically,
+    // the allows fb_app and other app-defining modules to co-exist.  We need
+    // to determine if the app is one of ours and if so, return the app
+    // details.
+
+    // If facebook has passed the app key, let's use that.
+    if ($apikey = $_REQUEST[FB_APP_REQ_API_KEY]) {
+      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE apikey='%s' and status=1",
+                                         $apikey));
+      /* for testing
+      watchdog('fb_app', t('Found app !app based on apikey %key',
+                           array('!app' => l($fb_app->label, 'node/'.$fb_app->nid),
+                                 '%key' => $apikey)));
+
+      */
+    }
+    // deprecated.  This is the old way, and has been replaced by the apikey way above. XXX
+    if (!$fb_app)
+      if ($label = $_REQUEST[FB_APP_REQ_PARAM]) {
+        $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE label='%s' and status=1",
+                                           $label));
+      }
+    if ($fb_app)
+      $a3 = $fb_app;
+  }
+  if ($op == FB_OP_INITIALIZE) {
+    // User init has been moved to fb_user.module.
+    // For now, nothing to do here.
+  }
+  else if ($op == FB_OP_POST_INIT) {
+    /* TODO: move this feature to an explicit setting.  For now, we just use site homepage
+    // Here we override the front_page settings
+    if ($_REQUEST['q'] == '' && $fb_app->nid) {
+      menu_set_active_item('node/'.$fb_app->nid);
+      // Note, menu_set_active_item only works as intended if fb.module
+      // is weighted lighter than node.module!
+    }
+      */
+  }
+}
+
+function fb_app_node_info() {
+  return array('fb_app' =>
+               array('name' => t('Facebook Application'),
+                     'module' => 'fb_app',
+                     'description' => t('Information such as apikey and secret for a facebook.com application.'),
+                     'help' => t('Register your application on facebook.com, then fill out this form.'),
+               ),
+  );
+}
+
+function fb_app_access($op, $node) {
+  if (user_access('administer fb apps'))
+    return TRUE;
+  if ($op == 'create' && user_access('create fb apps'))
+    return TRUE;
+  else if ($op == 'update' || $op == 'delete') {
+    if ($node->uid == $user->uid && 
+        user_access('edit own fb apps'))
+      return TRUE;
+  }
+}
+
+function fb_app_perm() {
+  return array('administer fb apps', 'create fb apps', 'edit own fb apps');
+}
+
+function fb_app_form(&$node, &$param) {
+  $form = array();
+  $type = node_get_types('type', $node);
+  // We need to define form elements for the node's title and body. 
+  $form['title'] = array('#type' => 'textfield', 
+                         '#title' => check_plain($type->title_label), 
+                         '#required' => TRUE, 
+                         '#default_value' => $node->title, 
+                         '#weight' => -5,
+                         '#description' => t('Identifies the application to site administrators.'),
+  ); 
+  // We want the body and filter elements to be adjacent. We could try doing 
+  // this by setting their weights, but another module might add elements to the 
+  // form with the same weights and end up between ours. By putting them into a 
+  // sub-array together, we're able force them to be rendered together. 
+  $form['body_filter']['body'] = 
+    array('#type' => 'textarea', 
+          '#title' => check_plain($type->body_label), 
+          '#default_value' => $node->body, 
+          '#required' => FALSE,
+          '#description' => 'Not sure yet how this will be used.',
+    ); 
+  $form['body_filter']['filter'] = filter_form($node->format); 
+  
+  // Now we define the form elements specific to our node type. 
+  
+  $form['fb_app'] = array('#tree' => TRUE,
+                          '#weight' => -4,
+  );
+  $form['fb_app']['label'] = array('#type' => 'textfield',
+                                   '#title' => t('Label'),
+                                   '#required' => TRUE,
+                                   '#default_value' => $node->fb_app->label,
+                                   '#description' => t('Used behind the scenes, for naming roles, styles, etc.  Use no spaces or weird characters.'),
+  );
+  $form['fb_app']['apikey'] = array('#type' => 'textfield',
+                                    '#title' => t('API Key'),
+                                    '#required' => TRUE,
+                                    '#default_value' => $node->fb_app->apikey,
+  );
+  $form['fb_app']['secret'] = array('#type' => 'textfield',
+                                    '#title' => t('Secret'),
+                                    '#required' => TRUE,
+                                    '#default_value' => $node->fb_app->secret,
+  );
+  $form['fb_app']['canvas'] = array('#type' => 'textfield',
+                                    '#title' => t('Canvas Page Url Suffix'),
+                                    '#required' => TRUE,
+                                    '#default_value' => $node->fb_app->canvas,
+                                    '#description' => t('Type only the part that comes after "http://apps.facebook.com/"'),
+  );
+
+  // fb_app_data is a placeholder to make it easier for other module to attach
+  // various settings to the node.
+  $form['fb_app_data'] = array('#tree' => TRUE);
+  
+  // TODO: move this to another module.
+  $form['fb_app_blocks'] = array('#tree' => TRUE);
+  for ($i = 0; $i < _fb_app_num_blocks(); $i++) {
+    $form['fb_app_blocks'][$i]['body'] = 
+      array('#type' => 'textarea', 
+            '#title' => t('Block !num', array('!num' => $i+1)), 
+            '#default_value' => $node->fb_app_blocks[$i]->body, 
+            '#required' => FALSE,
+            '#description' => t('Enter markup to be used as this application\'s navigation.  Typically this is an unordered list of links.'),
+      ); 
+    $form['fb_app_blocks'][$i]['format'] = filter_form($node->fb_app_blocks[$i]->format,
+                                                       NULL,
+                                                       array('fb_app_blocks', $i, 'format'));
+    
+  }
+  
+  return $form;
+}
+
+function fb_app_validate($node) {
+  // TODO: check label is unique, and role name will be unique.
+  // check apikey is unique, canvas page is unique
+  // check no menu items start with $fb_app->canvas, because we will rewrite those URLs
+}
+
+function fb_app_load($node) {
+  $fb_app = db_fetch_object(db_query('SELECT * FROM {fb_app} WHERE nid=%d',
+                                   $node->nid));
+  $fb_app_data = fb_app_get_data($fb_app);
+  $result = db_query('SELECT * FROM {fb_app_block} WHERE nid=%d',
+                     $node->nid);
+  while ($data = db_fetch_object($result))
+    $blocks[$data->delta] = $data;
+  return array('fb_app' => $fb_app,
+               'fb_app_blocks' => $blocks,
+               'fb_app_data' => $fb_app_data,
+  );
+}
+
+function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
+  $node = node_prepare($node, $teaser);
+  // Perhaps this info should be hidden, unless user can edit node.
+  if (user_access('administer fb apps')) {
+    $node->content['fb_app'] = 
+      array('#value' => theme('fb_app', $node->fb_app),
+            '#weight' => 1);
+  
+    foreach($node->fb_app_blocks as $delta => $data) {
+      $node->content['fb_app_blocks'][$delta] = array('subject' => array('#value' => t('Block %num', array('%num' => $delta+1))),
+                                                      'content' => array('#value' => check_markup($data->body, $data->format, FALSE),
+                                                                         '#weight' => 1));
+      
+    }
+    $node->content['fb_app_blocks']['#weight'] = 10;
+  }
+  return $node;
+}
+
+function theme_fb_app($data) {
+  $canvas_url = "http://apps.facebook.com/$data->canvas";
+  return theme('dl', array(t('Label') => $data->label,
+                           t('API Key') => $data->apikey,
+                           t('Secret') => $data->secret,
+                           t('Canvas URL') => l($canvas_url, $canvas_url),
+                           t('Callback URL') => t("If using clean urls (recommended), use %clean.  Otherwise, use %dirty.",
+			   array("%clean" => url('', NULL, NULL, TRUE),
+			   "%dirty" => url("index.php", "q=", NULL, TRUE),
+			   )),
+                           // TODO: edit and logout URLs
+               ));
+}
+
+// this belongs elsewhere
+function theme_dl($items) {
+  if (count($items)) {
+    $output = "<dl>\n";
+    foreach ($items as $term => $data) {
+      $output .= "  <dt>$term</dt><dd>$data</dd>\n";
+    }
+    $output .= "</dl>\n";
+    return $output;
+  }
+}
+
+function fb_app_insert($node) {
+  //drupal_set_message("fb_app_insert" . dpr($node,1));
+  $fb_app = (object) $node->fb_app;
+
+  // Create a new role for users of this account
+  // Might be more clean to programatically fill out the add role form
+  $role_name = $fb_app->label . ' user';
+  db_query("INSERT INTO {role} (name) VALUES ('%s')", $role_name);
+  $role = db_fetch_object(db_query("SELECT * FROM {role} WHERE name='%s'",
+                                   $role_name));
+
+  $data = serialize($node->fb_app_data);
+
+  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, canvas, require_login, create_account, unique_account, rid, data) VALUES (%d, '%s', '%s', '%s', '%s', %d, %d, %d, %d, '%s')",
+           $node->nid, $fb_app->label, $fb_app->apikey, $fb_app->secret,
+           $fb_app->canvas, $fb_app->require_login, $fb_app->create_account, 
+           $fb_app->unique_account, $role->rid, $data
+  );
+
+  _fb_app_blocks_update($node);
+
+  watchdog('fb_app', t('Created Facebook Application %label.  Created role %role.',
+                       array('%label' => $fb_app->label,
+                             '%role' => $role_name)),
+           WATCHDOG_NOTICE,
+           l($node->title, 'node/'.$node->nid));
+  
+}
+
+function _fb_app_blocks_update($node) {
+  db_query('DELETE FROM {fb_app_block} WHERE nid=%d', $node->nid);
+  foreach ($node->fb_app_blocks as $delta => $data_array) {
+    $data = (object)$data_array;
+    //if (!$delta)
+    //  $delta = '0';
+    db_query("INSERT INTO {fb_app_block} (nid, delta, body, format) VALUES (%d, '%s', '%s', %d)",
+             $node->nid, $delta,
+             $data->body,
+             $data->format);
+  }  
+}
+
+function fb_app_update($node) {
+  $fb_app = (object) $node->fb_app;
+  $data = serialize($node->fb_app_data);
+
+  // TODO: test if role name needs to change
+  db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', canvas='%s', require_login=%d, create_account=%d, unique_account=%d, data='%s' WHERE nid=%d",
+           $fb_app->label, $fb_app->apikey, $fb_app->secret,
+           $fb_app->canvas, $fb_app->require_login, $fb_app->create_account,
+           $fb_app->unique_account, $data,
+           $node->nid);
+  _fb_app_blocks_update($node);  
+}
+function fb_app_delete($node) {
+  // TODO: clean up users, permissions
+  db_query('DELETE FROM {role} WHERE rid=%d',
+           $node->fb_app->rid);
+  db_query('DELETE FROM {fb_app} WHERE nid=%d',
+           $node->nid);
+  db_query('DELETE FROM {fb_app_block} WHERE nid=%d', $node->nid);
+
+}
+
+
+function fb_app_form_alter($form_id, &$form) {
+  global $fb_app;
+  // In GETs, the URL includes our app name.
+  // For form POSTs, we make sure it's included here.
+  $form[FB_APP_REQ_PARAM] = array('#type' => 'hidden', '#value' => $fb_app->label); 
+  
+}
+
+/**
+ * Convenience method for other modules to attach data to the fb_app object.
+ */
+function fb_app_get_data(&$fb_app) {
+  if (!$fb_app->fb_app_data) {
+    $fb_app->fb_app_data = unserialize($fb_app->data);
+  }
+  return $fb_app->fb_app_data;
+}
+
+
+function _fb_app_num_blocks() {
+  return variable_get('fb_app_num_blocks', 1);
+}
+
+function fb_app_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    for ($i = 0; $i < _fb_app_num_blocks(); $i++)
+      $items[$i]['info'] = t('Facebook Application block !num',
+                             array('!num' => $i+1));
+    return $items;
+  }
+  else if ($op == 'view') {
+    global $fb_app;
+    $result = db_query("SELECT * FROM {fb_app_block} WHERE nid=%d AND delta='%s'",
+                       $fb_app->nid, $delta);
+    $data = db_fetch_object($result);
+    if ($data) {
+      $output = check_markup($data->body, $data->format, FALSE);
+      return array('content' => $output,
+                   // TODO: subject
+      );
+    }
+  }
+}
+
+// deprecated
+function fb_app_cronXXX() {
+  global $fb, $fb_app;
+  global $user;
+
+  $query = "SELECT fb.* FROM {fb_app} fb LEFT JOIN {node} n ON n.nid=fb.nid WHERE n.status=1";
+  $result = db_query($query);
+
+  // Iterate through all apps
+  while ($fb_app = db_fetch_object($result)) {
+    fb_api_init($fb_app);
+    $fb_app_data = unserialize($fb_app->data);
+
+    // Invoke cron hooks only if configured with facebook infinite session.
+    if ($fb_app_data['session'] && $fb_app_data['session']['fbu']) {
+
+      print("fb_app_cron handling app" . dpr($fb_app, 1) . dpr($fb_app_data, 1));
+
+      // Get users of this app.  TODO: throttle by configurable amount
+      $result = db_query("SELECT * FROM {fb_app_user} WHERE nid=%d AND fbu>0 AND added > 0 ORDER BY time_cron ASC LIMIT 50", $fb_app->nid);
+      while ($data = db_fetch_object($result)) {
+        print("fb_app_cron handling user" . dpr($data, 1));
+        $account = fb_user_load($data->fbu);
+
+        // Log into facebook as this user, if infinite key available.
+        // This will give us more privileges regarding this user account.
+        if ($data->session_key_expires == 0) {
+          print("calling set_user($data->fbu, $data->session_key)\n");
+          $fb->set_user($data->fbu, $data->session_key);
+        }
+        else {
+          print("calling set_user(".$fb_app_data['session']['fbu'].", ".$fb_app_data['session']['key'].")\n");
+          // Log into facebook with app-wide infinite session.
+          $fb->set_user($fb_app_data['session']['fbu'], $fb_app_data['session']['key']);
+        }
+        print("setting fbml for user " . dpr($account,1));
+        $function = $fb_app->label . '_profile_fbml';
+        if (function_exists($function)) {
+          // Get FBML from application's hook_profile_fbml.
+          $fbml = $function($account);
+          print("setting fbml for $data->fbu to " . dpr($fbml,1));
+          $fb->api_client->profile_setFBML($fbml, $data->fbu);
+          if ($code = $fb->api_client->error_code) {
+            print("Failed to setFBML! $code\n");
+            watchdog('fb', 'Failed to set profile FBML during cron run.', 'error');
+          }
+        }
+        // Move account to end of cron queue.
+        db_query("REPLACE INTO {fb_app_user} (nid, fbu, time_cron) VALUES (%d, %d, %d)", $fb_app->nid, $fbu, time());
+      }
+    }
+  }
+}
+
+function testapp_profile_fbml($account) {
+  // for debugging
+  return secret_profile_fbml($account);
+}
+?>

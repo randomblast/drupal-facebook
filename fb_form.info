@@ -1,0 +1,4 @@
+name = Facebook Form Elements
+description = Defines several form elements useful in Facebook applications.  For example, a friend selector element.
+package = Facebook
+dependencies = fb

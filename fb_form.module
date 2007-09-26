@@ -1,0 +1,106 @@
+<?php
+
+function fb_form_group_options($fbu) {
+  $groups = fb_get_groups_data($fbu);
+  $items = array();
+  if ($groups && count($groups))
+    foreach ($groups as $data) {
+      $items[$data['gid']] = $data['name'];
+    }
+  // TODO: alphabetize list
+  return $items;
+  }
+
+function fb_form_friend_options($fbu) {
+  global $fb;
+  $items = array();
+
+  if ($fb) {
+    $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=$fbu)";
+    $result = $fb->api_client->fql_query($query);
+    
+    // TODO: sort results by name
+    foreach ($result as $data) {
+      $items[$data['uid']] = $data['first_name'] . ' ' . $data['last_name'];
+    }
+  }
+  return $items;
+}
+
+function fb_form_group_member_options($fbg, $fbu) {
+  global $fb;
+
+  $query = "SELECT uid FROM group_member WHERE gid=$fbg";
+  $result = $fb->api_client->fql_query($query);
+  drupal_set_message("fb_form_group_member_options($fbg, $fbu) query $query returns" . dpr($result, 1));
+
+
+
+
+  $query = "SELECT uid, first_name, last_name FROM user WHERE uid IN (SELECT uid FROM group_member WHERE gid=$fbg)";
+  $result = $fb->api_client->fql_query($query);
+  drupal_set_message("fb_form_group_member_options($fbg, $fbu) query $query returns" . dpr($result, 1));
+
+  // TODO: sort results by name
+  $options = array();
+  foreach ($result as $data) {
+    if ($data['uid'] != $fbu)
+      $options[$data['uid']] = $data['first_name'] . ' ' . $data['last_name'];
+  }
+  return $options;
+}
+
+function fb_form_elements() {
+  $items = array();
+
+  $items['friend_selector'] = array('#input' => TRUE,
+                                    '#tree' => TRUE,
+                                    '#process' => array('friend_selector_process' => array()),
+  );
+  
+  return $items;
+  }
+
+function friend_selector_process($orig) {
+  global $fb;
+  if (!$fb)
+    // TODO: Handle this better.
+    return;
+    
+  static $options = NULL;
+  if (!$options) {
+    $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=".fb_facebook_user().")";
+    $result = $fb->api_client->fql_query($query);
+    
+    // TODO: sort results by name
+    $options = array();
+    foreach ($result as $data) {
+      $options[$data['uid']] = $data['first_name'] . ' ' . $data['last_name'];
+    }
+  }
+  // TODO: display small picture along with name in select box.
+  $element = array();
+  foreach (array('#title', '#parents', '#description', '#default_value', '#weight', '#multiple', '#required', '#name', '#value') as $key)
+    if (isset($orig[$key]))
+      $element[$key] = $orig[$key];
+  $element['#type'] = 'select';
+  $element['#options'] = $options;
+
+  drupal_set_message("fb_form processed " . dpr($orig, 1) . " into " . dpr($element, 1));
+  return $element;
+}
+
+function friend_selector_value(&$form) {
+  drupal_set_message("friend_selector_value" . dpr($form, 1));
+}
+
+// TODO: provide some alternative when NOT a facebook app.
+function theme_friend_selectorXXX($fbu = NULL) {
+  drupal_set_message ("theme_friend_selector");
+  if (!$fbu)
+    $fbu = fb_facebook_user();
+
+  $output = "<fb:friend-selector uid=\"$fbu\" name=\"fbname\" idname=\"fbu\" />";
+  return $output;
+}
+?>

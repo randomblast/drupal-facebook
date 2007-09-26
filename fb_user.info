@@ -1,0 +1,5 @@
+name=Facebook User Management
+description=User handling code.
+package = Facebook
+dependencies = fb fb_app
+

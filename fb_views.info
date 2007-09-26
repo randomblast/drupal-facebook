@@ -1,0 +1,4 @@
+name=Facebook Views
+description=Provides special views treatment for Facebook Apps
+package=Facebook
+dependencies=views

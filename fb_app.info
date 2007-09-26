@@ -1,0 +1,5 @@
+name = Facebook Application
+description = Create one or more facebook applications.
+package = Facebook
+dependencies = fb
+

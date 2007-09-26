@@ -1,0 +1,130 @@
+<?php
+ 
+function fb_cron_form_alter($form_id, &$form) {
+  //drupal_set_message("fb_user_form_alter($form_id) " . dpr($form, 1));
+  
+  // Add our settings to the fb_app edit form.
+  if (is_array($form['fb_app_data'])) {
+    $node = $form['#node'];
+    $fb_app_data = fb_app_get_data($node->fb_app);
+    $fb_cron_data = $fb_app_data['fb_cron'];
+    
+    $form['fb_app_data']['fb_cron'] = array('#type' => 'fieldset',
+                                            '#collapsible' => TRUE,
+                                            '#collapsed' => TRUE,
+                                            '#title' => t('Facebook cron settings'),
+                                            '#description' => t('An infinite session key is required for cron functions to work.'));
+    $form['fb_app_data']['fb_cron']['fbu'] = array('#type' => textfield,
+                                                   '#title' => t('Facebook User ID'),
+                                                   '#default_value' => $fb_cron_data['fbu'],
+    );
+    $form['fb_app_data']['fb_cron']['key'] = array('#type' => textfield,
+                                                   '#title' => t('Infinite Session Key'),
+                                                   '#default_value' => $fb_cron_data['key'],
+                                                   '#description' => t('If you do not have a key, you can get one !here.',
+                                                                       // XXX FIX THIS LINK
+                                                                       array('!here' => l(t('here'), 'http://www.facebook.com/code_gen.php?v=1.0&api_key='.$node->fb_app->apikey))),
+    );
+
+    // TODO: give this field an input filter
+    $form['fb_app_data']['fb_cron']['ref_fbml'] = 
+      array('#type' => 'textarea',
+            '#title' => t('Reference FBML'),
+            '#description' => t('You may refer to this markup via the FBML tag &lt;fb:ref handle=LABEL /&gt;, where LABEL is the value you specified above.'),
+            '#default_value' => $fb_cron_data['ref_fbml'],
+      );
+    $form['fb_app_data']['fb_cron']['ref_fbml_filter'] =
+      filter_form($fb_cron_data['ref_fbml_filter'], NULL, array('fb_app_data', 'fb_cron', 'ref_fbml_filter'));    						       
+
+    $form['fb_app_data']['fb_cron']['profile_fbml'] = 
+      array('#type' => 'textarea',
+            '#title' => t('Profile FBML'),
+            '#description' => t('Enter FBML for each application user\'s profile page.  This may be a place to use the FBML tag &lt;fb:ref handle=LABEL /&gt;.'),
+            '#default_value' => $fb_cron_data['profile_fbml'],
+      );
+    $form['fb_app_data']['fb_cron']['profile_fbml_filter'] =
+      filter_form($fb_cron_data['profile_fbml_filter'], NULL, array('fb_app_data', 'fb_cron', 'profile_fbml_filter'));    						       
+
+  }
+}
+
+function fb_cron_cron() {
+  global $fb, $custom_theme;
+  global $user;
+
+  // TODO: replace this db query with a hook invoke to discover apps.  This is more than we should have to know about fb_app's database table.
+    $query = "SELECT fb.* FROM {fb_app} fb LEFT JOIN {node} n ON n.nid=fb.nid WHERE n.status=1";
+  $result = db_query($query);
+
+  // remember the original user (probably Anonymous)
+  $orig_user = $user;
+
+  // Iterate through all apps
+  while ($fb_app = db_fetch_object($result)) {
+    fb_api_init($fb_app);
+    fb_init_path();
+    $fb_app_data = unserialize($fb_app->data);
+    $fb_cron_data = $fb_app_data['fb_cron'];
+
+    if ($fb_cron_data && $fb_cron_data['fbu']) {
+      watchdog('fb_cron', t('Performing cron jobs for facebook application !link',
+                            array('!link' => l($fb_app->label, 'node/'.$fb_app->nid))));
+      $fb->set_user($fb_cron_data['fbu'], $fb_cron_data['key']);
+
+      // If reference FBML has been given, update it.
+      if ($output = $fb_cron_data['ref_fbml']) {
+        $custom_theme = variable_get('fb_fbml_theme', 'fb1');
+        $blocks = theme('blocks', 'ref_fbml');
+        $output .= $blocks;
+  
+        $fb->api_client->fbml_setRefHandle($fb_app->label, $output);
+      }
+      
+      
+      // If profile FBML is set, set each user
+      // TODO: log in as each user to generate user specific content.
+      if ($fb_cron_data['profile_fbml']) {
+        $custom_theme = variable_get('fb_fbml_theme', 'fb1');
+        // Get users of this app.  TODO: throttle by configurable amount
+        $result = db_query("SELECT * FROM {fb_app_user} WHERE nid=%d AND fbu>0 AND added > 0 ORDER BY time_cron ASC LIMIT 10", $fb_app->nid);
+        while ($data = db_fetch_object($result)) {
+          if ($data->fbu) {
+            $account = fb_user_get_local_user($data->fbu, $fb_app);
+            watchdog('fb_cron', t('Setting profile FBML for facebook user %user', 
+                                  array('%user' => $data->fbu)));
+            print("<pre>");
+            print("fbu is $data->fbu\n");
+            //print_r($account);
+            print_r($fb_cron_data);
+            print("</pre>");
+            // generate ouput for this user
+            $user = $account;
+            $output = check_markup($fb_cron_data['profile_fbml'], $fb_cron_data['profile_fbml_filter'], FALSE);
+            $blocks = theme('blocks', 'profile_fbml');
+            $output .= $blocks;
+
+	    dpr($output);
+            
+            $fb->api_client->profile_setFBML($output, $data->fbu);
+            // Keep track of how recently we updated this user.
+            db_query("UPDATE {fb_app_user} SET time_cron=%d WHERE nid=%d and fbu=%d",
+                     time(), $fb_app->nid, $data->fbu);
+          }
+        }
+      }
+
+      if ($error_code = $fb->api_client->error_code) {
+        watchdog('fb_cron', t('Error code %code calling facebook during cron job.',
+                              array('%code' => $error_code), 'error'));
+      }
+      
+    }
+    // restore original user
+    if ($orig_user)
+      $user = $orig_user;
+    fb_init_path(TRUE); // Restore old path settings so other cron hooks will succeed.
+  }
+
+}
+
+?>
