@@ -7,6 +7,9 @@ by Dave Cohen (dave@dave-cohen.com)
 
 To install:
 
+- Link or move the contents of ./themes/ into a Drupal themes directory.
+(The themes are so closely associated with the modules that it seemed appropriate to include them here, rather than download seperately.)
+
 - Download the facebook-platform PHP code from developer.facebook.com.
   Extract it into this directory, so you have modules/facebook/facebook-application/
 

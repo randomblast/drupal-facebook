@@ -71,7 +71,7 @@ if (isset($_REQUEST['fb_sig'])) {
 
   // Force the admin theme to be our facebook theme.
   // TODO: find a way to make this configurable.  I.e. to support iframe apps.
-  $conf['admin_theme'] = 'fb1';
+  $conf['admin_theme'] = 'fb_fbml';
 
   // Filters will behave differently on facebook.
   if (!is_array($db_prefix))

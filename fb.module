@@ -94,7 +94,7 @@ function fb_initialize() {
 
     if ($fb) {
       // Output FBML
-      $custom_theme = variable_get('fb_theme', 'fb1');
+      $custom_theme = variable_get('fb_theme', 'fb_fbml');
 
       // this is a test of whether sessions are working.
       global $user;

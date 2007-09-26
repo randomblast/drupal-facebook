@@ -73,7 +73,7 @@ function fb_cron_cron() {
 
       // If reference FBML has been given, update it.
       if ($output = $fb_cron_data['ref_fbml']) {
-        $custom_theme = variable_get('fb_fbml_theme', 'fb1');
+        $custom_theme = variable_get('fb_fbml_theme', 'fb_fbml');
         $blocks = theme('blocks', 'ref_fbml');
         $output .= $blocks;
   
@@ -84,7 +84,7 @@ function fb_cron_cron() {
       // If profile FBML is set, set each user
       // TODO: log in as each user to generate user specific content.
       if ($fb_cron_data['profile_fbml']) {
-        $custom_theme = variable_get('fb_fbml_theme', 'fb1');
+        $custom_theme = variable_get('fb_fbml_theme', 'fb_fbml');
         // Get users of this app.  TODO: throttle by configurable amount
         $result = db_query("SELECT * FROM {fb_app_user} WHERE nid=%d AND fbu>0 AND added > 0 ORDER BY time_cron ASC LIMIT 10", $fb_app->nid);
         while ($data = db_fetch_object($result)) {
