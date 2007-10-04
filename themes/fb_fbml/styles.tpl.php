@@ -88,11 +88,13 @@
   margin-bottom: 0px;
   }
 
-  .admin {
+  .admin_sidebar {
   position:absolute;
-  left: 1000px;
+  right: 0px;
   top: 80px;
   width: 200px;
+  z-index: 999;
+  background: #eee;
   }
   
   form, .form_item {

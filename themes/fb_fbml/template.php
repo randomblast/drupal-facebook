@@ -11,8 +11,8 @@ function _phptemplate_variables($hook, $vars = array()) {
     if (!user_access('access administration pages'))
       $vars['admin'] ='';
     else if ($vars['admin']) {
-	  $vars['admin'] = "<div class=\"region admin\">\n".$vars['admin'].
-        "\n</div><!-- end admin block-->";
+	  $vars['admin'] = "<div class=\"region admin_sidebar\">\n".$vars['admin'].
+        "\n</div><!-- end admin sidebar-->";
 	}
 
 	// Change 'Home' in breadcrumbs
