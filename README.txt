@@ -16,7 +16,7 @@ To install:
 - Edit your settings.php file (somewhere in the sites directory) to
 include settings.inc (in this directory).  For example:
 
-require_once "profiles/custom/modules/facebook/settings.inc";
+require_once "profiles/custom/modules/fb/settings.inc";
 
 - Enable the Facebook modules via the drupal admin pages, as usual.
   You must enable at least fb.module and fb_app.module.
