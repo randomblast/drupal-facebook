@@ -4,9 +4,6 @@
    *   Defines a custom node type that stores a facebook application configuration.
    */
 
-  // deprecated XXX
-define('FB_APP_REQ_PARAM', 'app'); // can't use anything that starts 'fb'.
-
 define('FB_APP_REQ_API_KEY', 'fb_sig_api_key');
 
 /**
@@ -58,6 +55,9 @@ function fb_app_fb($fb, $fb_app, $op, &$a3) {
   }
 }
 
+/**
+ * hook_node_info.
+ */
 function fb_app_node_info() {
   return array('fb_app' =>
                array('name' => t('Facebook Application'),
@@ -333,62 +333,70 @@ function fb_app_block($op = 'list', $delta = 0, $edit = array()) {
   }
 }
 
-// deprecated
-function fb_app_cronXXX() {
-  global $fb, $fb_app;
-  global $user;
+/**
+ * Helper function returns a database query for all apps.
+ */
+function _fb_app_query_all() {
+  $result = db_query("SELECT fb.*, n.title FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE status=1");
+  return $result;
+}
 
-  $query = "SELECT fb.* FROM {fb_app} fb LEFT JOIN {node} n ON n.nid=fb.nid WHERE n.status=1";
-  $result = db_query($query);
+/**
+ * Implementation of hook_user.
+ */
+function fb_app_user($op, &$edit, &$account, $category = NULL) {
+  $items = array();
+  if ($op == 'categories') {
+    $result = _fb_app_query_all();
+    while ($fb_app = db_fetch_object($result)) {
+      $items[] = array('name' => $fb_app->label,
+                       'title' => $fb_app->title,
+                       'weight' => 0);
+    }
+    return $items;
+  }
+  else if ($op == 'view') {
+    $result = _fb_app_query_all();
+    while ($fb_app = db_fetch_object($result)) {
+      // Learn this user's FB id
+      $fbu = fb_get_fbu($account->uid, $fb_app);
+      if ($fbu) {
+        // The drupal user is a facebook user.  Now, learn more from facebook.
+        $fb = fb_api_init($fb_app);
+        $info = $fb->api_client->users_getInfo(array($fbu), 
+                                               array('about_me',
+                                                     'affiliations',
+                                                     'name',
+                                                     'is_app_user',
+                                                     'pic_big',
+                                                     'profile_update_time',
+                                                     'status',
+                                               ));
+        $output = theme('fb_app_user_info', $fb_app, $info[0]);
 
-  // Iterate through all apps
-  while ($fb_app = db_fetch_object($result)) {
-    fb_api_init($fb_app);
-    $fb_app_data = unserialize($fb_app->data);
-
-    // Invoke cron hooks only if configured with facebook infinite session.
-    if ($fb_app_data['session'] && $fb_app_data['session']['fbu']) {
-
-      print("fb_app_cron handling app" . dpr($fb_app, 1) . dpr($fb_app_data, 1));
-
-      // Get users of this app.  TODO: throttle by configurable amount
-      $result = db_query("SELECT * FROM {fb_app_user} WHERE nid=%d AND fbu>0 AND added > 0 ORDER BY time_cron ASC LIMIT 50", $fb_app->nid);
-      while ($data = db_fetch_object($result)) {
-        print("fb_app_cron handling user" . dpr($data, 1));
-        $account = fb_user_load($data->fbu);
-
-        // Log into facebook as this user, if infinite key available.
-        // This will give us more privileges regarding this user account.
-        if ($data->session_key_expires == 0) {
-          print("calling set_user($data->fbu, $data->session_key)\n");
-          $fb->set_user($data->fbu, $data->session_key);
-        }
-        else {
-          print("calling set_user(".$fb_app_data['session']['fbu'].", ".$fb_app_data['session']['key'].")\n");
-          // Log into facebook with app-wide infinite session.
-          $fb->set_user($fb_app_data['session']['fbu'], $fb_app_data['session']['key']);
-        }
-        print("setting fbml for user " . dpr($account,1));
-        $function = $fb_app->label . '_profile_fbml';
-        if (function_exists($function)) {
-          // Get FBML from application's hook_profile_fbml.
-          $fbml = $function($account);
-          print("setting fbml for $data->fbu to " . dpr($fbml,1));
-          $fb->api_client->profile_setFBML($fbml, $data->fbu);
-          if ($code = $fb->api_client->error_code) {
-            print("Failed to setFBML! $code\n");
-            watchdog('fb', 'Failed to set profile FBML during cron run.', 'error');
-          }
-        }
-        // Move account to end of cron queue.
-        db_query("REPLACE INTO {fb_app_user} (nid, fbu, time_cron) VALUES (%d, %d, %d)", $fb_app->nid, $fbu, time());
+        $items[$fb_app->label] = array('title' => $fb_app->title,
+                                       'value' => $output,
+                                       'class' => 'fb_app');
       }
     }
+    if (count($items))
+      return array(t('Facebook') => $items);
   }
 }
 
-function testapp_profile_fbml($account) {
-  // for debugging
-  return secret_profile_fbml($account);
+function theme_fb_app_user_info($fb_app, $info) {
+  $output .= '<img src="'.$info['pic_big'].'" />';
+  $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', NULL, 'id='.$info['uid']);
+  if ($info['is_app_user'])
+    $output .= t('!fb_link uses %title',
+                 array('!fb_link' => $fb_link,
+                       '%title' => $fb_app->title));
+  else
+    $output .= t('!fb_link does not use %title',
+                 array('!fb_link' => $fb_link,
+                       '%title' => $fb_app->title));
+
+  return $output;
 }
+
 ?>

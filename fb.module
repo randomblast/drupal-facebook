@@ -1,8 +1,12 @@
 <?php
 
-define('FB_OP_INITIALIZE', 'init');
-define('FB_OP_POST_INIT', 'post init');
-define('FB_OP_EXIT', 'exit');
+  // Ops for hook_fb.
+define('FB_OP_INITIALIZE', 'init'); // Start a FB callback
+define('FB_OP_POST_INIT', 'post init'); // Another chance to start FB callback
+define('FB_OP_EXIT', 'exit'); // End an FB callback
+define('FB_OP_GET_FBU', 'get_fbu'); // Query the local user's FB account
+define('FB_OP_GET_APP', 'get_app'); // Query which app a FB callback addresses
+define('FB_OP_GET_INFINITE_SESSION', 'get_inf_sess'); // Query infinite session data
 
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
 define('FB_GRANT_REALM_GROUP', 'fb_group');
@@ -10,21 +14,46 @@ define('FB_GRANT_REALM_GROUP', 'fb_group');
 define('FB_HOOK', 'fb');
 
 /**
- * Include the necessary facebook-platform code.
+ * Include the necessary facebook-platform code and initialize the API object.
+ * 
+ * When called from a canvas page callback, pass FALSE in second paramenter.
+ * 
+ * When called other times, attempts to log in using infinite session
+ * information, if available.
  */
-function fb_api_init($app) {
-  global $fb, $fb_app;
-  
-  if (substr(phpversion(), 0, 1) == '4') {
-    require_once('facebook-platform/php4client/facebook.php');
+function fb_api_init($fb_app, $use_infinite_session = TRUE) {
+  static $cache = array();
+
+  if (!count($cache)) {
+    // Include FB API code.
+    if (substr(phpversion(), 0, 1) == '4') {
+      require_once('facebook-platform/php4client/facebook.php');
+    }
+    else {
+      require_once('facebook-platform/client/facebook.php');
+    }
   }
-  else {
-    require_once('facebook-platform/client/facebook.php');
+
+  global $facebook_config;
+  $facebook_config['debug'] = FALSE; // set TRUE for debug output from FB API
+
+
+  if (!$cache[$fb_app->apikey]) {
+    $fb = new Facebook($fb_app->apikey, $fb_app->secret);
+    if ($use_infinite_session) {
+      // Learn the infinite session id and key
+      $data = _fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION);
+      if (count($data) && $data[0] && $data[1]) {
+        $fb->set_user($data[0], $data[1]);
+      }
+    }
+    $cache[$fb_app->apikey] = $fb;
   }
-  $fb_app = $app;
-  $fb = new Facebook($fb_app->apikey, $fb_app->secret);
-  return $fb;
+ 
+  // Return $fb
+  return $cache[$fb_app->apikey];
 }
+
 
 function fb_init_path($restore = FALSE) {
   global $fb_app;
@@ -77,7 +106,7 @@ function fb_initialize() {
   global $fb, $fb_app_node; // Set by this function.
 
   // Ask other modules for app detail
-  $fb_app = _fb_invoke(NULL, FB_OP_GET_APP, $fb_app);
+  $fb_app = _fb_invoke(NULL, FB_OP_GET_APP);
     
   if ($fb_app) {
     // dpm($fb_app, "fb_initialize()"); // debug
@@ -88,7 +117,7 @@ function fb_initialize() {
     //dpm($db_prefix, 'db_prefix');
     // we are in a callback
  
-    $fb = fb_api_init($fb_app);
+    $fb = fb_api_init($fb_app, FALSE);
 
     // drupal_set_message("fb object:" . dpr($fb, 1));
 
@@ -205,21 +234,20 @@ function fb_facebook_user() {
 /**
  * Given a local user id, find the facebook id.
  */
-function fb_get_fbu($uid) {
+function fb_get_fbu($uid, $fb_app = NULL) {
+  // default to current app (only set if we're in a FB callback)
+  if (!$fb_app)
+    $fb_app = $_GLOBALS['fb_app'];
+  
   // Accept either a user object or uid passed in.
   if (is_object($uid) && $uid->fbu)
     return $uid->fbu;
   else if (is_object($uid))
     $uid = $uid->uid;
 
-  $result = db_query("SELECT * FROM {authmap} WHERE uid=%d AND authname LIKE '%@facebook.com'", $uid);
-  while (!$fbu && $data = db_fetch_object($result)) {
-    if ($i = strpos($data->authname, '-'))
-      $fbu = substr($data->authname, 0, $i);
-    else
-      $fbu = substr($data->authname, 0, strpos($data->authname, '@'));
-  }
-
+  // User management is handled by another module.  Use our hook to ask for mapping.
+  $fbu = _fb_invoke($fb_app, FB_OP_GET_FBU, NULL, array('uid' => $uid));
+  
   return $fbu;
 }
 
@@ -452,13 +480,13 @@ function _fb_debug_cb() {
   return "This is the facebook debug page.";
 }
 
-function _fb_invoke($fb_app, $op, $a3 = NULL, $a4 = NULL) {
+function _fb_invoke($fb_app, $op, $return = NULL, $data = NULL) {
   global $fb;
   foreach (module_implements(FB_HOOK) as $name) {
     $function = $name . '_' . FB_HOOK;
-    $function($fb, $fb_app, $op, $a3, $a4);
+    $function($fb, $fb_app, $op, $return, $data);
   }
-  return $a3;
+  return $return;
 }
 
 /**

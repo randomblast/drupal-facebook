@@ -1,5 +1,19 @@
 <?php
- 
+
+
+function fb_cron_fb($fb, $fb_app, $op, &$return) {
+  if ($op == FB_OP_GET_INFINITE_SESSION) {
+    // The fb module is asking for infinite session login information.
+    // This module knows it, so we provide it.
+    $fb_app_data = fb_app_get_data($fb_app);
+    $fb_cron_data = $fb_app_data['fb_cron'];
+    $return = array($fb_cron_data['key'], $fb_cron_data['key']);
+  }
+}
+
+  /**
+   * Implementation of hook_form_alter.
+   */
 function fb_cron_form_alter($form_id, &$form) {
   //drupal_set_message("fb_user_form_alter($form_id) " . dpr($form, 1));
   
