@@ -58,7 +58,7 @@ function _phptemplate_variables($hook, $vars = array()) {
     if ($vars['teaser'])
       $size = 'thumb';
     else
-      $size = 'small';
+      $size = 'thumb'; // small is too big for now, change this when node header has been made larger to fit image.
     $vars['picture'] = '<div class="picture"><fb:profile-pic uid="'.fb_get_fbu($vars['uid']).'" linked="yes" size="'.$size.'" /></div>';
     
     //drupal_set_message("node vars: " . dprint_r($vars, 1));
