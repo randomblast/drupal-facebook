@@ -7,7 +7,9 @@ function fb_cron_fb($fb, $fb_app, $op, &$return) {
     // This module knows it, so we provide it.
     $fb_app_data = fb_app_get_data($fb_app);
     $fb_cron_data = $fb_app_data['fb_cron'];
-    $return = array($fb_cron_data['key'], $fb_cron_data['key']);
+    if ($fb_cron_data['fbu'] && $fb_cron_data['key'])
+      // Return array with FB id and apikey.
+      $return = array($fb_cron_data['fbu'], $fb_cron_data['key']);
   }
 }
 
@@ -75,7 +77,7 @@ function fb_cron_cron() {
 
   // Iterate through all apps
   while ($fb_app = db_fetch_object($result)) {
-    fb_api_init($fb_app);
+    fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
     fb_init_path();
     $fb_app_data = unserialize($fb_app->data);
     $fb_cron_data = $fb_app_data['fb_cron'];

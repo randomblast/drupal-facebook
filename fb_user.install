@@ -1,0 +1,39 @@
+<?php
+
+function fb_user_install() {
+  global $db_type;
+  if ($db_type == 'mysqli' ||
+	  $db_type == 'mysql') {
+    $query[] = <<<QUERY
+CREATE TABLE IF NOT EXISTS {fb_user_app} (
+apikey varchar(128) NOT NULL,
+fbu int(11) unsigned NOT NULL,
+added int(4) unsigned NOT NULL,
+time_cron int(11) unsigned NOT NULL,
+time_access int(11) unsigned NOT NULL,
+session_key varchar(128) NOT NULL,
+session_key_expires int(11) unsigned NOT NULL,
+PRIMARY KEY (apikey, fbu)
+) /*!40100 DEFAULT CHARACTER SET UTF8 */;
+QUERY;
+  }
+  else {
+    // TODO: handle other databases
+    drupal_set_message(t('Unable to install fb_user database schema to a database of type: %type', array('%type' => $db_type)), 'error');
+  }
+  foreach ($query as $q) {
+    $status = db_query ($q);
+	if (!$status) {
+	  drupal_set_message(t('Error installing fb_user: %error %query', 
+						   array('%query' => '<pre>'.$q.'</pre>',
+								 '%error' => db_error())), 
+						 'error');
+	}
+  }
+  
+}
+
+function fb_user_update_1() {
+  fb_user_install();
+  db_query("DROP TABLE IF EXISTS {fb_app_user}");
+}

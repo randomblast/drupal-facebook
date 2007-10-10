@@ -13,15 +13,21 @@ define('FB_GRANT_REALM_GROUP', 'fb_group');
 
 define('FB_HOOK', 'fb');
 
+define('FB_FBU_INFINITE_SESSION', 'fbu_infinite');
+define('FB_FBU_CURRENT', 'fbu_current'); // Canvas pages only
+
+define('FB_APP_CURRENT', '000_app_current'); // Canvas pages only.  000 makes it appear first in options list
+
 /**
  * Include the necessary facebook-platform code and initialize the API object.
  * 
- * When called from a canvas page callback, pass FALSE in second paramenter.
- * 
- * When called other times, attempts to log in using infinite session
- * information, if available.
+ * @param fbu To log into facebook as a particular user, pass the facebook id.
+ * This is useful during cron jobs, for example, but rarely if ever needed on
+ * a canvas page.  If no valid session key is known for the user, this call
+ * will fail.  
+ * If FB_FBU_INFINITE_SESSION is passed, we attempt to log into an infinite session we've configured.
  */
-function fb_api_init($fb_app, $use_infinite_session = TRUE) {
+function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
   static $cache = array();
 
   if (!count($cache)) {
@@ -33,25 +39,44 @@ function fb_api_init($fb_app, $use_infinite_session = TRUE) {
       require_once('facebook-platform/client/facebook.php');
     }
   }
-
+  
   global $facebook_config;
   $facebook_config['debug'] = FALSE; // set TRUE for debug output from FB API
-
-
+  
+  
   if (!$cache[$fb_app->apikey]) {
+    $cache[$fb_app->apikey] = array();
+  }
+  
+  if (!$cache[$fb_app->apikey][$fbu]) {
     $fb = new Facebook($fb_app->apikey, $fb_app->secret);
-    if ($use_infinite_session) {
+    if ($fbu == FB_FBU_INFINITE_SESSION) {
       // Learn the infinite session id and key
-      $data = _fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION);
+      $data = _fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION, array());
       if (count($data) && $data[0] && $data[1]) {
         $fb->set_user($data[0], $data[1]);
       }
     }
-    $cache[$fb_app->apikey] = $fb;
+    else if ($fbu == FB_FBU_CURRENT) {
+      // On canvas pages, user is already set (if logged in)
+    }
+    else {
+      // FB user id passed in.  If we happen to have session info for them, we
+      // can log in as them.
+      $data = _fb_invoke($fb_app, FB_OP_GET_USER_SESSION, array(), array('fbu' => $fbu));
+      if (count($data) && $data[0] && $data[1]) {
+        $fb->set_user($data[0], $data[1]);
+      }
+      
+    }
+    // TODO: perhaps check that we have a user here.  If not, try to use
+    // infinite session.  (Because it's better than nothing).
+
+    $cache[$fb_app->apikey][$fbu] = $fb;
   }
  
   // Return $fb
-  return $cache[$fb_app->apikey];
+  return $cache[$fb_app->apikey][$fbu];
 }
 
 
@@ -117,7 +142,7 @@ function fb_initialize() {
     //dpm($db_prefix, 'db_prefix');
     // we are in a callback
  
-    $fb = fb_api_init($fb_app, FALSE);
+    $fb = fb_api_init($fb_app);
 
     // drupal_set_message("fb object:" . dpr($fb, 1));
 
@@ -249,6 +274,29 @@ function fb_get_fbu($uid, $fb_app = NULL) {
   $fbu = _fb_invoke($fb_app, FB_OP_GET_FBU, NULL, array('uid' => $uid));
   
   return $fbu;
+}
+
+/**
+ * Convenience method to get app info based on apikey.
+ */
+function fb_get_app($apikey) {
+  $fb_app = _fb_invoke(NULL, FB_OP_GET_APP, NULL, array('apikey' => $apikey));
+  return $fb_app;
+}
+
+/**
+ * Convenience method to return a list of all known apps, suitable for form
+ * elements.
+ */
+function fb_get_app_options($include_current) {
+  $apps = _fb_invoke(NULL, FB_OP_GET_ALL_APPS, array());
+  $options = array();
+  if ($include_current)
+    $options[FB_APP_CURRENT] = t('<current>');
+  foreach ($apps as $app) {
+    $options[$app->apikey] = $app->title;
+  }
+  return $options;
 }
 
 // return array of facebook uids
@@ -515,5 +563,22 @@ function fb_node_grants($account, $op) {
   return $grants;
 }
 
-
+/**
+ * Convenience method for displaying facebook api errors.
+ */
+function fb_report_errors($fb = FB_APP_CURRENT) {
+  if ($fb == FB_APP_CURRENT) {
+    $fb = $_GLOBALS['fb'];
+  }
+  if ($fb) {
+    if ($fb->api_client->error_code) {
+      $message = t('Facebook API error %code (see !link).',
+                   array('%code' => $fb->api_client->error_code,
+                         '!link' => l(t('error codes'), "http://wiki.developers.facebook.com/index.php/Error_codes"),
+                   ));
+      watchdog('fb', $message, 'error');
+      drupal_set_message($message, 'error');
+    }
+  }
+}
 ?>

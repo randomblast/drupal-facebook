@@ -72,17 +72,18 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
                                   '%role' => $fb_app->rid)));
       // Here, we need to somehow refresh the user's permissions! Otherwise
       // they won't take effect until next page.
-      // sess_regenerate() might be the thing to call here, not sure.
+      // sess_regenerate() doesn't seem to do it.
+      // Perhaps we need to do a goto???
     }
     
     // Keep track of all our app users.  We need this info when updating
     // profiles during cron.  We keep session keys in case user has an
     // infinite session, and we can actually log in as them during cron.
     // TODO: is this a violation of facebook terms?
-    db_query("REPLACE INTO {fb_app_user} (nid, fbu, added, time_access, session_key, session_key_expires) VALUES (%d, %d, %d, %d, '%s', %d)",
-             $fb_app->nid, fb_facebook_user(), 
+    db_query("REPLACE INTO {fb_user_app} (apikey, fbu, added, time_access, session_key, session_key_expires) VALUES (%d, %d, %d, %d, '%s', %d)",
+             $fb_app->apikey, fb_facebook_user(), 
              $fb->api_client->users_isAppAdded(), time(),
-             $_REQUEST['fb_sig_session_key'], $_REQUEST['fb_sig_expires']
+             $fb->api_client->session_key, $_REQUEST['fb_sig_expires']
     );
 
     if (!$user->uid) {
@@ -122,6 +123,19 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
     // This is a request to learn the user's FB id.
     $return = _fb_user_get_fbu($data['uid'], $fb_app);
   }
+  else if ($op == FB_OP_GET_USER_SESSION) {
+    // The fb module is asking for session login information.  For example, to
+    // log in as the user when not on a canvas page.  This module may be able
+    // to provide it, depending on whether the user has logged in, and whether
+    // the session has expired.
+    $fbu = $data['fbu'];
+    $result = db_query("SELECT * FROM {fb_user_app} WHERE apikey = '%s' and fbu = %d", $fb_app->apikey, $fbu);
+    $data = db_fetch_object($result);
+    if ($data && $data->session_key)
+      // Return array with FB id and apikey.
+      $return = array($data->fbu, $data->session_key);
+  }
+  
 }
 
 function fb_user_form_alter($form_id, &$form) {
@@ -293,4 +307,28 @@ function _fb_user_get_fbu($uid, $fb_app) {
 }
 
 
+function fb_user_token_list($type = 'all') {
+  if ($type == 'all' || $type == 'fb' || $type == 'fb_app') {
+    $tokens['fb_app']['fb-app-user-fbu'] = t('Current user\'s Facebook ID');
+    $tokens['fb_app']['fb-app-user-name'] = t('Current user\'s name on Facebook (TODO)');
+    $tokens['fb_app']['fb-app-user-name-fbml'] = t('Current user\'s name for display on Facebook profile and canvas pages.');
+    $tokens['fb_app']['fb-app-profile-url'] = t('Current user\'s Facebook profile URL');
+  }
+  return $tokens;
+}
+
+function fb_user_token_values($type = 'all', $object = NULL) {
+  if ($type == 'fb_app' && $object) {
+    $fb_app = $object;
+    global $user;
+    $fbu = _fb_user_get_fbu($user->uid, $fb_app);
+    if ($fbu) {
+      $values['fb-app-user-fbu'] = $fbu;
+      $values['fb-app-user-name'] = 'TODO XXX';
+      $values['fb-app-user-name-fbml'] = '<fb:name uid="'.$fbu.'" />';
+      $values['fb-app-profile-url'] = 'http://www.facebook.com/profile.php?id='.$fbu;
+    }
+  }
+  return $values;
+}
 ?>

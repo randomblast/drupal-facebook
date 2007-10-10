@@ -9,37 +9,42 @@ define('FB_APP_REQ_API_KEY', 'fb_sig_api_key');
 /**
  * hook_fb
  */
-function fb_app_fb($fb, $fb_app, $op, &$a3) {
+function fb_app_fb($fb, $fb_app, $op, &$return, $data) {
   
   //drupal_set_message("fb_app_fb($fb_app->label, $op)" . dpr($fb_app, 1));
-
+  
   if ($op == FB_OP_GET_APP) {
     // This operation determines which app the request is for.  Theoretically,
     // the allows fb_app and other app-defining modules to co-exist.  We need
     // to determine if the app is one of ours and if so, return the app
     // details.
-
-    // If facebook has passed the app key, let's use that.
-    if ($apikey = $_REQUEST[FB_APP_REQ_API_KEY]) {
+    
+    // If apikey or nid was passed to us, use that
+    if ($data['nid'])
+      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE fb.nid=%d and status=1",
+                                         $data['nid']));
+    else if ($data['apikey']) {
+      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE apikey='%s' and status=1",
+                                         $data['apikey']));
+    }
+    else if ($apikey = $_REQUEST[FB_APP_REQ_API_KEY]) {
+      // If facebook has passed the app key, let's use that.
       $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE apikey='%s' and status=1",
                                          $apikey));
-      /* for testing
-      watchdog('fb_app', t('Found app !app based on apikey %key',
-                           array('!app' => l($fb_app->label, 'node/'.$fb_app->nid),
-                                 '%key' => $apikey)));
-
-      */
     }
-    // deprecated.  This is the old way, and has been replaced by the apikey way above. XXX
-    if (!$fb_app)
-      if ($label = $_REQUEST[FB_APP_REQ_PARAM]) {
-        $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE label='%s' and status=1",
-                                           $label));
-      }
     if ($fb_app)
-      $a3 = $fb_app;
+      $return = $fb_app;
+    // If we didn't find the app, maybe someone else has written a module that
+    // stores app info in a different way.
   }
-  if ($op == FB_OP_INITIALIZE) {
+  else if ($op == FB_OP_GET_ALL_APPS) {
+    // Return all known applications
+    $result = _fb_app_query_all();
+    while ($app = db_fetch_object($result)) {
+      $return[] = $app;
+    }
+  }
+  else if ($op == FB_OP_INITIALIZE) {
     // User init has been moved to fb_user.module.
     // For now, nothing to do here.
   }
@@ -362,7 +367,7 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
       $fbu = fb_get_fbu($account->uid, $fb_app);
       if ($fbu) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
-        $fb = fb_api_init($fb_app);
+        $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
         $info = $fb->api_client->users_getInfo(array($fbu), 
                                                array('about_me',
                                                      'affiliations',
@@ -397,6 +402,25 @@ function theme_fb_app_user_info($fb_app, $info) {
                        '%title' => $fb_app->title));
 
   return $output;
+}
+
+function fb_app_token_list($type = 'all') {
+  if ($type == 'all' || $type == 'fb' || $type == 'fb_app') {
+    $tokens['fb_app']['fb-app-nid'] = t('Facebook application ID');
+    $tokens['fb_app']['fb-app-title'] = t('Facebook application title');
+    $tokens['fb_app']['fb-app-url'] = t('Facebook application URL (base path)');
+  }
+  return $tokens;
+}
+
+function fb_app_token_values($type = 'all', $object = NULL) {
+  if ($type == 'fb_app' && $object) {
+    $fb_app = $object;
+    $values['fb-app-title'] = $fb_app->title;
+    $values['fb-app-nid'] = $fb_app->nid;
+    $values['fb_app-url'] = 'http://apps.facebook.com/'.$fb_app->canvas;
+  }
+  return $values;
 }
 
 ?>

@@ -1,0 +1,4 @@
+name=Drupal for Facebook Actions
+description = Provides actions for tasks such as updating a Facebook Profile or writing to a Mini-Feed.
+package = Facebook
+dependencies = actions token fb
