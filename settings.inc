@@ -1,5 +1,10 @@
 <?php
 
+if (!is_array($conf))
+  $conf = array();
+// This allows us to test whether this file has been included
+$conf['fb_settings_check'] = TRUE;
+
 if (isset($_REQUEST['fb_sig'])) {
   // It's a facebook callback!
 
@@ -65,8 +70,6 @@ if (isset($_REQUEST['fb_sig'])) {
   // what to expect Note that we set our facebook callback to end in
   // "?q=" so clean URLs will work in a facebook app whether or not
   // they work locally
-  if (!is_array($conf))
-	$conf = array();
   $conf['clean_url'] = 1;
 
   // Force the admin theme to be our facebook theme.
@@ -86,30 +89,4 @@ if (isset($_REQUEST['fb_sig'])) {
 
 // Perhaps change other ini session settings here???
 
-function custom_url_rewrite_XXX($op, $result, $path, $path_language = NULL) {
-  global $fb_app;
-  static $invoked = false;
-  
-  //watchdog("settings.inc", "custom_url_rewrite($op, $result, $path)");
-  if ($_REQUEST['fb_sig'] && !$invoked && $op == 'source') {
-	//watchdog('custom_url_rewrite', "request is " . dpr($_REQUEST, 1));
-	$fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} WHERE label='%s'",
-									   arg(0)));
-	if ($fb_app) {
-	  $result = substr($path, strlen(arg(0))+1);
-	  if (!$result)
-		$result = variable_get('site_frontpage', 'node');
-	}
-	session_id($_REQUEST['fb_sig_session_key']);
-	$invoked = true;
-  }
-  else if ($fb_app && $op == 'alias') {
-	if ($path && $path != $fb_app->label)
-	  $result = $fb_app->label . '/'. $path;
-	else 
-	  $result = $fb_app->label;
-  }
-
-  return $result;
-}
 ?>

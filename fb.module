@@ -130,6 +130,13 @@ function fb_initialize() {
   global $custom_theme; // Set by this function.
   global $fb, $fb_app_node; // Set by this function.
 
+  // Perform a sanity check, because too many users report issues without completing the install.
+  if (!variable_get('fb_settings_check', FALSE) && user_access('access administration pages')) {
+    drupal_set_message(t('!drupal_for_facebook has been enabled, but not properly installed.  Please read the !readme.',
+                         array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
+                               '!readme' => l('README.txt', drupal_get_path('module', 'fb') . '/README.txt'))), 'error');
+  }
+
   // Ask other modules for app detail
   $fb_app = _fb_invoke(NULL, FB_OP_GET_APP);
     
