@@ -99,7 +99,7 @@ function fb_app_form(&$node, &$param) {
                          '#default_value' => $node->title, 
                          '#weight' => -5,
                          '#description' => t('Identifies the application to site administrators.'),
-  ); 
+  );
   // We want the body and filter elements to be adjacent. We could try doing 
   // this by setting their weights, but another module might add elements to the 
   // form with the same weights and end up between ours. By putting them into a 
@@ -144,8 +144,10 @@ function fb_app_form(&$node, &$param) {
   // fb_app_data is a placeholder to make it easier for other module to attach
   // various settings to the node.
   $form['fb_app_data'] = array('#tree' => TRUE);
+
   
-  // TODO: move this to another module.
+  // TODO: move this to another module, or get rid of it entirely.
+  /* XXX This needs to be re-thought.  Disabling for now.
   $form['fb_app_blocks'] = array('#tree' => TRUE);
   for ($i = 0; $i < _fb_app_num_blocks(); $i++) {
     $form['fb_app_blocks'][$i]['body'] = 
@@ -160,7 +162,8 @@ function fb_app_form(&$node, &$param) {
                                                        array('fb_app_blocks', $i, 'format'));
     
   }
-  
+  */
+
   return $form;
 }
 
@@ -418,7 +421,7 @@ function fb_app_token_values($type = 'all', $object = NULL) {
     $fb_app = $object;
     $values['fb-app-title'] = $fb_app->title;
     $values['fb-app-nid'] = $fb_app->nid;
-    $values['fb_app-url'] = 'http://apps.facebook.com/'.$fb_app->canvas;
+    $values['fb-app-url'] = 'http://apps.facebook.com/'.$fb_app->canvas;
   }
   return $values;
 }

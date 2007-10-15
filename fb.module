@@ -80,25 +80,24 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
 }
 
 
-function fb_init_path($restore = FALSE) {
-  global $fb_app;
+function fb_init_path($fb_app, $restore = FALSE) {
   // Here's one of the uglier parts...
   // Fool url() function into linking back to facebook
   // Note that elsewhere we get forms to submit directly to us by tweaking their action parameter.
   global $base_path, $base_url;
   // The old paths will actually be used to modify form actions.  That's why these are global as opposed to static.
   global $fb_old_base_url, $fb_old_base_path;
-
+  
   static $old_clean_url;
-
+  
   if (!$restore) {
     $fb_old_base_url = $base_url;
     $fb_old_base_path = $base_path;
-      
+    
     $base_path = "/$fb_app->canvas/";
     // TODO: make the "apps.facebook.com" part configurable.
     $base_url = "http://apps.facebook.com/$fb_app->canvas";
-
+    
     if (!variable_get('clean_url', FALSE)) {
       $old_clean_url = FALSE;
       // Force clean URLs because links between canvas pages will work this way.
@@ -116,7 +115,7 @@ function fb_init_path($restore = FALSE) {
 }
 
 /**
- * Our intialization routine.
+ * Our intialization routine for canvas pages.
  * 
  * We invoke our hook, first to determine which application is being invoked.
  * (Because we support more than one in the same Drupal instance.)  Then, we
@@ -169,7 +168,7 @@ function fb_initialize() {
         $user = fb_user_load(fb_facebook_user());
       **/
 
-      fb_init_path();
+      fb_init_path($fb_app);
 
       // Give other modules a chance to initialize, require login, etc...
       _fb_invoke($fb_app, FB_OP_INITIALIZE);
@@ -269,7 +268,7 @@ function fb_facebook_user() {
 function fb_get_fbu($uid, $fb_app = NULL) {
   // default to current app (only set if we're in a FB callback)
   if (!$fb_app)
-    $fb_app = $_GLOBALS['fb_app'];
+    $fb_app = $GLOBALS['fb_app'];
   
   // Accept either a user object or uid passed in.
   if (is_object($uid) && $uid->fbu)
@@ -284,10 +283,14 @@ function fb_get_fbu($uid, $fb_app = NULL) {
 }
 
 /**
- * Convenience method to get app info based on apikey.
+ * Convenience method to get app info based on apikey or nid.
  */
-function fb_get_app($apikey) {
-  $fb_app = _fb_invoke(NULL, FB_OP_GET_APP, NULL, array('apikey' => $apikey));
+function fb_get_app($search_data) {
+  // $search_data can be an apikey, or an array of other search params.
+  if (!is_array($search_data))
+    $search_data = array('apikey' => $search_data);
+  
+  $fb_app = _fb_invoke(NULL, FB_OP_GET_APP, NULL, $search_data);
   return $fb_app;
 }
 
@@ -296,14 +299,22 @@ function fb_get_app($apikey) {
  * elements.
  */
 function fb_get_app_options($include_current) {
-  $apps = _fb_invoke(NULL, FB_OP_GET_ALL_APPS, array());
+  $apps = fb_get_all_apps();
   $options = array();
   if ($include_current)
     $options[FB_APP_CURRENT] = t('<current>');
   foreach ($apps as $app) {
-    $options[$app->apikey] = $app->title;
+    $options[$app->nid] = $app->title;
   }
   return $options;
+}
+
+/**
+ * Convenience method to return array of all know fb_apps.
+ */
+function fb_get_all_apps() {
+  $apps = _fb_invoke(NULL, FB_OP_GET_ALL_APPS, array());
+  return $apps;
 }
 
 // return array of facebook uids
@@ -575,7 +586,7 @@ function fb_node_grants($account, $op) {
  */
 function fb_report_errors($fb = FB_APP_CURRENT) {
   if ($fb == FB_APP_CURRENT) {
-    $fb = $_GLOBALS['fb'];
+    $fb = $GLOBALS['fb'];
   }
   if ($fb) {
     if ($fb->api_client->error_code) {

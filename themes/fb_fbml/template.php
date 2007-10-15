@@ -71,15 +71,6 @@ function fb_fbml_regions() {
 				   'header' => t('Facebook Canvas Header'),
 				   'right' => t('Facebook Canvas Right'),
 				   );
-
-  // Announce the profileFBML region only in admin pages.  If we
-  // announce it every page, we build its content every page, which is
-  // inefficient.  We'll only build the blocks in these regions when
-  // generating special content, like profile FBML.
-  if (arg(0) == 'admin' && arg(1) == 'build' && arg(2) == 'block') {
-	$regions['profile_fbml'] = t('Facebook Profile FBML');
-	$regions['ref_fbml'] = t('Facebook Ref Page FBML');	
-  }
   return $regions;
 }
 

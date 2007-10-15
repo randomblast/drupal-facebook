@@ -1,5 +1,5 @@
 name=Facebook Cron Jobs
-description=Configure an infinite session and update profile FBML via hook_cron.
+description=Configure Facebook-specific cron actions.
 package = Facebook
-dependencies = fb fb_app
+dependencies = fb fb_user actions
 

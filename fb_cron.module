@@ -2,22 +2,12 @@
 
 
 function fb_cron_fb($fb, $fb_app, $op, &$return) {
-  if ($op == FB_OP_GET_INFINITE_SESSION) {
-    // The fb module is asking for infinite session login information.
-    // This module knows it, so we provide it.
-    $fb_app_data = fb_app_get_data($fb_app);
-    $fb_cron_data = $fb_app_data['fb_cron'];
-    if ($fb_cron_data['fbu'] && $fb_cron_data['key'])
-      // Return array with FB id and apikey.
-      $return = array($fb_cron_data['fbu'], $fb_cron_data['key']);
-  }
 }
 
-  /**
-   * Implementation of hook_form_alter.
-   */
+/**
+ * Implementation of hook_form_alter.
+ */
 function fb_cron_form_alter($form_id, &$form) {
-  //drupal_set_message("fb_user_form_alter($form_id) " . dpr($form, 1));
   
   // Add our settings to the fb_app edit form.
   if (is_array($form['fb_app_data'])) {
@@ -29,118 +19,160 @@ function fb_cron_form_alter($form_id, &$form) {
                                             '#collapsible' => TRUE,
                                             '#collapsed' => TRUE,
                                             '#title' => t('Facebook cron settings'),
-                                            '#description' => t('An infinite session key is required for cron functions to work.'));
-    $form['fb_app_data']['fb_cron']['fbu'] = array('#type' => textfield,
-                                                   '#title' => t('Facebook User ID'),
-                                                   '#default_value' => $fb_cron_data['fbu'],
+                                            '#description' => t('Allows application-specific actions to be performed during cron jobs.  Enable the Actions, Facebook Actions, and Facebook Infinite Session modules to do anything truly useful here.')
     );
-    $form['fb_app_data']['fb_cron']['key'] = array('#type' => textfield,
-                                                   '#title' => t('Infinite Session Key'),
-                                                   '#default_value' => $fb_cron_data['key'],
-                                                   '#description' => t('If you do not have a key, you can get one !here.',
-                                                                       // XXX FIX THIS LINK
-                                                                       array('!here' => l(t('here'), 'http://www.facebook.com/code_gen.php?v=1.0&api_key='.$node->fb_app->apikey))),
-    );
-
-    // TODO: give this field an input filter
-    $form['fb_app_data']['fb_cron']['ref_fbml'] = 
-      array('#type' => 'textarea',
-            '#title' => t('Reference FBML'),
-            '#description' => t('You may refer to this markup via the FBML tag &lt;fb:ref handle=LABEL /&gt;, where LABEL is the value you specified above.'),
-            '#default_value' => $fb_cron_data['ref_fbml'],
-      );
-    $form['fb_app_data']['fb_cron']['ref_fbml_filter'] =
-      filter_form($fb_cron_data['ref_fbml_filter'], NULL, array('fb_app_data', 'fb_cron', 'ref_fbml_filter'));    						       
-
-    $form['fb_app_data']['fb_cron']['profile_fbml'] = 
-      array('#type' => 'textarea',
-            '#title' => t('Profile FBML'),
-            '#description' => t('Enter FBML for each application user\'s profile page.  This may be a place to use the FBML tag &lt;fb:ref handle=LABEL /&gt;.'),
-            '#default_value' => $fb_cron_data['profile_fbml'],
-      );
-    $form['fb_app_data']['fb_cron']['profile_fbml_filter'] =
-      filter_form($fb_cron_data['profile_fbml_filter'], NULL, array('fb_app_data', 'fb_cron', 'profile_fbml_filter'));    						       
-
+    if (module_exists('actions')) {
+      $options = array();
+      foreach (actions_get_all_actions() as $aid => $action) {
+        if ($action['type'] == t('Facebook App'))
+          $options[$action['type']][$aid] = $action['description'];
+      }
+      $form['fb_app_data']['fb_cron']['actions'] =
+        array('#type' => 'select',
+              '#title' => t('Actions'),
+              '#default_value' => $fb_cron_data['actions'],
+              '#multiple' => TRUE,
+              '#required' => FALSE,
+              '#options' => $options,
+              '#description' => t('Select one or more actions to perform when cron jobs are executed. Note that you should select actions intended to operate on Facebook Applications, and not actions intended to operate on nodes.'),
+        );
+    }
+    
   }
 }
 
+
+/**
+ * hook_cron()
+ * 
+ * Perform any actions that have been configured for all known applications.
+ */
 function fb_cron_cron() {
-  global $fb, $custom_theme;
-  global $user;
-
-  // TODO: replace this db query with a hook invoke to discover apps.  This is more than we should have to know about fb_app's database table.
-    $query = "SELECT fb.* FROM {fb_app} fb LEFT JOIN {node} n ON n.nid=fb.nid WHERE n.status=1";
-  $result = db_query($query);
-
-  // remember the original user (probably Anonymous)
-  $orig_user = $user;
-
-  // Iterate through all apps
-  while ($fb_app = db_fetch_object($result)) {
-    fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
-    fb_init_path();
-    $fb_app_data = unserialize($fb_app->data);
+  $all_apps = fb_get_all_apps();
+  foreach ($all_apps as $fb_app) {
+    $fb_app_data = fb_app_get_data($fb_app);
     $fb_cron_data = $fb_app_data['fb_cron'];
+    if (count($fb_cron_data['actions']) && function_exists('actions_do')) {
+      // Set paths as if on a canvas page.
+      fb_init_path($fb_app);
+      actions_do($fb_cron_data['actions'], $fb_app);
+      fb_init_path($fb_app, TRUE); // restore original path settings.
+    }
+  }
+}
 
-    if ($fb_cron_data && $fb_cron_data['fbu']) {
-      watchdog('fb_cron', t('Performing cron jobs for facebook application !link',
-                            array('!link' => l($fb_app->label, 'node/'.$fb_app->nid))));
-      $fb->set_user($fb_cron_data['fbu'], $fb_cron_data['key']);
 
-      // If reference FBML has been given, update it.
-      if ($output = $fb_cron_data['ref_fbml']) {
-        $custom_theme = variable_get('fb_fbml_theme', 'fb_fbml');
-        $blocks = theme('blocks', 'ref_fbml');
-        $output .= $blocks;
+/**
+ * Implementation of an Action.  See Actions module.
+ * 
+ * This action will iterate over some number of users, attempting to log into
+ * facebook as that user, then execute some other actions.  The idea is to
+ * support cron jobs that do some action on a per-user basis.
+ * 
+ */
+function action_fb_cron_per_user($op, $edit = array(), $obj) {
+  // The code in this function requires a lot of knowledge about the
+  // fb_user_app table, fb globals and such.  So it really violates the data
+  // separation between modules.  Is there a better place for it?  Or a better
+  // way to build the APIs?
   
-        $fb->api_client->fbml_setRefHandle($fb_app->label, $output);
+  if ($op == 'metadata') {
+    return array('description' => t('Facebook: user-specific actions'),
+                 'type' => t('Facebook App'), // Expects Facebook App as 3rd param
+                 'batchable' => FALSE,
+                 'configurable' => TRUE,
+    );
+  }
+  else if ($op == 'form') {
+    $form['description'] = array('#value' => t('This action will iterate through user\'s of a Facebook Application, attempt to log into the Facebook API as that user (or failing that, the infinite session user), and execute additional actions.  Use this to perform per-user actions during a Facebook cron job.'));
+    
+    foreach (actions_get_all_actions() as $aid => $action) {
+      $options[$action['type']][$aid] = $action['description'];
+    }
+    $form['actions'] = array('#type' => 'select',
+                             '#title' => t('Actions'),
+                             '#default_value' => $edit['actions'],
+                             '#multiple' => TRUE,
+                             '#required' => TRUE,
+                             '#options' => $options,
+                             '#description' => t('Select one or more actions to perform while logged in as a Facebook Application user.'),
+    );
+    $form['throttle'] = array('#type' => 'textfield',
+                              '#title' => t('Throttle'),
+                              '#default_value' => $edit['throttle'],
+                              '#required' => TRUE,
+                              '#description' => t('Number of users to iterate through each time this action is invoked.  Recommended: start with a small number and increase when you are sure things are working.'),
+    );
+    return $form;
+  }
+  else if ($op == 'submit') {
+    return array('actions' => $edit['actions'],
+                 'throttle' => $edit['throttle'],
+    );
+  }
+  else if ($op == 'do') {
+    // TODO: make sure the app is properly passed in.
+    $fb_app = $obj;
+    
+    // Save current settings
+    $before_fb = $GLOBALS['fb'];
+    $before_fb_app = $GLOBALS['fb_app'];
+    $before_user = $GLOBALS['user'];
+    
+    // Find some users of the app, for whom cron has not run recently.
+    $result = db_query("SELECT * FROM {fb_user_app} WHERE apikey='%s' AND fbu > 0 AND added > 0 ORDER BY time_cron ASC LIMIT %d",
+                       $fb_app->apikey,
+                       $edit['throttle']);
+    while ($data = db_fetch_object($result)) {
+      // Log into facebook as the user from the database
+      $account = fb_user_get_local_user($data->fbu, $fb_app);
+      if (!$account || !$account->uid) {
+        watchdog('fb cron', t('Facebook user %fbu does not correspond to a local account.  Purging bad data from Facebook User table.',
+                              array('%fbu' => $data->fbu)));
+        //db_query("DELETE FROM {fb_user_app} WHERE apikey='%s' AND fbu = %d",
+        //         $fb_app->apikey,
+        //         $data->fbu);
       }
-      
-      
-      // If profile FBML is set, set each user
-      // TODO: log in as each user to generate user specific content.
-      if ($fb_cron_data['profile_fbml']) {
-        $custom_theme = variable_get('fb_fbml_theme', 'fb_fbml');
-        // Get users of this app.  TODO: throttle by configurable amount
-        $result = db_query("SELECT * FROM {fb_app_user} WHERE nid=%d AND fbu>0 AND added > 0 ORDER BY time_cron ASC LIMIT 10", $fb_app->nid);
-        while ($data = db_fetch_object($result)) {
-          if ($data->fbu) {
-            $account = fb_user_get_local_user($data->fbu, $fb_app);
-            watchdog('fb_cron', t('Setting profile FBML for facebook user %user', 
-                                  array('%user' => $data->fbu)));
-            print("<pre>");
-            print("fbu is $data->fbu\n");
-            //print_r($account);
-            print_r($fb_cron_data);
-            print("</pre>");
-            // generate ouput for this user
-            $user = $account;
-            $output = check_markup($fb_cron_data['profile_fbml'], $fb_cron_data['profile_fbml_filter'], FALSE);
-            $blocks = theme('blocks', 'profile_fbml');
-            $output .= $blocks;
-
-	    dpr($output);
-            
-            $fb->api_client->profile_setFBML($output, $data->fbu);
-            // Keep track of how recently we updated this user.
-            db_query("UPDATE {fb_app_user} SET time_cron=%d WHERE nid=%d and fbu=%d",
-                     time(), $fb_app->nid, $data->fbu);
-          }
+      else {
+        // If here, local user has been found.
+        
+        $fb = fb_api_init($fb_app, $data->fbu);
+        if (!$fb || !$fb->api_client->users_getLoggedInUser())
+          // Failed to log in as the current user, fallback to infinite session.
+          $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
+        if (!$fb || !$fb->api_client->users_getLoggedInUser()) {
+          watchdog('fb cron', t('Failed to log into %app during cron.  Try testing infinite session key.',
+                                array('%app' => $fb_app->title)));
         }
-      }
-
-      if ($error_code = $fb->api_client->error_code) {
-        watchdog('fb_cron', t('Error code %code calling facebook during cron job.',
-                              array('%code' => $error_code), 'error'));
-      }
+        else {
+          // if here, we're logged into facebook.
+          
+          // Set things up as if this were a canvas page.
+          $GLOBALS['user'] = $account;
+          $GLOBALS['fb'] = $fb;
+          $GLOBALS['fb_app'] = $fb_app;
+          // Don't call fb_init_path here, it has already been called during cron jobs.
+          
+          // Invoke any actions that we've been configured to invoke.
+          actions_do($edit['actions'], $fb_app);
+          
+        } // end if able to log into facebook
+      } // end if local user found.
+      
+      // Record how recently cron was run for this user.  We do this even if
+      // we failed to log in, because we don't want persistent problems to
+      // clog the cron queue.  We'll get to this user again, eventually.
+      db_query("UPDATE {fb_user_app} SET time_cron=%d WHERE apikey='%s' AND fbu=%d",
+               time(), $fb_app->apikey, $data->fbu);
       
     }
-    // restore original user
-    if ($orig_user)
-      $user = $orig_user;
-    fb_init_path(TRUE); // Restore old path settings so other cron hooks will succeed.
+    
+    // Restore global variables
+    $GLOBALS['user'] = $before_user;
+    $GLOBALS['fb'] = $before_fb;
+    $GLOBALS['fb_app'] = $before_fb_app;
   }
-
 }
+
 
 ?>

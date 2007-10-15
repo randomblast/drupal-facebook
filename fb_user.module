@@ -80,7 +80,7 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
     // profiles during cron.  We keep session keys in case user has an
     // infinite session, and we can actually log in as them during cron.
     // TODO: is this a violation of facebook terms?
-    db_query("REPLACE INTO {fb_user_app} (apikey, fbu, added, time_access, session_key, session_key_expires) VALUES (%d, %d, %d, %d, '%s', %d)",
+    db_query("REPLACE INTO {fb_user_app} (apikey, fbu, added, time_access, session_key, session_key_expires) VALUES ('%s', %d, %d, %d, '%s', %d)",
              $fb_app->apikey, fb_facebook_user(), 
              $fb->api_client->users_isAppAdded(), time(),
              $fb->api_client->session_key, $_REQUEST['fb_sig_expires']
@@ -244,7 +244,7 @@ function fb_user_create_local_user($fbu = NULL, $app_specific = FALSE, $roles = 
                           'pass' => user_password(),
                           'init' => db_escape_string($username),
                           'status' => 1,
-                          'authname_fb_auth' => $authmap,
+                          'authname_fb_user' => $authmap,
     );
     $user_default['roles'][DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
     foreach ($roles as $rid => $value)
@@ -331,4 +331,6 @@ function fb_user_token_values($type = 'all', $object = NULL) {
   }
   return $values;
 }
+
+
 ?>
