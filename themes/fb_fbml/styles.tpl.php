@@ -62,7 +62,10 @@
   border-left: 1px solid #666666;
   float: left;
   padding: 0 5px 0 5px;
+  margin: 0;
+  white-space: nowrap;
   }
+
   ul.links li.first, .header .block-menu ul li:first-child {
   border: none;
   padding-left: 0px;
@@ -76,7 +79,7 @@
   
   .header ul.links, .header .block-menu {
   float: right;
-  }
+}
   
   .header .block .content {clear: none;}
   
@@ -231,7 +234,7 @@ ul li.leaf a, ul li.expanded a, ul li.collapsed a {
 ul.inline li {
   background: none;
   margin: 0;
-  padding: 0 1em 0 0;
+  padding: 0 .75em 0 .75em;
 }
 
 
