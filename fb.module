@@ -15,8 +15,11 @@ define('FB_HOOK', 'fb');
 
 define('FB_FBU_INFINITE_SESSION', 'fbu_infinite');
 define('FB_FBU_CURRENT', 'fbu_current'); // Canvas pages only
+define('FB_FBU_ANY', 'fbu_any'); // Use current user on canvas page, fall back to infinite session otherwise.
 
 define('FB_APP_CURRENT', '000_app_current'); // Canvas pages only.  000 makes it appear first in options list
+
+define('FB_USE_PHP4_API', variable_get('fb_use_php4_api', TRUE)); // Force the use of facebook's php4 api until we decide to require php5.  The php5 api throws exceptions, and there's no clean way to handle them in code that will also run in php4.
 
 /**
  * Include the necessary facebook-platform code and initialize the API object.
@@ -24,25 +27,39 @@ define('FB_APP_CURRENT', '000_app_current'); // Canvas pages only.  000 makes it
  * @param fbu To log into facebook as a particular user, pass the facebook id.
  * This is useful during cron jobs, for example, but rarely if ever needed on
  * a canvas page.  If no valid session key is known for the user, this call
- * will fail.  
- * If FB_FBU_INFINITE_SESSION is passed, we attempt to log into an infinite session we've configured.
+ * will still return a facebook reference.
+ * 
+ * If FB_FBU_INFINITE_SESSION is passed, we attempt to log into an infinite
+ * session we've configured.
+ * 
+ * If FB_FBU_ANY is passed in, we will log in as the canvas page user if
+ * already logged in.  Otherwise we try the infinite session, if configured.
+ * 
+ * Future calls into the the facebook api could fail for various reasons.  For
+ * one, we may fail to log in as the specified user.  This call does not
+ * actually contact facebook to test the connection, it just sets things up so
+ * that when the connection is needed, it might work.  Even if the connection
+ * is established, the user may not have sufficient permission to whatever you
+ * are asking facebook to do.
+ * 
  */
-function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
+function fb_api_init($fb_app, $fbu = FB_FBU_ANY) {
   static $cache = array();
 
   if (!count($cache)) {
     // Include FB API code.
-    if (substr(phpversion(), 0, 1) == '4') {
+    if (substr(phpversion(), 0, 1) == '4' || FB_USE_PHP4_API) {
       require_once('facebook-platform/php4client/facebook.php');
     }
     else {
       require_once('facebook-platform/client/facebook.php');
+      // Ideally, we'd check that drupal has not already specified an exception handler.
+      set_exception_handler('fb_report_exception');
     }
   }
   
   global $facebook_config;
   $facebook_config['debug'] = FALSE; // set TRUE for debug output from FB API
-  
   
   if (!$cache[$fb_app->apikey]) {
     $cache[$fb_app->apikey] = array();
@@ -50,15 +67,17 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
   
   if (!$cache[$fb_app->apikey][$fbu]) {
     $fb = new Facebook($fb_app->apikey, $fb_app->secret);
-    if ($fbu == FB_FBU_INFINITE_SESSION) {
+
+    if ($fbu == FB_FBU_CURRENT || 
+        ($fbu == FB_FBU_ANY && $fb->get_loggedin_user())) {
+      // We're on a canvas page and we're already logged in.
+    }
+    else if ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
       // Learn the infinite session id and key
       $data = _fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION, array());
       if (count($data) && $data[0] && $data[1]) {
         $fb->set_user($data[0], $data[1]);
       }
-    }
-    else if ($fbu == FB_FBU_CURRENT) {
-      // On canvas pages, user is already set (if logged in)
     }
     else {
       // FB user id passed in.  If we happen to have session info for them, we
@@ -69,14 +88,20 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
       }
       
     }
-    // TODO: perhaps check that we have a user here.  If not, try to use
-    // infinite session.  (Because it's better than nothing).
-
     $cache[$fb_app->apikey][$fbu] = $fb;
+    // Note that facebook api has not actually logged into facebook yet.
+    // We won't really know if our session is valid until later.
+    // get_loggedin_user does not really test it.
+    if ($fbu != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
+      // An FBU other than CURRENT was specified, but we failed to log in.
+      watchdog('fb', t('Failed to log into facebook app %app as user %user',
+                       array('%app' => $fb_app->title,
+                             '%user' => $fbu)), WATCHDOG_ERROR);
+    } 
   }
- 
-  // Return $fb
-  return $cache[$fb_app->apikey][$fbu];
+  
+  $fb = $cache[$fb_app->apikey][$fbu];
+  return $fb;
 }
 
 
@@ -594,9 +619,23 @@ function fb_report_errors($fb = FB_APP_CURRENT) {
                    array('%code' => $fb->api_client->error_code,
                          '!link' => l(t('error codes'), "http://wiki.developers.facebook.com/index.php/Error_codes"),
                    ));
-      watchdog('fb', $message, 'error');
+      watchdog('fb', $message, WATCHDOG_ERROR);
       drupal_set_message($message, 'error');
     }
   }
 }
+
+/**
+ * Exception handler for PHP5 exceptions.
+ */
+function fb_report_exception($exception) {
+  $message = t('Facebook API exception %message.  !trace',
+               array('%message' => $exception->getMessage(),
+                     '!trace' => '<pre>'.$exception->getTraceAsString().'</pre>',
+               ));
+  watchdog('fb', $message, WATCHDOG_ERROR);
+  drupal_set_message($message, 'error');
+  print $message;
+}
+
 ?>

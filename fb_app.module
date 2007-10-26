@@ -370,7 +370,7 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
       $fbu = fb_get_fbu($account->uid, $fb_app);
       if ($fbu) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
-        $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
+        $fb = fb_api_init($fb_app, FB_FBU_ANY);
         $info = $fb->api_client->users_getInfo(array($fbu), 
                                                array('about_me',
                                                      'affiliations',
@@ -380,11 +380,15 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
                                                      'profile_update_time',
                                                      'status',
                                                ));
-        $output = theme('fb_app_user_info', $fb_app, $info[0]);
-
-        $items[$fb_app->label] = array('title' => $fb_app->title,
-                                       'value' => $output,
-                                       'class' => 'fb_app');
+        if (count($info)) {
+          $output = theme('fb_app_user_info', $fb_app, $info[0]);
+          
+          $items[$fb_app->label] = array('title' => $fb_app->title,
+                                         'value' => $output,
+                                         'class' => 'fb_app');
+        }
+        else
+          fb_report_errors($fb);
       }
     }
     if (count($items))
