@@ -108,4 +108,40 @@ function phptemplate_menu_local_tasks() {
   
 }
 
+// collapsing fieldsets
+function fb_fbml_fieldset($element) {
+  //drupal_set_message("fb_fbml_fieldset" . dpr($element, 1));
+  static $count = 0;
+
+  if ($element['#collapsible']) {
+	$id = 'fbml_fieldset_' . $count++;
+	$linkattrs = array('clicktotoggle' => $id,
+					   'href' => '#');
+	$contentattrs = array('id' => $id);
+
+    if (!isset($element['#attributes']['class'])) {
+      $element['#attributes']['class'] = '';
+    }
+
+    $element['#attributes']['class'] .= ' collapsible';
+    if ($element['#collapsed']) {
+	  $element['#attributes']['class'] .= ' collapsed';
+	  $contentattrs['style'] = 'display:none';
+    }
+	$element['#title'] = '<a ' . drupal_attributes($linkattrs) .'>' . $element['#title'] . '</a>';
+  }
+  
+  $output = '<fieldset ' . drupal_attributes($element['#attributes']) .'>';
+  if ($element['#title']) {
+	$output .= '<legend>'. $element['#title'] .'</legend>';
+  }
+  $output .= '<div ' . drupal_attributes($contentattrs) . '>';
+  if ($element['#description'])
+	$output .= '<div class="description">'. $element['#description'] .'</div>';
+  $output .= $element['#children'] . $element['#value'];
+  $output .= "</div></fieldset>\n";
+  
+  return $output;
+}
+
 ?>
