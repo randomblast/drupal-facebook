@@ -76,12 +76,15 @@ if (isset($_REQUEST['fb_sig'])) {
   // TODO: find a way to make this configurable.  I.e. to support iframe apps.
   $conf['admin_theme'] = 'fb_fbml';
 
-  // Filters will behave differently on facebook.
+  // Filters will behave differently on facebook, so we cannot share the cache_filter table.
   if (!is_array($db_prefix))
-	$db_prefix = array();
+	if (isset($db_prefix)) 
+	  $db_prefix = array('default' => $db_prefix);
+	else
+	  $db_prefix = array();
   if (!isset($db_prefix['cache_filter']))
 	$db_prefix['cache_filter'] = 'fb_';
-
+  
   // Worth considering: use db_prefix to give facebook, or each app,
   // it's own set of users.
 

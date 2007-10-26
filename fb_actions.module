@@ -140,7 +140,7 @@ function action_fb_set_profile_fbml($op, $edit = array(), $obj) {
       $body = token_replace($edit['body'], 'fb_app', $fb_app);
       // TODO: enable filters for body.
 
-      print("Setting facebook profile markup for $user->name to " . dpr($body, 1));
+      // print("Setting facebook profile markup for $user->name to " . dpr($body, 1));
 
       $fb->api_client->profile_setFBML($body, $fbu);
       fb_report_errors($fb);
