@@ -195,12 +195,13 @@ function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
       array('#value' => theme('fb_app', $node->fb_app),
             '#weight' => 1);
   
-    foreach($node->fb_app_blocks as $delta => $data) {
-      $node->content['fb_app_blocks'][$delta] = array('subject' => array('#value' => t('Block %num', array('%num' => $delta+1))),
-                                                      'content' => array('#value' => check_markup($data->body, $data->format, FALSE),
-                                                                         '#weight' => 1));
-      
-    }
+    if (count($node->fb_app_blocks))
+      foreach($node->fb_app_blocks as $delta => $data) {
+        $node->content['fb_app_blocks'][$delta] = array('subject' => array('#value' => t('Block %num', array('%num' => $delta+1))),
+                                                        'content' => array('#value' => check_markup($data->body, $data->format, FALSE),
+                                                                           '#weight' => 1));
+        
+      }
     $node->content['fb_app_blocks']['#weight'] = 10;
   }
   return $node;
@@ -263,15 +264,16 @@ function fb_app_insert($node) {
 
 function _fb_app_blocks_update($node) {
   db_query('DELETE FROM {fb_app_block} WHERE nid=%d', $node->nid);
-  foreach ($node->fb_app_blocks as $delta => $data_array) {
-    $data = (object)$data_array;
-    //if (!$delta)
-    //  $delta = '0';
-    db_query("INSERT INTO {fb_app_block} (nid, delta, body, format) VALUES (%d, '%s', '%s', %d)",
-             $node->nid, $delta,
-             $data->body,
-             $data->format);
-  }  
+  if (count($node->fb_app_blocks))
+    foreach ($node->fb_app_blocks as $delta => $data_array) {
+      $data = (object)$data_array;
+      //if (!$delta)
+      //  $delta = '0';
+      db_query("INSERT INTO {fb_app_block} (nid, delta, body, format) VALUES (%d, '%s', '%s', %d)",
+               $node->nid, $delta,
+               $data->body,
+               $data->format);
+    }  
 }
 
 function fb_app_update($node) {
