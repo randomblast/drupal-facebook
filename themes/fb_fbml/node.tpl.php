@@ -11,7 +11,7 @@ if ($extra_style)
 <div <?=$class?> <?=$style?>>
 
 <div class="node-header">
-   <?php if ($picture) { // disabling pic until styles are better.
+   <?php if ($picture && $submitted) {
   print $picture;
   }?>
 <?php if ($page == 0) { ?><h2 class="title"><a href="<?php print $node_url?>"><?php print $title?></a></h2><?php }; ?>
