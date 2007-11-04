@@ -215,7 +215,7 @@ function theme_fb_app($data) {
                            t('Canvas URL') => l($canvas_url, $canvas_url),
                            t('Callback URL') => t("If using clean urls (recommended), use %clean.  Otherwise, use %dirty.",
 			   array("%clean" => url('', NULL, NULL, TRUE),
-			   "%dirty" => url("index.php", "q=", NULL, TRUE),
+			   "%dirty" => url("", "q=", NULL, TRUE),
 			   )),
                            // TODO: edit and logout URLs
                ));
@@ -298,14 +298,6 @@ function fb_app_delete($node) {
 
 }
 
-
-function fb_app_form_alter($form_id, &$form) {
-  global $fb_app;
-  // In GETs, the URL includes our app name.
-  // For form POSTs, we make sure it's included here.
-  $form[FB_APP_REQ_PARAM] = array('#type' => 'hidden', '#value' => $fb_app->label); 
-  
-}
 
 /**
  * Convenience method for other modules to attach data to the fb_app object.
