@@ -43,9 +43,9 @@ define('FB_USE_PHP4_API', variable_get('fb_use_php4_api', TRUE)); // Force the u
  * are asking facebook to do.
  * 
  */
-function fb_api_init($fb_app, $fbu = FB_FBU_ANY) {
+function fb_api_init($fb_app, $fbu) {
   static $cache = array();
-
+  
   if (!count($cache)) {
     // Include FB API code.
     if (substr(phpversion(), 0, 1) == '4' || FB_USE_PHP4_API) {
@@ -67,7 +67,7 @@ function fb_api_init($fb_app, $fbu = FB_FBU_ANY) {
   
   if (!$cache[$fb_app->apikey][$fbu]) {
     $fb = new Facebook($fb_app->apikey, $fb_app->secret);
-
+    
     if ($fbu == FB_FBU_CURRENT || 
         ($fbu == FB_FBU_ANY && $fb->get_loggedin_user())) {
       // We're on a canvas page and we're already logged in.
@@ -97,7 +97,7 @@ function fb_api_init($fb_app, $fbu = FB_FBU_ANY) {
       watchdog('fb', t('Failed to log into facebook app %app as user %user',
                        array('%app' => $fb_app->title,
                              '%user' => $fbu)), WATCHDOG_ERROR);
-    } 
+    }
   }
   
   $fb = $cache[$fb_app->apikey][$fbu];
@@ -112,29 +112,35 @@ function fb_init_path($fb_app, $restore = FALSE) {
   global $base_path, $base_url;
   // The old paths will actually be used to modify form actions.  That's why these are global as opposed to static.
   global $fb_old_base_url, $fb_old_base_path;
-  
-  static $old_clean_url;
-  
+  // But we also support a stack of paths, in case we need to log into more than one app in a single request.
+  static $stack = array();
   if (!$restore) {
-    $fb_old_base_url = $base_url;
-    $fb_old_base_path = $base_path;
+    if (!$fb_old_base_path) {
+      $fb_old_base_url = $base_url;
+      $fb_old_base_path = $base_path;
+    }
+    $original = array('base_url' => $base_url,
+                      'base_path' => $base_path);
     
     $base_path = "/$fb_app->canvas/";
     // TODO: make the "apps.facebook.com" part configurable.
     $base_url = "http://apps.facebook.com/$fb_app->canvas";
     
     if (!variable_get('clean_url', FALSE)) {
-      $old_clean_url = FALSE;
+      $original['clean_url'] = FALSE;
       // Force clean URLs because links between canvas pages will work this way.
       // In settings.inc we do this more cleanly.  However, for cron jobs this is necessary.
       variable_set('clean_url', TRUE);
     }
+    // Save settings so they may be restored
+    array_push($stack, $original);
   }
   else {
     // restore original settings.
-    $base_url = $fb_old_base_url;
-    $base_path = $fb_old_base_path;  
-    if (isset($old_clean_url))
+    $original = array_pop($stack);
+    $base_url = $original['base_url'];
+    $base_path = $original['base_path'];  
+    if (isset($original['clean_url']))
       variable_set('clean_url', $old_clean_url);
   }
 }
@@ -163,7 +169,7 @@ function fb_initialize() {
 
   // Ask other modules for app detail
   $fb_app = _fb_invoke(NULL, FB_OP_GET_APP);
-    
+
   if ($fb_app) {
     // dpm($fb_app, "fb_initialize()"); // debug
     // dpm($_REQUEST, 'request');
@@ -173,10 +179,10 @@ function fb_initialize() {
     //dpm($db_prefix, 'db_prefix');
     // we are in a callback
  
-    $fb = fb_api_init($fb_app);
+    // For canvas pages, use current user, never infinite session.
+    $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
 
     // drupal_set_message("fb object:" . dpr($fb, 1));
-
     if ($fb) {
       // Output FBML
       $custom_theme = variable_get('fb_theme', 'fb_fbml');
