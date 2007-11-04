@@ -7,7 +7,401 @@
    */
 
 
+function fb_actions_action_info() {
+  return array('fb_actions_minifeed' =>
+               array('type' => 'fb_action',
+                     'description' => t('Post to Facebook mini-feed'),
+                     'configurable' => TRUE,
+                     'hooks' => array('nodeapi' => array('delete', 'insert', 'update', 'view'),
+                                      'comment' => array('delete', 'insert', 'update', 'view'),
+                                      'user' => array('insert', 'update', 'delete', 'login', 'logout'),                                      
+                     ),
+               ),
+               'fb_actions_profile_fbml' =>
+               array('type' => 'fb_action',
+                     'description' => t('Write to Facebook profile'),
+                     'configurable' => TRUE,
+                     'hooks' => array('nodeapi' => array('delete', 'insert', 'update', 'view'),
+                                      'comment' => array('delete', 'insert', 'update', 'view'),
+                                      'user' => array('insert', 'update', 'delete', 'login', 'logout'),
+                                      'cron' => array(),
+                     ),
+               ),               
+               'fb_actions_ref_fbml' =>
+               array('type' => 'fb_action',
+                     'description' => t('Write to Facebook reference FBML'),
+                     'configurable' => TRUE,
+                     'hooks' => array('nodeapi' => array('delete', 'insert', 'update', 'view'),
+                                      'comment' => array('delete', 'insert', 'update', 'view'),
+                                      'user' => array('insert', 'update', 'delete', 'login', 'logout'),
+                                      'cron' => array(),
+                     ),
+               ),
+               'fb_actions_cron_per_user' =>
+               array('type' => 'fb_app',
+                     'description' => t('Perform an Action once for each user of a Facebook App'),
+                     'configurable' => TRUE,
+                     'hooks' => array('cron' => array()),
+               ),
+  );
+  
+  }
 
+
+
+function fb_actions_minifeed($values = array(), &$object) {
+  // drupal_set_message("fb_actions_minifeed" . dpr($values, 1) . dpr($object, 1)); // debug
+  if ($values['hook'] == 'nodeapi') {
+    $node = $values['node'];
+  }
+  else if ($values['hook'] == 'comment') {
+    $comment = $values['comment'];
+    $node = node_load($comment->nid);
+  }
+  else if ($values['hook'] == 'user') {
+    $account = $values['user'];
+  }
+  
+  // Log into facebook as the current user.
+  if ($fb_app = $GLOBALS['fb_app'])
+    if ($values['fb_app_nid'] == FB_APP_CURRENT || 
+        $fb_app->nid == $values['fb_app_nid'])
+      // We're in a canvas page for the desired app.  We're already logged in.
+      $fb = $GLOBALS['fb'];
+  if (!$fb && $values['fb_app_nid'] != FB_APP_CURRENT) {
+    global $user;
+    // Need to log into this app.
+    $fb_app = fb_get_app(array('nid' => $values['fb_app_nid']));
+    $fbu = fb_get_fbu($user->uid, $fb_app);
+    if ($fbu) {
+      $fb = fb_api_init($fb_app, $fbu);
+    }
+  }
+
+  // Even if we have an $fb now, it may not have permission to do all things
+  // we ask of it.
+  if ($fb) {
+    // Replace both node and fb_app related tokens
+    $title = token_replace($values['title'], 'node', $node);
+    $title = token_replace($title, 'comment', $comment);
+    $title = token_replace($title, 'user', $account);
+    $title = token_replace($title, 'fb_app', $fb_app);
+    $body = token_replace($values['body'], 'node', $node);
+    $body = token_replace($body, 'comment', $comment);
+    $body = token_replace($body, 'user', $account);
+    $body = token_replace($body, 'fb_app', $fb_app);
+    $fb->api_client->feed_publishActionOfUser($title, $body);
+    fb_report_errors($fb);
+  }
+}
+
+function fb_actions_minifeed_form($values) {
+  $options = fb_get_app_options(TRUE);
+  $form['description'] = array('#value' => t('Note that this action will only succeed when executed from a Facebook canvas page when the user is logged in, or on non-canvas pages when the logged in user has an infinite session key.  These are privacy restrictions enforced by the Facebook API.'));
+  $form['fb_app_nid'] = 
+    array('#type' => 'select',
+          '#title' => t('Application'),
+          '#default_value' => $values['fb_app_nid'],
+          '#options' => $options,
+          '#description' => t('Log into Facebook as which action?  If %current, action will only be performed only on canvas pages.',
+                              array('%current' => $options[FB_APP_CURRENT])),
+    );
+  $form['title'] = array('#type' => 'textfield',
+                         '#title' => t('Title'),
+                         '#default_value' => $values['title'],
+                         '#description' => t('Title line of mini-feed item.  (Most Facebook mini-feed items have only a title, and no message body).'),
+                         '#required' => TRUE,
+  );
+  $form['body'] = array('#type' => 'textarea',
+                        '#title' => t('Body'),
+                        '#default_value' => $values['body'],
+                        '#description' => t('Text to publish on mini-feed.  In many cases, only the title is required and this may be left blank.<br />The following tokens will be replaced: !token_help',
+                                            array('!token_help' => theme('token_help', 'node') . theme('token_help', 'comment') . theme('token_help', 'fb_app'))),
+  );
+  return $form;
+}
+function fb_actions_minifeed_validate($form_id, $values) {
+}
+function fb_actions_minifeed_submit($form_id, $values) {
+  return array('fb_app_nid' => $values['fb_app_nid'],
+               'body' => $values['body'],
+               'title' => $values['title'],
+  );
+}
+
+
+/**
+ * Implementation of an Action.  See Actions module.
+ * 
+ * This action updates a user's profile FBML.
+ */
+
+function fb_actions_profile_fbml_form($values) {
+  $options = fb_get_app_options(TRUE);
+  $form['description'] = array('#value' => t('This action will update the current user\'s Facebook profile.  Suitable for canvas pages and cron jobs (if infinite session is configured).'));
+  $form['fb_app_nid'] = 
+    array('#type' => 'select',
+          '#title' => t('Application'),
+          '#default_value' => $values['fb_app_nid'],
+          '#options' => $options,
+          '#description' => t('Log into Facebook as which application?  %current is OK when invoked from canvas pages or cron jobs.',
+                              array('%current' => $options[FB_APP_CURRENT])),
+    );
+  
+  $form['body'] = array('#type' => 'textarea',
+                        '#title' => t('Profile FBML'),
+                        '#default_value' => $values['body'],
+                        '#description' => t('FBML to write to user\'s profile.<br />The following token will be replaced: !token_help',
+                                            array('!token_help' => theme('token_help', 'fb_app'))),
+  );
+  $form['body_filter'] = filter_form($values['body_filter'],
+                                     NULL,
+                                     array('body_filter'));
+  return $form;
+}
+function fb_actions_profile_fbml_validate($form_id, $values) {
+  // TODO
+}
+function fb_actions_profile_fbml_submit($form_id, $values) {
+  return array('fb_app_nid' => $values['fb_app_nid'],
+               'body' => $values['body'],
+               'body_filter' => $values['body_filter'],
+  );
+}
+function fb_actions_profile_fbml($values, &$object) {
+  //drupal_set_message("fb_actions_profile_fbml" . dpr($values, 1) . dpr($object, 1));
+  if ($values['hook'] == 'nodeapi') {
+    $node = $values['node'];
+  }
+  else if ($values['hook'] == 'comment') {
+    $comment = $values['comment'];
+    $node = node_load($comment->nid);
+  }
+  else if ($values['hook'] == 'user') {
+    $account = $values['user']; // untested
+  }
+
+  // Log into facebook as the current user.
+  if ($fb_app = $GLOBALS['fb_app'])
+    if ($values['fb_app_nid'] == FB_APP_CURRENT || 
+        $fb_app->nid == $values['fb_app_nid'])
+      // We're in a canvas page for the desired app.  We're already logged in.
+      $fb = $GLOBALS['fb'];
+  if (!$fb && $values['fb_app_nid'] != FB_APP_CURRENT) {
+    // Need to log into this app.
+    $fb_app = fb_get_app(array('nid' => $values['fb_app_nid']));
+    $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
+  }
+    
+  if ($fb && $fb->get_loggedin_user()) {
+    fb_init_path($fb_app);
+    global $user;
+    $fbu = fb_get_fbu($user->uid, $fb_app);
+    // Replace fb_app related tokens
+    $body = token_replace($values['body'], 'fb_app', $fb_app);
+    $body = check_markup($body, $values['body_filter'], FALSE);
+    
+    // Links in profile FBML must be fully-qualified.  Here we attempt to
+    // replace relative links with fully qualified ones.
+    global $base_url, $base_path;
+    $patterns[] = '/"'.str_replace('/','\/', $base_path).'([^"]*)"/';
+    $replacements[] = '"'.$base_url.'/$1"';
+    $body = preg_replace($patterns, $replacements, $body);
+    
+    // print("Setting facebook profile markup for $user->name to " . dpr($body, 1));
+    $fb->api_client->profile_setFBML($body, $fbu);
+    fb_report_errors($fb);
+    fb_init_path($fb_app, TRUE);
+  }
+}
+
+/**
+ * Implementation of an Action.
+ * 
+ * This action updates reference FBML.
+ * http://developer.facebook.com/documentation.php?v=1.0&method=fbml.setRefHandle
+ */
+function fb_actions_ref_fbml_form($values) {
+  $form['description'] = array('#value' => t('This action will update reference FBML.  See Facebook\'s documentation of the &lt;fb:ref&gt; tag.  Suitable for canvas pages and cron jobs (if infinite session is configured).'));
+  $options = fb_get_app_options(TRUE);
+  $form['fb_app_nid'] = 
+    array('#type' => 'select',
+          '#title' => t('Application'),
+          '#default_value' => $values['fb_app_nid'],
+          '#options' => $options,
+          '#description' => t('Log into Facebook as which application?  %current is OK when invoked from canvas pages or cron jobs.',
+                              array('%current' => $options[FB_APP_CURRENT])),
+    );
+  $form['handle'] = array('#type' => 'textfield',
+                          '#title' => t('Handle'),
+                          '#default_value' => $values['handle'],
+  );
+  $form['body'] = array('#type' => 'textarea',
+                        '#title' => t('Profile FBML'),
+                        '#default_value' => $values['body'],
+                        '#description' => t('FBML to write to user\'s profile.<br />The following token will be replaced: !token_help',
+                                            array('!token_help' => theme('token_help', 'fb_app'))),
+  );
+  $form['body_filter'] = filter_form($values['body_filter'],
+                                     NULL,
+                                     array('body_filter'));
+  return $form;
+}
+function fb_actions_ref_fbml_submit($form_id, $values) {
+  return array('handle' => $values['handle'],
+               'body' => $values['body'],
+               'body_filter' => $values['body_filter'],
+  );
+}
+function fb_actions_ref_fbml($values, &$object) {
+  if ($values['hook'] == 'nodeapi') {
+    $node = &$object;
+  }
+  else if ($values['hook'] == 'comment') {
+    $node = node_load($object['nid']);
+    $comment = &$object;
+  }
+  else if ($values['hook'] == 'user') {
+    $account = &$object;
+  }
+  
+  // Log into facebook as the current user.
+  if ($fb_app = $GLOBALS['fb_app'])
+    if ($values['fb_app_nid'] == FB_APP_CURRENT || 
+        $fb_app->nid == $values['fb_app_nid'])
+      // We're in a canvas page for the desired app.  We're already logged in.
+      $fb = $GLOBALS['fb'];
+  if (!$fb && $values['fb_app_nid'] != FB_APP_CURRENT) {
+    // Need to log into this app.
+    $fb_app = fb_get_app(array('nid' => $values['fb_app_nid']));
+    $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
+  }
+  
+  // This will be set on canvas pages and Facebook App cron actions.
+  if ($fb) {
+    fb_init_path($fb_app);
+    // Replace fb_app related tokens
+    $body = token_replace($values['body'], 'fb_app', $fb_app);
+    $body = check_markup($body, $values['body_filter'], FALSE);
+    $fb->api_client->fbml_setRefHandle($values['handle'], $body);
+    fb_report_errors($fb);
+    fb_init_path($fb_app, TRUE); // Restore old paths
+  }
+}
+
+
+function fb_actions_cron_per_user_form($values) {
+  $form['description'] = array('#value' => t('This action will iterate through user\'s of a Facebook Application, attempt to log into the Facebook API as that user (or failing that, the infinite session user), and execute additional actions.  Use this to perform per-user actions during a Facebook cron job.'));
+  
+  $options = fb_get_app_options(FALSE);
+  $form['fb_app_nids'] = 
+    array('#type' => 'select',
+          '#title' => t('Application'),
+          '#multiple' => TRUE,
+          '#required' => TRUE,
+          '#default_value' => $values['fb_app_nid'],
+          '#options' => $options,
+          '#description' => t('Perform these actions for each user of which applications?'),
+    );
+  
+  foreach (actions_get_all_actions() as $aid => $action) {
+    $options[$action['type']][$aid] = $action['description'];
+  }
+  $form['actions'] = array('#type' => 'select',
+                           '#title' => t('Actions'),
+                           '#default_value' => $values['actions'],
+                           '#multiple' => TRUE,
+                           '#required' => TRUE,
+                           '#options' => $options,
+                           '#description' => t('Select one or more actions to perform while logged in as a Facebook Application user.'),
+  );
+  $form['throttle'] = array('#type' => 'textfield',
+                            '#title' => t('Throttle'),
+                            '#default_value' => $values['throttle'],
+                            '#required' => TRUE,
+                            '#description' => t('Number of users to iterate through each time this action is invoked.  Recommended: start with a small number and increase when you are sure things are working.'),
+  );
+  return $form;
+}
+
+function fb_actions_cron_per_user_submit($form_id, $values) {
+  return array('fb_app_nids' => $values['fb_app_nids'],
+               'actions' => $values['actions'],
+               'throttle' => $values['throttle'],
+  );
+}
+function fb_actions_cron_per_user($values, $obj) {
+  foreach ($values['fb_app_nids'] as $nid) {
+    $fb_app = fb_get_app(array('nid' => $nid));
+    // Set paths as if on a canvas page.
+    fb_init_path($fb_app);
+
+    // perform per-user actions
+    // Save current settings
+    $before_fb = $GLOBALS['fb'];
+    $before_fb_app = $GLOBALS['fb_app'];
+    $before_user = $GLOBALS['user'];
+    
+    // Find some users of the app, for whom cron has not run recently.
+    $result = db_query("SELECT * FROM {fb_user_app} WHERE apikey='%s' AND fbu > 0 AND added > 0 ORDER BY time_cron ASC LIMIT %d",
+                       $fb_app->apikey,
+                       $values['throttle']);
+    while ($data = db_fetch_object($result)) {
+      // Log into facebook as the user from the database
+      $account = fb_user_get_local_user($data->fbu, $fb_app);
+      if (!$account || !$account->uid) {
+        watchdog('fb cron', t('Facebook user %fbu does not correspond to a local account.  Purging bad data from Facebook User table.',
+                              array('%fbu' => $data->fbu)));
+        //db_query("DELETE FROM {fb_user_app} WHERE apikey='%s' AND fbu = %d",
+        //         $fb_app->apikey,
+        //         $data->fbu);
+      }
+      else {
+        // If here, local user has been found.
+        
+        $fb = fb_api_init($fb_app, $data->fbu);
+        if (!$fb || !$fb->api_client->users_getLoggedInUser())
+          // Failed to log in as the current user, fallback to infinite session.
+          $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
+        if (!$fb || !$fb->api_client->users_getLoggedInUser()) {
+          watchdog('fb cron', t('Failed to log into %app during cron.  Try testing infinite session key.',
+                                array('%app' => $fb_app->title)));
+        }
+        else {
+          // if here, we're logged into facebook.
+          
+          // Set things up as if this were a canvas page.
+          $GLOBALS['user'] = $account;
+          $GLOBALS['fb'] = $fb;
+          $GLOBALS['fb_app'] = $fb_app;
+          
+          // Invoke any actions that we've been configured to invoke.
+          actions_do($values['actions'], $fb_app);
+          
+        } // end if able to log into facebook
+      } // end if local user found.
+      
+      // Record how recently cron was run for this user.  We do this even if
+      // we failed to log in, because we don't want persistent problems to
+      // clog the cron queue.  We'll get to this user again, eventually.
+      db_query("UPDATE {fb_user_app} SET time_cron=%d WHERE apikey='%s' AND fbu=%d",
+               time(), $fb_app->apikey, $data->fbu);
+      
+    }
+    
+    // Restore global variables
+    $GLOBALS['user'] = $before_user;
+    $GLOBALS['fb'] = $before_fb;
+    $GLOBALS['fb_app'] = $before_fb_app;
+    
+    fb_init_path($fb_app, TRUE); // restore original path settings.
+  }
+}
+
+
+
+  ///////////////////////////////////////////////////////////////////
+  // Below this line is obsolete code.  Actions have changed considerably, and the following is deprecated.  Recommended that you get the very latest actions module and start using it.
 
   /**
    * Implementation of an Action.  See Actions module.

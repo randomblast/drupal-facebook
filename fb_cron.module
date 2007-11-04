@@ -1,5 +1,14 @@
 <?php
-
+  /**
+   * @file
+   * 
+   * This module helps administer facebook-specific actions to be performed
+   * during cron jobs.
+   * 
+   * The most recent actions module has its own cron action configuration
+   * mechanism, which may render this module obsolete.  So don't plan on this
+   * being around for long!
+   */
 
 function fb_cron_fb($fb, $fb_app, $op, &$return) {
 }
@@ -70,6 +79,10 @@ function fb_cron_cron() {
  * support cron jobs that do some action on a per-user basis.
  * 
  */
+
+
+// This is the old way of defining an action.  Deprecated and will eventually
+// be deleted.
 function action_fb_cron_per_user($op, $edit = array(), $obj) {
   // The code in this function requires a lot of knowledge about the
   // fb_user_app table, fb globals and such.  So it really violates the data
