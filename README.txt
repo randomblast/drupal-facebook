@@ -1,7 +1,7 @@
 This is an early development release of Drupal for Facebook.  Expect
 things to change...
 
-More information: http://www.drupalforfacebook.org
+More information: http://www.drupalforfacebook.org, http://drupal.org/project/fb
 
 by Dave Cohen (dave@dave-cohen.com)
 
@@ -11,13 +11,15 @@ To install:
   (The themes are so closely associated with the modules that it seemed appropriate to include them here, rather than download seperately.)
 
 - Download the facebook-platform PHP code from developer.facebook.com.
-  Extract it into this directory, so you have modules/facebook/facebook-application/
+  Extract it into this directory, so you have modules/fb/facebook-application/
   Make sure you extract the client API for PHP4, and simplexml, as instructed by Facebook.  Note that even if you are running PHP5, Drupal for Facebook uses the PHP4 client API, and will continue to use it until Drupal supports PHP5.
 
 - Edit your settings.php file (somewhere in the sites directory) to
 include settings.inc (in this directory).  For example:
 
 require_once "profiles/custom/modules/fb/settings.inc";
+
+(Or whatever path is appropriate, could be "sites/all/module/fb/settings.inc")
 
 - Enable the Facebook modules via the drupal admin pages, as usual.
   You must enable at least fb.module and fb_app.module.
