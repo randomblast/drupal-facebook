@@ -164,7 +164,9 @@ function fb_initialize() {
   if (!variable_get('fb_settings_check', FALSE) && user_access('access administration pages')) {
     drupal_set_message(t('!drupal_for_facebook has been enabled, but not properly installed.  Please read the !readme.',
                          array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
-                               '!readme' => l('README.txt', drupal_get_path('module', 'fb') . '/README.txt'))), 'error');
+                               // This link should work with clean URLs
+                               // disabled.
+                               '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>')), 'error');
   }
 
   // Ask other modules for app detail
