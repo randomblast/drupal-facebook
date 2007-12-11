@@ -24,7 +24,7 @@ function fb_actions_action_info() {
                      'hooks' => array('nodeapi' => array('delete', 'insert', 'update', 'view'),
                                       'comment' => array('delete', 'insert', 'update', 'view'),
                                       'user' => array('insert', 'update', 'delete', 'login', 'logout'),
-                                      'cron' => array(),
+                                      'cron' => array('run'),
                      ),
                ),               
                'fb_actions_ref_fbml' =>
@@ -34,14 +34,14 @@ function fb_actions_action_info() {
                      'hooks' => array('nodeapi' => array('delete', 'insert', 'update', 'view'),
                                       'comment' => array('delete', 'insert', 'update', 'view'),
                                       'user' => array('insert', 'update', 'delete', 'login', 'logout'),
-                                      'cron' => array(),
+                                      'cron' => array('run'),
                      ),
                ),
                'fb_actions_cron_per_user' =>
                array('type' => 'fb_app',
                      'description' => t('Perform an Action once for each user of a Facebook App'),
                      'configurable' => TRUE,
-                     'hooks' => array('cron' => array()),
+                     'hooks' => array('cron' => array('run')),
                ),
   );
   
@@ -246,6 +246,9 @@ function fb_actions_ref_fbml_form($values) {
                                      NULL,
                                      array('body_filter'));
   return $form;
+}
+function fb_actions_ref_fbml_validate($form_id, $values) {
+  // TODO
 }
 function fb_actions_ref_fbml_submit($form_id, $values) {
   return array('handle' => $values['handle'],
