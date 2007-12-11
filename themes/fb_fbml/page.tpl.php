@@ -14,10 +14,11 @@
 <?php if ($sidebar_right):?>
 <div class="sidebar_right">
 <?=$sidebar_right?>
+<?=$admin /* Administrator only sidebar */?>
 </div>
 <?php endif; ?>
 <div class="clear"></div>
 </div>
 </div>
-<?=$admin?>
+
 

@@ -92,12 +92,8 @@
   }
 
   .admin_sidebar {
-  position:absolute;
-  right: 0px;
-  top: 80px;
-  width: 200px;
-  z-index: 999;
-  background: #eee;
+  padding: 2em 0;
+  background: #fdd;
   }
   
   form, .form_item {
