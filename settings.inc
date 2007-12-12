@@ -17,7 +17,7 @@ if (isset($_REQUEST['fb_sig'])) {
   // the same values they end up with.  In other words, the slightest change
   // to bootstrap.inc could break this (as it did from drupal 5.1 to
   // drupal 5.2) and its a real pain to track down.
-  global $cookie_domain;
+  global $cookie_domain, $base_url;
   if (!$cookie_domain) {
     // If the $cookie_domain is empty, try to use the session.cookie_domain.
     $cookie_domain = ini_get('session.cookie_domain');
