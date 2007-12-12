@@ -7,6 +7,7 @@ define('FB_OP_EXIT', 'exit'); // End an FB callback
 define('FB_OP_GET_FBU', 'get_fbu'); // Query the local user's FB account
 define('FB_OP_GET_APP', 'get_app'); // Query which app a FB callback addresses
 define('FB_OP_GET_INFINITE_SESSION', 'get_inf_sess'); // Query infinite session data
+define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
 
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
 define('FB_GRANT_REALM_GROUP', 'fb_group');
@@ -45,7 +46,7 @@ define('FB_USE_PHP4_API', variable_get('fb_use_php4_api', TRUE)); // Force the u
  */
 function fb_api_init($fb_app, $fbu) {
   static $cache = array();
-  
+
   if (!count($cache)) {
     // Include FB API code.
     if (substr(phpversion(), 0, 1) == '4' || FB_USE_PHP4_API) {
@@ -369,6 +370,11 @@ function fb_get_friends($fbu) {
           $items[] = $data['uid2'];
         }
     }
+    // Facebook's API has the annoying habit of returning an item even if user
+    // has no friends.  We need to clean that up.
+    if (!$items[0])
+      unset($items[0]);
+
     $cache[$fbu] = $items;
   }
   
@@ -568,8 +574,18 @@ function fb_session_key_form() {
 function _fb_debug_cb() {
   global $fb, $fb_app;
   global $user;
+
+  if ($fb) {
+    // These will work in a canvas page.
+    drupal_set_message("in_fb_canvas returns " . $fb->in_fb_canvas());
+    drupal_set_message("get_loggedin_user returns " . $fb->get_loggedin_user());
+    drupal_set_message("current_url returns " . $fb->current_url());
+    
+  }
+
+  dpm(fb_get_fbu($user), 'Facebook user via fb_get_fbu');
   dpm($user, "Local user " . theme('username', $user));
-  dpm(fb_get_fbu($user), 'Facebook user');
+  
   dpm($_REQUEST, "Request");
   dpm($fb_app, "fb_app");
   dpm($fb->api_client->session_key, "session key ");
