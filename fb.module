@@ -273,8 +273,9 @@ function _fb_make_form_action_local($action) {
 }
 
 function _fb_handling_form() {
-  // Is this a good way to test form submit?
-  if ($_REQUEST['form_token'] && $_REQUEST['fb_sig'])
+  global $fb;
+  // Test whether a form has been submitted via facebook canvas page.
+  if (!$fb && $_REQUEST['form_id'] && $_REQUEST['fb_sig'])
     return TRUE;
 }
 
@@ -432,7 +433,7 @@ function fb_user_load($fbu = NULL) {
 
 
 function fb_form_alter($form_id, &$form) {
-  // We will send all for submission directly to us, not via
+  // We will send all form submission directly to us, not via
   // app.facebook.com/whatever.  Since we've tricked drupal into writing our
   // URLs as if we were there, we need to untrick the form action.
   if ($_REQUEST['fb_sig']) {
