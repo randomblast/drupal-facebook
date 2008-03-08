@@ -87,8 +87,8 @@
   
   .header h1 {clear: both; margin: 10px 10px 20px 10px;}
   .header {
-  border-bottom: 1px solid #cccccc;
   margin-bottom: 0px;
+  border: 1px solid #cccccc;
   }
 
   .admin_sidebar {
@@ -188,6 +188,7 @@ div.sidebar_right {
   background-image: url(http://www.facebook.com/images/newsfeed_line.gif);
   background-repeat: repeat-y;
   background-attachment: scroll;
+  float: left;
  }
 
 div.clear {clear: both;}
