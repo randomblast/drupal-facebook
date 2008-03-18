@@ -35,5 +35,5 @@ QUERY;
 
 function fb_user_update_1() {
   fb_user_install();
-  db_query("DROP TABLE IF EXISTS {fb_app_user}");
+  db_query("DROP TABLE IF EXISTS {fb_user_app}");
 }
