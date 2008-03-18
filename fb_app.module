@@ -90,6 +90,11 @@ function fb_app_perm() {
 }
 
 function fb_app_form(&$node, &$param) {
+  // Helpful link
+  if (!$node->nid) {
+    drupal_set_message("Before completing this form, <a href=!url>create your application</a> on Facebook.",
+                       array('!url' => 'http://www.facebook.com/developers/editapp.php?new'));
+  }
   $form = array();
   $type = node_get_types('type', $node);
   // We need to define form elements for the node's title and body. 
@@ -139,6 +144,12 @@ function fb_app_form(&$node, &$param) {
                                     '#required' => TRUE,
                                     '#default_value' => $node->fb_app->canvas,
                                     '#description' => t('Type only the part that comes after "http://apps.facebook.com/"'),
+  );
+  $form['fb_app']['id'] = array('#type' => 'textfield',
+                                '#title' => t('Facebook App ID'),
+                                '#required' => FALSE,
+                                '#default_value' => $node->fb_app->id,
+                                '#description' => t('To learn this number, visit your app\'s About Page (or other links from Facebook\'s Developer App).  The URL will end in ?id=1234...  Enter the number that follows "?id=" here.'),
   );
 
   // fb_app_data is a placeholder to make it easier for other module to attach
@@ -208,11 +219,17 @@ function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
 }
 
 function theme_fb_app($data) {
-  $canvas_url = "http://apps.facebook.com/$data->canvas";
+  $links[] = l(t('Canvas URL'), "http://apps.facebook.com/$data->canvas");
+  if ($data->id) {
+    $links[] = l(t('About page'), "http://www.facebook.com/apps/application.php",
+                 array(), "id=$data->id");
+  }
+
   return theme('dl', array(t('Label') => $data->label,
                            t('API Key') => $data->apikey,
                            t('Secret') => $data->secret,
-                           t('Canvas URL') => l($canvas_url, $canvas_url),
+                           t('Links') => theme('item_list', $links),
+
                            t('Callback URL') => t("If using clean urls (recommended), use %clean.  Otherwise, use %dirty.",
 			   array("%clean" => url('', NULL, NULL, TRUE),
 			   "%dirty" => url("", "q=", NULL, TRUE),
@@ -246,8 +263,9 @@ function fb_app_insert($node) {
 
   $data = serialize($node->fb_app_data);
 
-  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, canvas, require_login, create_account, unique_account, rid, data) VALUES (%d, '%s', '%s', '%s', '%s', %d, %d, %d, %d, '%s')",
+  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, require_login, create_account, unique_account, rid, data) VALUES (%d, '%s', '%s', '%s', '%s', %d, %d, %d, %d, '%s')",
            $node->nid, $fb_app->label, $fb_app->apikey, $fb_app->secret,
+           $fb_app->id,
            $fb_app->canvas, $fb_app->require_login, $fb_app->create_account, 
            $fb_app->unique_account, $role->rid, $data
   );
@@ -281,8 +299,9 @@ function fb_app_update($node) {
   $data = serialize($node->fb_app_data);
 
   // TODO: test if role name needs to change
-  db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', canvas='%s', require_login=%d, create_account=%d, unique_account=%d, data='%s' WHERE nid=%d",
+  db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', id='%s', canvas='%s', require_login=%d, create_account=%d, unique_account=%d, data='%s' WHERE nid=%d",
            $fb_app->label, $fb_app->apikey, $fb_app->secret,
+           $fb_app->id,
            $fb_app->canvas, $fb_app->require_login, $fb_app->create_account,
            $fb_app->unique_account, $data,
            $node->nid);
@@ -342,22 +361,18 @@ function _fb_app_query_all() {
   $result = db_query("SELECT fb.*, n.title FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE status=1");
   return $result;
 }
+function _fb_app_query_by_label($label) {
+  $result = db_query("SELECT fb.*, n.title FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE n.status=1 AND fb.label = '%s'", 
+                     $label);
+  return $result;
+}
 
 /**
  * Implementation of hook_user.
  */
 function fb_app_user($op, &$edit, &$account, $category = NULL) {
   $items = array();
-  if ($op == 'categories') {
-    $result = _fb_app_query_all();
-    while ($fb_app = db_fetch_object($result)) {
-      $items[] = array('name' => $fb_app->label,
-                       'title' => $fb_app->title,
-                       'weight' => 0);
-    }
-    return $items;
-  }
-  else if ($op == 'view') {
+  if ($op == 'view') {
     $result = _fb_app_query_all();
     while ($fb_app = db_fetch_object($result)) {
       // Learn this user's FB id
@@ -391,16 +406,16 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
 }
 
 function theme_fb_app_user_info($fb_app, $info) {
-  $output .= '<img src="'.$info['pic_big'].'" />';
+  $output .= '<p><img src="'.$info['pic_big'].'" /></p>';
   $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', NULL, 'id='.$info['uid']);
   if ($info['is_app_user'])
-    $output .= t('!fb_link uses %title',
-                 array('!fb_link' => $fb_link,
-                       '%title' => $fb_app->title));
+    $output .= '<p>' . t('!fb_link uses %title',
+                         array('!fb_link' => $fb_link,
+                               '%title' => $fb_app->title)) . '</p>';
   else
-    $output .= t('!fb_link does not use %title',
-                 array('!fb_link' => $fb_link,
-                       '%title' => $fb_app->title));
+    $output .= '<p>'. t('!fb_link does not use %title',
+                        array('!fb_link' => $fb_link,
+                              '%title' => $fb_app->title)) . '</p>';
 
   return $output;
 }

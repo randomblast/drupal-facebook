@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS {fb_app} (
 nid int(11) unsigned NOT NULL,
 label varchar(128) NOT NULL,
 apikey varchar(128) NOT NULL,
+id varchar(128) NOT NULL,
 secret varchar(128) NOT NULL,
 canvas varchar(128) NOT NULL,
 require_login int(4) NOT NULL,
@@ -54,5 +55,11 @@ INDEX expire (expire)
   
   drupal_set_message(t('Facebook Application module installed. Please grant yourself <a href="!perm">permissions</a> and then browse to <a href="!create">Create Content => Facebook Application</a> to get started.', array('!perm' => url('admin/user/access'), '!create' => url('node/add/fb-app'))));
   
+}
+
+function fb_app_update_1() {
+  // Add id field
+  $ret[] = update_sql('ALTER TABLE {fb_app} ADD id varchar(128) NOT NULL');
+  return $ret;
 }
 ?>
