@@ -519,6 +519,15 @@ function fb_exit($destination = NULL) {
     // $fb->redirect($url); // Does not work!
     drupal_goto($dest,'', NULL, 303); // appears to work
   }
+
+  if ($destination) {
+    // If here, drupal_goto has been called, but it may not work within a
+    // canvase page, so we'll use Facebook's method.
+    // Will this preempt other hook_exits?
+    if ($fb) {
+      $fb->redirect($destination);
+    }
+  }
 }
 
 function _fb_form_cache_cb($cid) {
