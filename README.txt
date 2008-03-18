@@ -18,11 +18,16 @@ To install:
   download seperately.)
 
 - Download the facebook-platform PHP code from developer.facebook.com.
-  Extract it into this directory, so you have
-  modules/fb/facebook-application/ Make sure you extract the client
-  API for PHP4, and simplexml, as instructed by Facebook.  Note that
-  even if you are running PHP5, Drupal for Facebook uses the PHP4
-  client API, and will continue to use it until Drupal supports PHP5.
+  Extract it into the 'modules/fb' directory, so you have
+  modules/fb/facebook-application/
+
+wget http://developers.facebook.com/clientlibs/facebook-platform.tar.gz
+tar xvzf facebook-platform.tar.gz
+  
+  Extract the client API for PHP4, and simplexml, as instructed by
+  Facebook.  Or, if you want to use PHP5 API, set
+  $conf['fb_use_php4_api'] = FALSE in your settings.php.  Note that
+  you may encounter uncaught exceptions using the PHP5 API.
 
 - Edit your settings.php file (sites/default/settings.php, depending
   on your install) to include settings.inc (in this directory).  For
@@ -34,8 +39,9 @@ require_once "profiles/custom/modules/fb/settings.inc";
   "sites/all/module/fb/settings.inc")
 
 - Enable the Facebook modules via the drupal admin pages, as usual.
-  You must enable at least fb.module and fb_app.module.
-  You will probably want to enable most of the others.
+  You must enable at least fb.module and fb_app.module.  You will
+  probably want to enable fb_user and more of the modules as your App
+  needs them.
 
 - It is highly recommended that you enable clean URLs.  If you don't,
   some links that drupal creates will not work properly on canvas
@@ -51,3 +57,29 @@ require_once "profiles/custom/modules/fb/settings.inc";
 
 
 
+Troubleshooting:
+
+If you get an error along the lines of "FacebookRestClient" not found,
+check the facebook-platform/client/facebook.php for an include like
+so:
+
+include_once $_SERVER['PHP_ROOT'].'/lib/api/client/php_1_1/facebookapi_php5_restlib.php';
+
+You will need to either install faceboook-platform in this location, or patch the file to read more like:
+
+require_once 'facebookapi_php5_restlib.php';
+
+
+
+If you see FBML Error (line 62): illegal tag "body" under "fb:canvas",
+or many "CSS Errors", visit ?q=admin/build/themes.  Make sure you see
+fb_fbml in the list.  It is not necessary to enable fb_fml, however
+you must hit submit (even with no changes) just to get Drupal to
+refresh its list of where the themes are located.
+
+
+
+If you see "The page you requested was not found."  Make sure the
+canvas page you specified agrees exactly with the canvas page assigned
+by facebook.  Note also that facebook will make all letters lower case
+even you typed them upper.
