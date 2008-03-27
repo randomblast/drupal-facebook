@@ -77,7 +77,12 @@ fb_fbml in the list.  It is not necessary to enable fb_fml, however
 you must hit submit (even with no changes) just to get Drupal to
 refresh its list of where the themes are located.
 
-
+If you _still_ see CSS Errors or HTML Errors, most likely the fb_fbml
+theme is still not being used.  This can happen if the theme is
+initialized before fb.module is initialized.  To avoid this, don't
+have any code directly in your .module files, put that code in
+hook_init instead.  And if still necessary, lower the weight of the fb
+module in your system table.  See http://drupal.org/node/187868
 
 If you see "The page you requested was not found."  Make sure the
 canvas page you specified agrees exactly with the canvas page assigned

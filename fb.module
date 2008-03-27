@@ -156,9 +156,10 @@ function fb_init_path($fb_app, $restore = FALSE) {
  * We're still figuring out exactly which events trigger our hook.  So look
  * for more detailed documentation later.
  */
-function fb_initialize() {
+function fb_init() {
   global $fb_app;
   global $custom_theme; // Set by this function.
+  global $theme; // for debug message
   global $fb, $fb_app_node; // Set by this function.
 
   // Perform a sanity check, because too many users report issues without completing the install.
@@ -169,6 +170,16 @@ function fb_initialize() {
                                // disabled.
                                '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>')), 'error');
   }
+  // Theme sanity check
+  if (isset($theme) &&
+      user_access('access administration pages')) {
+    drupal_set_message(t('!drupal_for_facebook is unable to override the theme settings.  This is usually because some module causes theme_init() to be invoked before fb_init().  See the !readme.',
+                         array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
+                               // This link should work with clean URLs
+                               // disabled.
+                               '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>')), 'error');
+  }
+
 
   // Ask other modules for app detail
   $fb_app = _fb_invoke(NULL, FB_OP_GET_APP);
@@ -466,8 +477,7 @@ function fb_menu($may_cache) {
   $items = array();
   
   if (!$may_cache) {
-    // Initialization code is run here, for non-cached pages only.  Not in hook_init.
-    fb_initialize();
+    // Initialization moved to fb_init(), nothing to do here.
   }
   else {
     // When forms are submitted directly to us, we cache the results,
