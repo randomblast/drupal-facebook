@@ -1,20 +1,20 @@
-<?=$styles?>
-<div class="page-wrap <?=$body_classes?>">
+<?php print $styles; ?>
+<div class="page-wrap <?php print $body_classes?>">
 <div class=header>
-<?=$breadcrumb?>
-<?=$header?>
-<h1><?=$title?></h1>
+	<?php print $breadcrumb; ?>
+<?php print $header; ?>
+<h1><?php print $title; ?></h1>
 </div>
-<?=$tabs?>
+<?php print $tabs; ?>
 <div class="content-wrap">
 <div class="middle">
-<?=$messages?>
-<?=$content?>
+	<?php print $messages; ?>
+<?php print $content; ?>
 </div>
 <?php if ($sidebar_right):?>
 <div class="sidebar_right">
-<?=$sidebar_right?>
-<?=$admin /* Administrator only sidebar */?>
+   <?php print $sidebar_right; ?>
+<?php print $admin /* Administrator only sidebar */?>
 </div>
 <?php endif; ?>
 <div class="clear"></div>
