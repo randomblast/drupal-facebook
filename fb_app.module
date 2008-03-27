@@ -68,7 +68,7 @@ function fb_app_node_info() {
                array('name' => t('Facebook Application'),
                      'module' => 'fb_app',
                      'description' => t('Information such as apikey and secret for a facebook.com application.'),
-                     'help' => t('Register your application on facebook.com, then fill out this form.'),
+                     'help' => t('Configure the behavior of your Facebook Application.'),
                ),
   );
 }
@@ -92,8 +92,8 @@ function fb_app_perm() {
 function fb_app_form(&$node, &$param) {
   // Helpful link
   if (!$node->nid) {
-    drupal_set_message("Before completing this form, <a href=!url>create your application</a> on Facebook.",
-                       array('!url' => 'http://www.facebook.com/developers/editapp.php?new'));
+    drupal_set_message(t("Before completing this form, <a href=!url>create your application</a> on Facebook.",
+                         array('!url' => 'http://www.facebook.com/developers/editapp.php?new')));
   }
   $form = array();
   $type = node_get_types('type', $node);
@@ -133,11 +133,13 @@ function fb_app_form(&$node, &$param) {
                                     '#title' => t('API Key'),
                                     '#required' => TRUE,
                                     '#default_value' => $node->fb_app->apikey,
+                                    '#description' => t('Facebook will generate this value when you create the application.'),
   );
   $form['fb_app']['secret'] = array('#type' => 'textfield',
                                     '#title' => t('Secret'),
                                     '#required' => TRUE,
                                     '#default_value' => $node->fb_app->secret,
+                                    '#description' => t('Facebook will generate this value when you create the application.'),
   );
   $form['fb_app']['canvas'] = array('#type' => 'textfield',
                                     '#title' => t('Canvas Page Url Suffix'),
@@ -253,7 +255,7 @@ function theme_dl($items) {
 function fb_app_insert($node) {
   //drupal_set_message("fb_app_insert" . dpr($node,1));
   $fb_app = (object) $node->fb_app;
-
+  
   // Create a new role for users of this account
   // Might be more clean to programatically fill out the add role form
   $role_name = $fb_app->label . ' user';
@@ -262,8 +264,8 @@ function fb_app_insert($node) {
                                    $role_name));
 
   $data = serialize($node->fb_app_data);
-
-  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, require_login, create_account, unique_account, rid, data) VALUES (%d, '%s', '%s', '%s', '%s', %d, %d, %d, %d, '%s')",
+  
+  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, require_login, create_account, unique_account, rid, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, %d, %d, %d, '%s')",
            $node->nid, $fb_app->label, $fb_app->apikey, $fb_app->secret,
            $fb_app->id,
            $fb_app->canvas, $fb_app->require_login, $fb_app->create_account, 
