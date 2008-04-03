@@ -135,7 +135,7 @@ function fb_user_post_add_bifurcate_form() {
 }
 
 function fb_user_post_add_bifurcate_form_submit($form_id, $values) {
-  dpm(func_get_args(), 'fb_user_post_add_bifurcate_form_submit');
+  //dpm(func_get_args(), 'fb_user_post_add_bifurcate_form_submit');
 
   // Here we simply redirect the user to the appropriate page
   return $values['redirect'];
@@ -410,7 +410,7 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
 
 function fb_user_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   if ($op == 'view' && $node->type == 'fb_app') {
-    dpm(func_get_args(), 'fb_user_nodeapi');
+    //dpm(func_get_args(), 'fb_user_nodeapi');
     if (user_access('administer fb apps')) {
       $fb_app = $node->fb_app;
       $output = theme('dl', array(t('Post-add URL') => "http://apps.facebook.com/{$fb_app->canvas}/".FB_USER_POST_ADD_PATH."?destination=",
@@ -570,7 +570,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
                                                      array('name',
                                                            'is_app_user',
                                                      ));
-        dpm($info[$fbu], "Info from facebook for $fbu");
+        //dpm($info[$fbu], "Info from facebook for $fbu");
       }
       if ($fb_user_data['unique_account']) {
         $form['map'][$fb_app->nid] = array('#type' => 'checkbox',
