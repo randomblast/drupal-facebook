@@ -1,6 +1,9 @@
 <?php
 
-  // Ops for hook_fb.
+  // hook_fb
+define('FB_HOOK', 'fb');
+
+// Ops for hook_fb.
 define('FB_OP_INITIALIZE', 'init'); // Start a FB callback
 define('FB_OP_POST_INIT', 'post init'); // Another chance to start FB callback
 define('FB_OP_EXIT', 'exit'); // End an FB callback
@@ -9,160 +12,38 @@ define('FB_OP_GET_APP', 'get_app'); // Query which app a FB callback addresses
 define('FB_OP_GET_INFINITE_SESSION', 'get_inf_sess'); // Query infinite session data
 define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
 
+// node_access realms (belongs here?)
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
 define('FB_GRANT_REALM_GROUP', 'fb_group');
 
-define('FB_HOOK', 'fb');
-
+// When initializing Facebook API, which user to log in as:
 define('FB_FBU_INFINITE_SESSION', 'fbu_infinite');
 define('FB_FBU_CURRENT', 'fbu_current'); // Canvas pages only
 define('FB_FBU_ANY', 'fbu_any'); // Use current user on canvas page, fall back to infinite session otherwise.
 
+//// Constants for internal use
 define('FB_APP_CURRENT', '000_app_current'); // Canvas pages only.  000 makes it appear first in options list
 
 define('FB_USE_PHP4_API', variable_get('fb_use_php4_api', TRUE)); // Force the use of facebook's php4 api until we decide to require php5.  The php5 api throws exceptions, and there's no clean way to handle them in code that will also run in php4.
 
-/**
- * Include the necessary facebook-platform code and initialize the API object.
- * 
- * @param fbu To log into facebook as a particular user, pass the facebook id.
- * This is useful during cron jobs, for example, but rarely if ever needed on
- * a canvas page.  If no valid session key is known for the user, this call
- * will still return a facebook reference.
- * 
- * If FB_FBU_INFINITE_SESSION is passed, we attempt to log into an infinite
- * session we've configured.
- * 
- * If FB_FBU_ANY is passed in, we will log in as the canvas page user if
- * already logged in.  Otherwise we try the infinite session, if configured.
- * 
- * Future calls into the the facebook api could fail for various reasons.  For
- * one, we may fail to log in as the specified user.  This call does not
- * actually contact facebook to test the connection, it just sets things up so
- * that when the connection is needed, it might work.  Even if the connection
- * is established, the user may not have sufficient permission to whatever you
- * are asking facebook to do.
- * 
- */
-function fb_api_init($fb_app, $fbu) {
-  static $cache = array();
 
-  if (!count($cache)) {
-    // Include FB API code.
-    if (substr(phpversion(), 0, 1) == '4' || FB_USE_PHP4_API) {
-      require_once('facebook-platform/php4client/facebook.php');
-    }
-    else {
-      require_once('facebook-platform/client/facebook.php');
-      // Ideally, we'd check that drupal has not already specified an exception handler.
-      set_exception_handler('fb_report_exception');
-    }
-  }
-  
-  global $facebook_config;
-  $facebook_config['debug'] = FALSE; // set TRUE for debug output from FB API
-  
-  if (!$cache[$fb_app->apikey]) {
-    $cache[$fb_app->apikey] = array();
-  }
-  
-  if (!$cache[$fb_app->apikey][$fbu]) {
-    $fb = new Facebook($fb_app->apikey, $fb_app->secret);
-    
-    if ($fbu == FB_FBU_CURRENT || 
-        ($fbu == FB_FBU_ANY && $fb->get_loggedin_user())) {
-      // We're on a canvas page and we're already logged in.
-    }
-    else if ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
-      // Learn the infinite session id and key
-      $data = _fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION, array());
-      if (count($data) && $data[0] && $data[1]) {
-        $fb->set_user($data[0], $data[1]);
-      }
-    }
-    else {
-      // FB user id passed in.  If we happen to have session info for them, we
-      // can log in as them.
-      $data = _fb_invoke($fb_app, FB_OP_GET_USER_SESSION, array(), array('fbu' => $fbu));
-      if (count($data) && $data[0] && $data[1]) {
-        $fb->set_user($data[0], $data[1]);
-      }
-      
-    }
-    $cache[$fb_app->apikey][$fbu] = $fb;
-    // Note that facebook api has not actually logged into facebook yet.
-    // We won't really know if our session is valid until later.
-    // get_loggedin_user does not really test it.
-    if ($fbu != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
-      // An FBU other than CURRENT was specified, but we failed to log in.
-      watchdog('fb', t('Failed to log into facebook app %app as user %user',
-                       array('%app' => $fb_app->title,
-                             '%user' => $fbu)), WATCHDOG_ERROR);
-    }
-  }
-  
-  $fb = $cache[$fb_app->apikey][$fbu];
-  return $fb;
-}
-
-
-function fb_init_path($fb_app, $restore = FALSE) {
-  // Here's one of the uglier parts...
-  // Fool url() function into linking back to facebook
-  // Note that elsewhere we get forms to submit directly to us by tweaking their action parameter.
-  global $base_path, $base_url;
-  // The old paths will actually be used to modify form actions.  That's why these are global as opposed to static.
-  global $fb_old_base_url, $fb_old_base_path;
-  // But we also support a stack of paths, in case we need to log into more than one app in a single request.
-  static $stack = array();
-  if (!$restore) {
-    if (!$fb_old_base_path) {
-      $fb_old_base_url = $base_url;
-      $fb_old_base_path = $base_path;
-    }
-    $original = array('base_url' => $base_url,
-                      'base_path' => $base_path);
-    
-    $base_path = "/$fb_app->canvas/";
-    // TODO: make the "apps.facebook.com" part configurable.
-    $base_url = "http://apps.facebook.com/$fb_app->canvas";
-    
-    if (!variable_get('clean_url', FALSE)) {
-      $original['clean_url'] = FALSE;
-      // Force clean URLs because links between canvas pages will work this way.
-      // In settings.inc we do this more cleanly.  However, for cron jobs this is necessary.
-      variable_set('clean_url', TRUE);
-    }
-    // Save settings so they may be restored
-    array_push($stack, $original);
-  }
-  else {
-    // restore original settings.
-    $original = array_pop($stack);
-    $base_url = $original['base_url'];
-    $base_path = $original['base_path'];  
-    if (isset($original['clean_url']))
-      variable_set('clean_url', $old_clean_url);
-  }
-}
 
 /**
- * Our intialization routine for canvas pages.
+ * Implementation of hook_init
+ * 
+ * Determines whether we are servicing a Facebook App request.
  * 
  * We invoke our hook, first to determine which application is being invoked.
  * (Because we support more than one in the same Drupal instance.)  Then, we
  * notify interested modules in various events.
  * 
- * We're still figuring out exactly which events trigger our hook.  So look
- * for more detailed documentation later.
  */
 function fb_init() {
-  global $fb_app;
   global $custom_theme; // Set by this function.
   global $theme; // for debug message
-  global $fb, $fb_app_node; // Set by this function.
+  global $fb, $fb_app, $fb_app_node; // Set by this function.
 
-  // Perform a sanity check, because too many users report issues without completing the install.
+  // Perform sanity check, help users who skip the README.
   if (!variable_get('fb_settings_check', FALSE) && user_access('access administration pages')) {
     drupal_set_message(t('!drupal_for_facebook has been enabled, but not properly installed.  Please read the !readme.',
                          array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
@@ -212,8 +93,8 @@ function fb_init() {
       if (!$user->fbu || ($user->fbu != fb_facebook_user()))
         $user = fb_user_load(fb_facebook_user());
       **/
-
-      fb_init_path($fb_app);
+      if ($fb->in_fb_canvas())
+        fb_init_path($fb_app);
 
       // Give other modules a chance to initialize, require login, etc...
       _fb_invoke($fb_app, FB_OP_INITIALIZE);
@@ -221,13 +102,6 @@ function fb_init() {
     else
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook");
     
-    // Special handling for forms, as they are submitted directly to us, not
-    // to apps.facebook.com/canvas
-    // we will buffer, and later cache, the results
-    if (_fb_handling_form())
-      ob_start();
-
-
     // debug
     global $user;
     //drupal_set_message("after initializing, local user is $user->uid " . theme('username', $user) . dpr($user, 1));
@@ -235,75 +109,168 @@ function fb_init() {
   _fb_invoke($fb_app, FB_OP_POST_INIT);
 }
 
-// deprecated in favor of fb_local_file_url.  Do we need both???
-function fb_local_url($path) {
-  global $base_url, $base_path, $fb_old_base_url, $fb_old_base_path;
-  if (!$fb_old_base_path)
-    return url($path, NULL, NULL, TRUE);
 
-  $url = url($path, NULL, NULL, TRUE);
-  $local = strtr($url, array($base_url => $fb_old_base_url,
-                             // base_url includes base path, this get's rid of it if it appears twice.
-                             $base_path => '',
-                 ));
 
-  return $local;
-}
+/**
+ * Include the necessary facebook-platform code and initialize the API object.
+ * 
+ * @param fbu To log into facebook as a particular user, pass the facebook id.
+ * This is useful during cron jobs, for example, but rarely if ever needed on
+ * a canvas page.  If no valid session key is known for the user, this call
+ * will still return a facebook reference.
+ * 
+ * If FB_FBU_INFINITE_SESSION is passed, we attempt to log into an infinite
+ * session we've configured.
+ * 
+ * If FB_FBU_ANY is passed in, we will log in as the canvas page user if
+ * already logged in.  Otherwise we try the infinite session, if configured.
+ * 
+ * Future calls into the the facebook api could fail for various reasons.  For
+ * one, we may fail to log in as the specified user.  This call does not
+ * actually contact facebook to test the connection, it just sets things up so
+ * that when the connection is needed, it might work.  Even if the connection
+ * is established, the user may not have sufficient permission to whatever you
+ * are asking facebook to do.
+ * 
+ */
+function fb_api_init($fb_app, $fbu) {
+  static $cache = array();
 
-function fb_local_file_url($path) {
-  global $base_url, $base_path, $fb_old_base_url, $fb_old_base_path;
-  $base = $fb_old_base_url;
-  if (!$base)
-    // Not in a facebook canvas page.
-    $base = $base_url;
-  return $base .'/'. $path; // that simple???
-}
-
-// This may need work
-function _fb_make_form_action_local($action) {
-  global $fb_old_base_path, $fb_app;
+  if (!count($cache)) {
+    // Include FB API code.
+    if (substr(phpversion(), 0, 1) == '4' || FB_USE_PHP4_API) {
+      require_once('facebook-platform/php4client/facebook.php');
+    }
+    else {
+      require_once('facebook-platform/client/facebook.php');
+      // Ideally, we'd check that drupal has not already specified an exception handler.
+      set_exception_handler('fb_report_exception');
+    }
+  }
   
-  // drupal_set_message("form action originally " . $action); // debug
-  // if the action starts with the canvas page, it most likely was created by a
-  // call to (url), we need to change it to point to our real location
-  if (strpos($action, '/'.$fb_app->canvas) ===0) {
-    $action = str_replace('/'.$fb_app->canvas.'/', $fb_old_base_path . '?q=', $action);
+  global $facebook_config;
+  $facebook_config['debug'] = FALSE; // set TRUE for debug output from FB API
+  
+  if (!$cache[$fb_app->apikey]) {
+    $cache[$fb_app->apikey] = array();
   }
-
-  // I'm not sure where the problem is, but sometimes actions have two question marks.  I.e.
-  // /htdocs/?app=foo&q=user/login?destination=comment/reply/1%2523comment-form
-  // Here we replace 3rd (or more) '?' with '&'.
-  $parts = explode('?', $action);
-  if (count($parts) > 2) {
-    $action = array_shift($parts) . '?' . array_shift($parts);
-    $action .= '&' . implode('&', $parts);
+  
+  if (!$cache[$fb_app->apikey][$fbu]) {
+    $fb = new Facebook($fb_app->apikey, $fb_app->secret);
+    
+    if (($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
+        && $fb->get_loggedin_user()) {
+      // We're on a canvas page and we're already logged in.
+      
+      // For future iframe request, save some info
+      if ($fb->in_frame()) {
+        $_SESSION['fb_frame_params'] = $fb->fb_params; // dangerous to use fb's internal data structure
+      }
+    }
+    else if (($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
+             && isset($_SESSION['fb_frame_params'])) {
+      $params = $_SESSION['fb_frame_params'];
+      $fb->set_user($params['user'], $params['session_key']);
+    }
+    else if ($fbu == FB_FBU_CURRENT) {
+      // No current user to use, probably anonymous canvas page.
+    }
+    else if ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
+      // Learn the infinite session id and key
+      $data = _fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION, array());
+      if (count($data) && $data[0] && $data[1]) {
+        $fb->set_user($data[0], $data[1]);
+      }
+    }
+    else {
+      // FB user id passed in.  If we happen to have session info for them, we
+      // can log in as them.
+      $data = _fb_invoke($fb_app, FB_OP_GET_USER_SESSION, array(), array('fbu' => $fbu));
+      if (count($data) && $data[0] && $data[1]) {
+        $fb->set_user($data[0], $data[1]);
+      }
+      
+    }
+    $cache[$fb_app->apikey][$fbu] = $fb;
+    // Note that facebook api has not actually logged into facebook yet.
+    // We won't really know if our session is valid until later.
+    // get_loggedin_user does not really test it.
+    if ($fbu != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
+      // An FBU other than CURRENT was specified, but we failed to log in.
+      watchdog('fb', t('Failed to log into facebook app %app as user %user',
+                       array('%app' => $fb_app->title,
+                             '%user' => $fbu)), WATCHDOG_ERROR);
+    }
   }
-
-  //drupal_set_message("form action now " . "http://".$_SERVER['HTTP_HOST']. $action); // debug
-  return "http://".$_SERVER['HTTP_HOST']. $action;
+  
+  $fb = $cache[$fb_app->apikey][$fbu];
+  return $fb;
 }
 
-function _fb_handling_form() {
-  global $fb;
-  // Test whether a form has been submitted via facebook canvas page.
-  if (!$fb && $_REQUEST['form_id'] && $_REQUEST['fb_sig'])
-    return TRUE;
+
+function fb_init_path($fb_app, $restore = FALSE) {
+  
+
+  // Here's one of the uglier parts...
+  // Fool url() function into linking back to facebook
+  // Note that elsewhere we get forms to submit directly to us by tweaking their action parameter.
+  global $base_path, $base_url;
+  // The old paths will actually be used to modify form actions.  That's why these are global as opposed to static.
+  global $fb_old_base_url, $fb_old_base_path;
+  // But we also support a stack of paths, in case we need to log into more than one app in a single request.
+  static $stack = array();
+  if (!$restore) {
+    if (!$fb_old_base_path) {
+      $fb_old_base_url = $base_url;
+      $fb_old_base_path = $base_path;
+    }
+    $original = array('base_url' => $base_url,
+                      'base_path' => $base_path);
+    
+    /**
+    $base_path = "/$fb_app->canvas/";
+    // TODO: make the "apps.facebook.com" part configurable.
+    $base_url = "http://apps.facebook.com/$fb_app->canvas";
+    
+    // New way:
+    $base_path = $fb_old_base_url . '/';
+    $base_url = '';
+    **/
+
+    if (!variable_get('clean_url', FALSE)) {
+      $original['clean_url'] = FALSE;
+      // Force clean URLs because links between canvas pages will work this way.
+      // In settings.inc we do this more cleanly.  However, for cron jobs this is necessary.
+      variable_set('clean_url', TRUE);
+    }
+    // Save settings so they may be restored
+    array_push($stack, $original);
+  }
+  else {
+    // restore original settings.
+    $original = array_pop($stack);
+    $base_url = $original['base_url'];
+    $base_path = $original['base_path'];  
+    if (isset($original['clean_url']))
+      variable_set('clean_url', $old_clean_url);
+  }
 }
 
-function fb_facebook_user() {
-  global $user, $fb;
-  static $fbu;
 
+/**
+ * Returns the facebook user id currently visiting a canvas page, or if set_user has been called.
+ * Unlike fb_get_fbu(), works only on canvas pages or when infinite session has been initialized.
+ */
+function fb_facebook_user($fb = NULL) {
+  if (!isset($fb))
+    $fb = $GLOBALS['fb'];
+  
   if (!$fb)
     return;
   
-  if (!isset($fbu)) {
-    $fbu = $fb->get_loggedin_user();
-    if ($fb->api_client->error_code) {
-      watchdog('fb', 'Failed to get Facebook user id.', 'error');
-    }
-    else {
-    }
+  $fbu = $fb->get_loggedin_user();
+  if ($fb->api_client->error_code) {
+    watchdog('fb', 'Failed to get Facebook user id.', 'error');
   }
   return $fbu;
 }
@@ -444,21 +411,6 @@ function fb_user_load($fbu = NULL) {
 
 
 function fb_form_alter($form_id, &$form) {
-  // We will send all form submission directly to us, not via
-  // app.facebook.com/whatever.  Since we've tricked drupal into writing our
-  // URLs as if we were there, we need to untrick the form action.
-  if ($_REQUEST['fb_sig']) {
-    global $fb_app;
-    // We're in a facebook callback
-    if ($form['#action'] == '') {
-      $form['#action'] = $_GET['q'];
-    }
-    else {
-    }
-    $form['#action'] = _fb_make_form_action_local($form['#action']);
-    // Let's hope no subsequent hook_form_alters mess with #action.
-  }
-
   // Because facebook users don't have email, it can't be required on user form
   if ($form_id == 'user_register') {
     if (user_access('administer users')) {
@@ -492,12 +444,6 @@ function fb_menu($may_cache) {
                      'callback' => '_fb_session_cb',
                      'type' => MENU_CALLBACK,
                      'access' => TRUE); // TODO: restrict access?
-
-    $items[] = array('path' => 'fb/debug',
-                     'callback' => '_fb_debug_cb',
-                     'type' => MENU_CALLBACK,
-                     'access' => TRUE, // TODO: restrict access
-    );
   }
   return $items;
 }
@@ -507,37 +453,7 @@ function fb_menu($may_cache) {
  */
 function fb_exit($destination = NULL) {
   global $fb_app, $fb;
-  _fb_invoke($fb_app, FB_OP_EXIT);
-
-  if (_fb_handling_form()) {
-    $output = ob_get_contents();
-    ob_end_clean();
-
-    if ($destination) {
-      // Destination is set when a node is submitted, for example.
-      // just let the redirect happen
-      return;
-    }
-    
-    // Save the results to show the user later
-    $token = uniqid('fb_');
-    $cid = session_id() . "_$token";
-    watchdog('fb', "Storing cached form page $cid, then redirecting");
-    cache_set($cid, 'cache_page', $output, time() + (60 * 5), drupal_get_headers()); // (60 * 5) == 5 minutes
-    
-    $dest = 'http://apps.facebook.com/' . $fb_app->canvas."/fb/form_cache/$cid";
-    // $fb->redirect($url); // Does not work!
-    drupal_goto($dest,'', NULL, 303); // appears to work
-  }
-
-  if ($destination) {
-    // If here, drupal_goto has been called, but it may not work within a
-    // canvase page, so we'll use Facebook's method.
-    // Will this preempt other hook_exits?
-    if ($fb) {
-      $fb->redirect($destination);
-    }
-  }
+  _fb_invoke($fb_app, FB_OP_EXIT, $destination);
 }
 
 function _fb_form_cache_cb($cid) {
@@ -584,35 +500,6 @@ function fb_session_key_form() {
                 '#redirect' => FALSE, // necessary when submitting via facebook
   );
   return $form;
-}
-
-/**
- * Provides a page with useful debug info.
- * 
- * TODO: remove dependencies on devel package.
- */
-function _fb_debug_cb() {
-  global $fb, $fb_app;
-  global $user;
-
-  if ($fb) {
-    // These will work in a canvas page.
-    drupal_set_message("in_fb_canvas returns " . $fb->in_fb_canvas());
-    drupal_set_message("get_loggedin_user returns " . $fb->get_loggedin_user());
-    drupal_set_message("current_url returns " . $fb->current_url());
-    
-  }
-
-  dpm(fb_get_fbu($user), 'Facebook user via fb_get_fbu');
-  dpm($user, "Local user " . theme('username', $user));
-  
-  dpm($_REQUEST, "Request");
-  dpm($fb_app, "fb_app");
-  dpm($fb->api_client->session_key, "session key ");
-  
-  //watchdog('fb_debug', 'debug callback called.  Request is ' . dpr($_REQUEST, 1));
-
-  return "This is the facebook debug page.";
 }
 
 function _fb_invoke($fb_app, $op, $return = NULL, $data = NULL) {

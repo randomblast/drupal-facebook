@@ -1,0 +1,5 @@
+name=Facebook Application Canvas Pages
+description=Support for Facebook Canvas Pages
+package = Facebook
+dependencies = fb fb_app
+

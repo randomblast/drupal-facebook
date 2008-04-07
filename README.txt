@@ -33,10 +33,10 @@ tar xvzf facebook-platform.tar.gz
   on your install) to include settings.inc (in this directory).  For
   example:
 
-require_once "profiles/custom/modules/fb/settings.inc";
+require_once "profiles/custom/modules/fb/fb_settings.inc";
 
   (Or whatever path is appropriate, could be
-  "sites/all/module/fb/settings.inc")
+  "sites/all/module/fb/fb_settings.inc")
 
 - Enable the Facebook modules via the drupal admin pages, as usual.
   You must enable at least fb.module and fb_app.module.  You will
@@ -58,6 +58,7 @@ require_once "profiles/custom/modules/fb/settings.inc";
 
 
 Troubleshooting:
+---------------
 
 If you get an error along the lines of "FacebookRestClient" not found,
 check the facebook-platform/client/facebook.php for an include like
@@ -87,4 +88,4 @@ module in your system table.  See http://drupal.org/node/187868
 If you see "The page you requested was not found."  Make sure the
 canvas page you specified agrees exactly with the canvas page assigned
 by facebook.  Note also that facebook will make all letters lower case
-even you typed them upper.
+even if you typed them upper.

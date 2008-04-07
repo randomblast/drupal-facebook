@@ -1,5 +1,0 @@
-name=Facebook Application Navigation
-description=Assign custom front page and navigation to your Facebook Apps
-package = Facebook
-dependencies = fb fb_app
-

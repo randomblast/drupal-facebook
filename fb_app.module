@@ -1,8 +1,8 @@
 <?php
-  /**
-   * @file
-   *   Defines a custom node type that stores a facebook application configuration.
-   */
+/**
+ * @file
+ *   Defines a custom node type that stores a facebook application configuration.
+ */
 
 define('FB_APP_REQ_API_KEY', 'fb_sig_api_key');
 
@@ -31,6 +31,17 @@ function fb_app_fb($fb, $fb_app, $op, &$return, $data) {
       // If facebook has passed the app key, let's use that.
       $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE apikey='%s' and status=1",
                                          $apikey));
+    } 
+    else {
+      if (function_exists('fb_settings')) {
+        // See settings.inc
+        if ($nid = fb_settings(FB_SETTINGS_APP_NID)) {
+          // Here if we're in iframe, using our /fb_canvas/nid/ path convention.
+          $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE fb.nid=%d and status=1",
+                                             $nid));
+          
+        }
+      }
     }
     if ($fb_app)
       $return = $fb_app;
@@ -221,21 +232,11 @@ function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
 }
 
 function theme_fb_app($data) {
-  $links[] = l(t('Canvas URL'), "http://apps.facebook.com/$data->canvas");
-  if ($data->id) {
-    $links[] = l(t('About page'), "http://www.facebook.com/apps/application.php",
-                 array(), "id=$data->id");
-  }
-
   return theme('dl', array(t('Label') => $data->label,
                            t('API Key') => $data->apikey,
                            t('Secret') => $data->secret,
-                           t('Links') => theme('item_list', $links),
-
-                           t('Callback URL') => t("If using clean urls (recommended), use %clean.  Otherwise, use %dirty.",
-			   array("%clean" => url('', NULL, NULL, TRUE),
-			   "%dirty" => url("", "q=", NULL, TRUE),
-			   )),
+                           t('About page') => $data->id ? url("http://www.facebook.com/apps/application.php", "id=$data->id") : t('N/A'),
+                           
                            // TODO: edit and logout URLs
                ));
 }
@@ -382,15 +383,17 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
       if ($fbu) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app, FB_FBU_ANY);
-        $info = $fb->api_client->users_getInfo(array($fbu), 
-                                               array('about_me',
-                                                     'affiliations',
-                                                     'name',
-                                                     'is_app_user',
-                                                     'pic_big',
-                                                     'profile_update_time',
-                                                     'status',
-                                               ));
+        if (fb_facebook_user($fbggg)) {
+          $info = $fb->api_client->users_getInfo(array($fbu), 
+                                                 array('about_me',
+                                                       'affiliations',
+                                                       'name',
+                                                       'is_app_user',
+                                                       'pic_big',
+                                                       'profile_update_time',
+                                                       'status',
+                                                       ));
+        }
         if (count($info)) {
           $output = theme('fb_app_user_info', $fb_app, $info[0]);
           

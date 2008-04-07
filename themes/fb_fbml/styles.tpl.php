@@ -85,13 +85,20 @@
   
   .header .breadcrumb { float: left;}
   
-  .header h1 {clear: both; margin: 10px 10px 20px 10px;}
+  #canvas-header h1 {
+    clear: both; 
+    margin: 10px 10px 20px 10px;
+  }
+  #canvas-header img {
+    vertical-align: middle;
+    margin-right: 10px;
+  }
   .header {
   margin-bottom: 0px;
   border: 1px solid #cccccc;
   }
 
-  .admin_sidebar {
+  .admin-sidebar {
   padding: 2em 0;
   background: #fdd;
   }
@@ -169,21 +176,21 @@ div.middle {float: left;}
 /* prevent form fields from being too wide, on Konqueror at least.  Hack. */
 .sidebar-right .middle input { max-width: 430px; }
 
-div.sidebar_right {
+#sidebar-right {
   float: right;
   width: 186px;
   padding: 0 0 0 0;
   background-color: #f7f7f7;
 }
 
-.sidebar_right .block .title { 
+#sidebar-right .block .title { 
   margin: 0 5px 0 5px;
   padding: 3px 5px 4px 5px;
   background-color: #e9e9e9;
   text-align: left;
  }
 
-.sidebar-right .content-wrap { 
+#sidebar-right .content-wrap { 
   background-color: transparent;
   background-image: url(http://www.facebook.com/images/newsfeed_line.gif);
   background-repeat: repeat-y;

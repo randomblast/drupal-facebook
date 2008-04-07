@@ -1,0 +1,6 @@
+name=Drupal for Facebook Development and Debugging
+description=Blocks and messages that help when developing Apps.
+package = Facebook
+dependencies = fb devel
+
+

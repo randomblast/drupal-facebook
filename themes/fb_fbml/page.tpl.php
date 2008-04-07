@@ -1,24 +1,48 @@
 <?php print $styles; ?>
 <div class="page-wrap <?php print $body_classes?>">
-<div class=header>
-	<?php print $breadcrumb; ?>
+<div id="canvas-header" class="header">
+<?php print $breadcrumb; ?>
 <?php print $header; ?>
-<h1><?php print $title; ?></h1>
+<?php
+	if ($logo || $site_name) {
+	  print '<h1><a href="'. url('<front>') .'" title="'. $site_name .'">';
+	  if ($logo) {
+		print '<img src="'. check_url($logo) .'" alt="'. $site_name .'" id="logo" />';
+	  }
+	  print $site_name .'</a>';
+	  if (!$site_name)
+		print $title;
+	  print '</h1>';
+	}
+?>
+<?php if ($site_name): ?>
+  <h1><?php print $title; ?></h1>
+<?php endif;?>
 </div>
 <?php print $tabs; ?>
-<div class="content-wrap">
+<div id="content-wrap" class="content-wrap">
 <div class="middle">
 	<?php print $messages; ?>
 <?php print $content; ?>
+<?php if ($content_footer):?>
+<div id="content-footer" class="content-footer">
+   <?php print $content_footer; ?>
+</div>
+<?php endif; ?>
 </div>
 <?php if ($sidebar_right):?>
-<div class="sidebar_right">
+<div id="sidebar-right" class="sidebar-right">
    <?php print $sidebar_right; ?>
 <?php print $admin /* Administrator only sidebar */?>
 </div>
 <?php endif; ?>
 <div class="clear"></div>
 </div>
+<?php if ($canvas_footer):?>
+<div id="canvas-footer" class="canvas-footer">
+   <?php print $canvas_footer; ?>
+</div>
+<?php endif; ?>
 </div>
 
 

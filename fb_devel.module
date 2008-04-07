@@ -1,0 +1,133 @@
+<?php
+
+function fb_devel_menu($may_cache) {
+  $items = array();
+
+  if ($may_cache) {
+    $items[] = array('path' => 'fb/debug',
+                     'callback' => '_fb_debug_cb',
+                     'type' => MENU_CALLBACK,
+                     'access' => TRUE, // TODO: restrict access
+    );
+    
+  }
+  return $items;
+  }
+
+
+function fb_devel_fb($fb, $fb_app, $op, &$return, $data) {
+  if ($op == FB_OP_INITIALIZE) {
+    // Sanity check.
+    $nid = fb_settings(FB_SETTINGS_APP_NID);
+    if ($nid != $fb_app->nid) {
+      $message = t('fb_app id (%fb_app_id) does not equal fb settings id (%fb_settings_id).  This is usually caused by the wrong callback url on your <a href="!url">facebook application settings form</a>.',
+                   array('%fb_app_id' => $fb_app->nid,
+                         '%fb_settings_id' => $nid,
+                         '!url' => "http://www.facebook.com/developers/apps.php",
+                   ));
+      drupal_set_message($message, 'error');
+      watchdog('fb_devel', $message);
+    }
+  }
+}
+
+/**
+ * Provides a page with useful debug info.
+ * 
+ */
+function _fb_debug_cb() {
+  global $fb, $fb_app;
+  global $user;
+  
+  if ($fb) {
+    // These will work in a canvas page.
+    drupal_set_message("in_fb_canvas returns " . $fb->in_fb_canvas());
+    drupal_set_message("get_loggedin_user returns " . $fb->get_loggedin_user());
+    drupal_set_message("current_url returns " . $fb->current_url());
+  
+    drupal_set_message("base_url: " . $GLOBALS['base_url']);
+    drupal_set_message("base_path: " . $GLOBALS['base_path']);
+
+  }
+
+  dpm(fb_get_fbu($user), 'Facebook user via fb_get_fbu');
+  dpm($user, "Local user " . theme('username', $user));
+  
+  dpm($_COOKIE, 'cookie');
+  dpm($_REQUEST, "Request");
+  dpm($fb_app, "fb_app");
+  drupal_set_message("session_id returns " . session_id());
+  dpm($_SESSION, "session:");
+
+  return "This is the facebook debug page.";
+}
+
+
+function fb_devel_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $items[0]['info'] = t('Facebook Devel Canvas Page Info');
+    return $items;
+  }
+  else if ($op == 'view') {
+    return array('subject' => t('Facebook Devel Canvas Page'),
+                 'content' => drupal_get_form('fb_devel_canvas_info'));
+  }
+}
+
+function fb_devel_canvas_info() {
+  global $fb, $fb_app;
+  global $user;
+  global $base_url;
+  global $base_path;
+
+  $info = array();
+  
+  if ($fb) {
+    if ($fb->in_fb_canvas())
+      $info['Page Status'] = t('Rendering FBML canvas page.');
+    else if ($fb->in_frame()) {
+      $info['Page Status'] = t('Rendering iframe.');
+    }
+    else {
+      // Followed a link from within an iframe.
+      $info['Page Status'] = t('Global fb instance is set (followed link in iframe).');
+    }
+    $info['fb_facebook_user'] = fb_facebook_user();
+  }
+  else {
+    $info['Page Status'] = t('Appears not to be a canvas page.');
+  }
+  $info['local user'] = theme('username', $user);
+  $info['fb_get_fbu'] = fb_get_fbu($user->uid);
+  $info['base_url'] = $base_url;
+  $info['base_path'] = $base_path;
+  $info['session_id'] = session_id();
+  $info['session_name'] = session_name();
+
+  $info['request'] = $_REQUEST;
+  $info['fb_app'] = $fb_app;
+
+  $form = array();
+  foreach ($info as $key => $val) {
+    if (is_string($val) || is_numeric($val) || !$val) {
+      $form[] = array('#value' => t($key) . ' = ' . $val,
+                      '#weight' => count($form),
+                      '#suffix' => '<br/>',
+      );
+      
+    }
+    else {
+      $form[] = array('#type' => 'fieldset',
+                      '#title' => t($key),
+                      '#collapsible' => TRUE,
+                      '#collapsed' => TRUE,
+                      '#weight' => count($form),
+                      'value' => array('#value' => dprint_r($val, 1)),
+      );
+    }
+  }
+  // It's not really a form, but we like collapsible fieldsets
+  return $form;
+}
+
+?>

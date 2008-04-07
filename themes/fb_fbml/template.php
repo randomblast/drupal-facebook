@@ -1,7 +1,18 @@
 <?php
 
+
+function fb_fbml_page($content, $show_blocks = TRUE) {
+  $output = phptemplate_page($content, $show_blocks);
+  
+  if (function_exists('fb_canvas_process')) {
+	$output = fb_canvas_process($output);
+  }
+  return $output;
+  
+}
+
 function _phptemplate_variables($hook, $vars = array()) {
-  global $fb_app;
+  global $fb_app, $user;
 
   if ($hook == 'page') {
     $vars['styles'] = _phptemplate_callback('styles', $vars);
@@ -27,7 +38,7 @@ function _phptemplate_variables($hook, $vars = array()) {
 	// allows advanced theming based on context (home page, node of certain type, etc.)
 	$body_classes = array();
 	$body_classes[] = ($vars['is_front']) ? 'front' : 'not-front';
-	$body_classes[] = ($vars['logged_in']) ? 'logged-in' : 'not-logged-in';
+	$body_classes[] = ($user->uid > 0) ? 'logged-in' : 'not-logged-in';
 	if ($vars['sidebar_left'] && $vars['sidebar_right']) {
 	  $body_classes[] = 'both-sidebars';
 	}
@@ -69,80 +80,82 @@ function _phptemplate_variables($hook, $vars = array()) {
 
 function fb_fbml_regions() {
   $regions = array('admin' => t('Admin sidebar'),
-				   'header' => t('Facebook Canvas Header'),
-				   'right' => t('Facebook Canvas Right'),
+				   'header' => t('Canvas Header'),
+				   'right' => t('Canvas Right'),
+				   'content_footer' => t('Content Footer'),
+				   'canvas_footer' => t('Canvas Footer'),
 				   );
   return $regions;
 }
 
-// Facebook requires image URLs to be absolute.
-// We need to tweak the URL to point directly to us, much like we do with form actions.
-function phptemplate_image($path, $alt='', $title = '', $attributes = NULL, $getsize = TRUE) {
-  if (!$getsize || (is_file($path) && (list($width, $height, $type, $image_attributes) = @getimagesize($path)))) {
-    $attributes = drupal_attributes($attributes);
-    $url = (url($path) == $path) ? $path : (base_path() . $path);
-    return '<img src="'. fb_local_url(check_url($url)) .'" alt="'. check_plain($alt) .'" title="'. check_plain($title) .'" '. $image_attributes . $attributes .' />';
-  }
-
-}
-
-
 //// tabs
 
 function phptemplate_menu_local_tasks() {
-  $local_tasks = menu_get_local_tasks();
-  $pid = menu_get_active_nontask_item();
-  $output = '';
-
-  if (count($local_tasks[$pid]['children'])) {
-	$output .= "<fb:tabs>\n";
-    foreach ($local_tasks[$pid]['children'] as $mid) {
-	  $item = menu_get_item($mid);
-	  $selected = menu_in_active_trail($mid) ? "true" : "false";
-	  $output .= "<fb:tab-item href=\"".url($item['path'], NULL, NULL, TRUE)."\" title=\"".$item['title']."\" selected=\"$selected\">".$item['title']."</fb:tab-item>\n";
-    }
-	$output .= "</fb:tabs>\n";
+  global $fb;
+  if ($fb && $fb->in_fb_canvas()) {
+	$local_tasks = menu_get_local_tasks();
+	$pid = menu_get_active_nontask_item();
+	$output = '';
+	
+	if (count($local_tasks[$pid]['children'])) {
+	  $output .= "<fb:tabs>\n";
+	  foreach ($local_tasks[$pid]['children'] as $mid) {
+		$item = menu_get_item($mid);
+		$selected = menu_in_active_trail($mid) ? "true" : "false";
+		$output .= "<fb:tab-item href=\"".url($item['path'], NULL, NULL, FALSE)."\" title=\"".$item['title']."\" selected=\"$selected\">".$item['title']."</fb:tab-item>\n";
+	  }
+	  $output .= "</fb:tabs>\n";
+	}
+	// TODO secondary local tasks
   }
-  // TODO secondary local tasks
-  
+  else 
+	$output = theme_menu_local_tasks();
+
   return $output;
   
 }
 
 // collapsing fieldsets
-function fb_fbml_fieldset($element) {
-  //drupal_set_message("fb_fbml_fieldset" . dpr($element, 1));
-  static $count = 0;
+function phptemplate_fieldset($element) {
 
-  if ($element['#collapsible']) {
-	$id = 'fbml_fieldset_' . $count++;
-	$linkattrs = array('clicktotoggle' => $id,
-					   'href' => '#');
-	$contentattrs = array('id' => $id);
+  if ($fb && $fb->in_fb_canvas()) {
+	
+	//drupal_set_message("fb_fbml_fieldset" . dpr($element, 1));
+	static $count = 0;
+	
+	if ($element['#collapsible']) {
+	  $id = 'fbml_fieldset_' . $count++;
+	  $linkattrs = array('clicktotoggle' => $id,
+						 'href' => '#');
+	  $contentattrs = array('id' => $id);
+	  
+	  if (!isset($element['#attributes']['class'])) {
+		$element['#attributes']['class'] = '';
+	  }
+	  
+	  $element['#attributes']['class'] .= ' collapsible';
+	  if ($element['#collapsed']) {
+		$element['#attributes']['class'] .= ' collapsed';
+		$contentattrs['style'] = 'display:none';
+	  }
+	  $element['#title'] = '<a ' . drupal_attributes($linkattrs) .'>' . $element['#title'] . '</a>';
+	}
+	
+	$output = '<fieldset ' . drupal_attributes($element['#attributes']) .'>';
+	if ($element['#title']) {
+	  $output .= '<legend>'. $element['#title'] .'</legend>';
+	}
+	$output .= '<div ' . drupal_attributes($contentattrs) . '>';
+	if ($element['#description'])
+	  $output .= '<div class="description">'. $element['#description'] .'</div>';
+	$output .= $element['#children'] . $element['#value'];
+	$output .= "</div></fieldset>\n";
+	
+  } 
+  else
+	$output = theme_fieldset($element);
 
-    if (!isset($element['#attributes']['class'])) {
-      $element['#attributes']['class'] = '';
-    }
-
-    $element['#attributes']['class'] .= ' collapsible';
-    if ($element['#collapsed']) {
-	  $element['#attributes']['class'] .= ' collapsed';
-	  $contentattrs['style'] = 'display:none';
-    }
-	$element['#title'] = '<a ' . drupal_attributes($linkattrs) .'>' . $element['#title'] . '</a>';
-  }
-  
-  $output = '<fieldset ' . drupal_attributes($element['#attributes']) .'>';
-  if ($element['#title']) {
-	$output .= '<legend>'. $element['#title'] .'</legend>';
-  }
-  $output .= '<div ' . drupal_attributes($contentattrs) . '>';
-  if ($element['#description'])
-	$output .= '<div class="description">'. $element['#description'] .'</div>';
-  $output .= $element['#children'] . $element['#value'];
-  $output .= "</div></fieldset>\n";
-  
-  return $output;
+	return $output;
 }
 
 ?>
