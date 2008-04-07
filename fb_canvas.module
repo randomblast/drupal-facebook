@@ -42,31 +42,27 @@ function fb_canvas_fb($fb, $fb_app, $op, &$return) {
       ob_end_clean();
       
       if ($destination) {
-        // Destination is set when a node is submitted, for example.
-        // just let the redirect happen
-        return;
+        // If here, drupal_goto has been called, but it may not work within a
+        // canvase page, so we'll use Facebook's method.
+        // Will this preempt other hook_exits?
+        if ($fb) {
+          $fb->redirect($destination);
+        }
+      }
+      else {
+        // Save the results to show the user later
+        $token = uniqid('fb_');
+        $cid = session_id() . "_$token";
+        watchdog('fb', "Storing cached form page $cid, then redirecting");
+        cache_set($cid, 'cache_page', $output, time() + (60 * 5), drupal_get_headers()); // (60 * 5) == 5 minutes
+        
+        $dest = 'http://apps.facebook.com/' . $fb_app->canvas."/fb/form_cache/$cid";
+        // $fb->redirect($url); // Does not work!
+        drupal_goto($dest,'', NULL, 303); // appears to work
       }
       
-      // Save the results to show the user later
-      $token = uniqid('fb_');
-      $cid = session_id() . "_$token";
-      watchdog('fb', "Storing cached form page $cid, then redirecting");
-      cache_set($cid, 'cache_page', $output, time() + (60 * 5), drupal_get_headers()); // (60 * 5) == 5 minutes
       
-      $dest = 'http://apps.facebook.com/' . $fb_app->canvas."/fb/form_cache/$cid";
-      // $fb->redirect($url); // Does not work!
-      drupal_goto($dest,'', NULL, 303); // appears to work
     }
-    
-    if ($destination) {
-      // If here, drupal_goto has been called, but it may not work within a
-      // canvase page, so we'll use Facebook's method.
-      // Will this preempt other hook_exits?
-      if ($fb) {
-        $fb->redirect($destination);
-      }
-    }
-    
   }
 }
 
