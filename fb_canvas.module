@@ -36,12 +36,16 @@ function fb_canvas_fb($fb, $fb_app, $op, &$return) {
   }
   else if ($op == FB_OP_EXIT) {
     $destination = $return;
-    
-    if (fb_canvas_handling_form()) {
+    if (fb_canvas_handling_form() && $fb_app) {
       $output = ob_get_contents();
       ob_end_clean();
       
       if ($destination) {
+        // Fully qualified URLs need to be modified to point to facebook app.
+        // URLs are fully qualified when a form submit handler returns a path,
+        // or any call to drupal_goto.
+        $destination = fb_canvas_fix_url($destination, $fb_app);
+
         // If here, drupal_goto has been called, but it may not work within a
         // canvase page, so we'll use Facebook's method.
         // Will this preempt other hook_exits?
@@ -206,7 +210,25 @@ function _fb_canvas_make_form_action_local($action) {
   return "http://".$_SERVER['HTTP_HOST']. $action;
 }
 
+/**
+ * Convert a local fully qualified path to a facebook app path.  This needs to
+ * be used internally, to fix drupal_gotos upon form submission.  Third party
+ * module should not need to call this, I believe.
+ */
+function fb_canvas_fix_url($url, $fb_app) {
 
+  global $base_url;
+  $patterns[] = "|{$base_url}/" . FB_SETTINGS_APP_NID . "/{$fb_app->nid}/|";
+  // Here we assume apps.facebook.com.  Is this safe?
+  $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
+  
+  // Facebook will prepend "appNNN_" all our ids
+  $patterns[] = "|#([^\?]*)|";
+  $replacements[] = "#app{$fb_app->id}_$1";
+  
+  $url = preg_replace($patterns, $replacements, $url);
+  return $url;
+}
 
 /**
  * Returns the 'type' of the page.  This helps themes determine whether they
