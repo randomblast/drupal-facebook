@@ -344,7 +344,7 @@ function fb_get_friends($fbu) {
     if (!$items || !count($items)) {
       $result = $fb->api_client->fql_query("SELECT uid2 FROM friend WHERE uid1=$fbu");
       $items = array();
-      if (count($result)) 
+      if (is_array($result)) 
         foreach ($result as $data) {
           $items[] = $data['uid2'];
         }
