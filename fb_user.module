@@ -75,7 +75,7 @@ function fb_user_post_add_cb() {
   
   // Destination was not passed in, present a form prompting the user to
   // decide what to do next.
-  watchdog('debug', 'fb_user_post_add_cb' . dprint_r($_REQUEST, 1));
+  //watchdog('debug', 'fb_user_post_add_cb' . dprint_r($_REQUEST, 1));
   $output = drupal_get_form('fb_user_post_add_bifurcate_form');
   return $output;
 }
