@@ -28,6 +28,19 @@ function fb_devel_fb($fb, $fb_app, $op, &$return, $data) {
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message);
     }
+
+    // Theme sanity check
+    global $theme; // for debug message
+    if (isset($theme)) {
+      $message = t('!drupal_for_facebook is unable to override the theme settings.  This is usually because some module causes theme_init() to be invoked before fb_init().  See the !readme.',
+                   array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
+                         // This link should work with clean URLs
+                         // disabled.
+                         '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>'));
+      drupal_set_message($message, 'error');
+      watchdog('fb_devel', $message);      
+    }
+
   }
 }
 

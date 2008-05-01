@@ -39,22 +39,11 @@ define('FB_USE_PHP4_API', variable_get('fb_use_php4_api', TRUE)); // Force the u
  * 
  */
 function fb_init() {
-  global $custom_theme; // Set by this function.
-  global $theme; // for debug message
   global $fb, $fb_app, $fb_app_node; // Set by this function.
 
   // Perform sanity check, help users who skip the README.
   if (!variable_get('fb_settings_check', FALSE) && user_access('access administration pages')) {
     drupal_set_message(t('!drupal_for_facebook has been enabled, but not properly installed.  Please read the !readme.',
-                         array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
-                               // This link should work with clean URLs
-                               // disabled.
-                               '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>')), 'error');
-  }
-  // Theme sanity check
-  if (isset($theme) &&
-      user_access('access administration pages')) {
-    drupal_set_message(t('!drupal_for_facebook is unable to override the theme settings.  This is usually because some module causes theme_init() to be invoked before fb_init().  See the !readme.',
                          array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
                                // This link should work with clean URLs
                                // disabled.
@@ -66,34 +55,13 @@ function fb_init() {
   $fb_app = _fb_invoke(NULL, FB_OP_GET_APP);
 
   if ($fb_app) {
-    // dpm($fb_app, "fb_initialize()"); // debug
-    // dpm($_REQUEST, 'request');
-    // dpm(session_id(), 'session_id');
-    // dpm($_SERVER, "server");
-    //global $db_prefix;
-    //dpm($db_prefix, 'db_prefix');
     // we are in a callback
- 
+    
     // For canvas pages, use current user, never infinite session.
     $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
 
-    // drupal_set_message("fb object:" . dpr($fb, 1));
     if ($fb) {
-      // Output FBML
-      $custom_theme = variable_get('fb_theme', 'fb_fbml');
-
-      // this is a test of whether sessions are working.
-      global $user;
-      //drupal_set_message("Before fb_op_initialize, user->uid is $user->uid, $\user->fbu is $user->fbu.");
-
-      //drupal_set_message("After fb_op_initialize, user->uid is $user->uid, $\user->fbu is $user->fbu.");
-      
-      // make sure global user is correct
-      /** XXX deprecated in favor of FB_OP_INITIALIZE above. 
-      if (!$user->fbu || ($user->fbu != fb_facebook_user()))
-        $user = fb_user_load(fb_facebook_user());
-      **/
-      if ($fb->in_fb_canvas())
+      if ($fb->in_fb_canvas() && FALSE) // XXX deprecated
         fb_init_path($fb_app);
 
       // Give other modules a chance to initialize, require login, etc...
@@ -102,9 +70,6 @@ function fb_init() {
     else
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook");
     
-    // debug
-    global $user;
-    //drupal_set_message("after initializing, local user is $user->uid " . theme('username', $user) . dpr($user, 1));
   }
   _fb_invoke($fb_app, FB_OP_POST_INIT);
 }
@@ -207,10 +172,8 @@ function fb_api_init($fb_app, $fbu) {
   return $fb;
 }
 
-
-function fb_init_path($fb_app, $restore = FALSE) {
-  
-
+// deprecated
+function fb_init_pathXXX($fb_app, $restore = FALSE) {
   // Here's one of the uglier parts...
   // Fool url() function into linking back to facebook
   // Note that elsewhere we get forms to submit directly to us by tweaking their action parameter.
