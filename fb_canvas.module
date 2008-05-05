@@ -243,6 +243,10 @@ function fb_canvas_handling_form() {
 
 // This may need work
 function _fb_canvas_make_form_action_local($action) {
+  // If action is fully qualified, do not change it
+  if (strpos($action, ':'))
+    return $action;
+
   // I'm not sure where the problem is, but sometimes actions have two question marks.  I.e.
   // /htdocs/?app=foo&q=user/login?destination=comment/reply/1%2523comment-form
   // Here we replace 3rd (or more) '?' with '&'.
