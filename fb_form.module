@@ -1,5 +1,115 @@
 <?php
 
+/**
+ * @file
+ * 
+ * This module defines facebook-specific form elements for use with Drupal's
+ * form API.
+ * 
+ * It also defines commonly used forms, for example a form to invite friends
+ * to install an application.
+ */
+
+  // There's some obsolete and experimental code in this module.  Everything may change!  Watch out for things labelled deprecated.
+
+/**
+ * hook_menu.
+ */
+function fb_form_menu($may_cache) {
+  $items = array();
+  if ($may_cache) {
+    // Page allowing a user to invite their friends to add the app.
+    $items[] = array('path' => 'fb/invite',
+                     'callback' => 'fb_form_invite_page',
+                     'access' => TRUE,
+                     'type' => MENU_CALLBACK,
+    );
+  }
+  return $items;
+}
+
+/**
+ * hook_form_alter.
+ */
+function fb_form_form_alter($form_id, &$form) {
+  // Drupal allows no clean way to set $form['#type'], so we hack...
+  if ($type = $form['#type_hack']) {
+    $form['#type'] = $type;
+    unset($form['#type_hack']);
+  }
+}
+
+/**
+ * Create a page to invite friends to add an app.
+ * 
+ * This page will succeed only if:
+ * - shown on a canvas page
+ * - it is an FBML canvas page, not an iframe
+ * - the current user has added the application (not sure about this)
+ */
+function fb_form_invite_page() {
+  global $fb, $fb_app;
+
+  if ($fb_app) {
+    drupal_set_title(t('Invite friends to use %application',
+                       array('%application' => $fb_app->title)));
+  }
+
+  $output = drupal_get_form('fb_form_multi_add_invite_form');
+  return $output;
+}
+
+
+/**
+ * Create a form allowing the user to invite friends to add the app.
+ * 
+ * Facebook provides a very specific way to build this form using FBML.  This will only display properly on FBML canvas pages.
+ * The FBML for this form requires the <fb:request-form> tag where the <form> tag would normally be.  Also the form provides its own buttons.  These two things make it difficult to use Drupal's Form API to build the form.  Still, we use FAPI, because we want modules to be able to alter the form (i.e. to add descriptive text).  Alteration that rely on #submit or even additional input fields will probably not work properly, however.
+ */
+function fb_form_multi_add_invite_form() {
+  global $fb, $fb_app;
+  
+  // TODO: confirm that we're displaying an FBML canvas page.
+  
+  $node = node_load($fb_app->nid);
+  $node = node_prepare($node);
+  $content = $node->teaser;
+
+  // form type fb:request-form
+  $form = array('#type_hack' => 'fb_form_request', // becomes #type during form_alter
+                '#attributes' =>
+                array('type' => $fb_app->title,
+                      'content' => $node->teaser,
+                      'invite' => 'true'),
+                '#action' => 'http://apps.facebook.com/' . $fb_app->canvas,
+  );
+  
+  $form['friends'] =
+    array('#type' => 'fb_form_request_selector',
+    );
+  
+  return $form;
+}
+
+/**
+ * Based on theme_form, this renders an fb:request-form.
+ */
+function theme_fb_form_request($element) {
+  // TODO: verify attributes required by facebook are found.
+
+  // Anonymous div to satisfy XHTML compliance.
+  $action = $element['#action'] ? 'action="' . check_url($element['#action']) . '" ' : '';
+  $output = '<fb:request-form '. $action .' method="'. $element['#method'] .'" '. 'id="'. $element['#id'] .'"'. drupal_attributes($element['#attributes']) .">\n<div>". $element['#children'] ."\n</div></fb:request-form>\n";
+  
+  return $output;
+}
+
+// Because the fb:request-form includes its own buttons, including the particularly annoying skip button, this submit callback is not used.  Will probably delete it.  If I can't make it work properly.
+function fb_form_multi_add_invite_form_submit() {
+  //watchdog('fb_debug', 'fb_form_multi_add_invite_form_submit' . dprint_r(func_get_args(), 1));
+  //return "foo/bar";
+}
+
 function fb_form_group_options($fbu) {
   $groups = fb_get_groups_data($fbu);
   $items = array();
@@ -11,6 +121,7 @@ function fb_form_group_options($fbu) {
   return $items;
   }
 
+// TODO: make this work whether in canvas page or not.
 function fb_form_friend_options($fbu) {
   global $fb;
   $items = array();
@@ -52,15 +163,61 @@ function fb_form_group_member_options($fbg, $fbu) {
 
 function fb_form_elements() {
   $items = array();
+  
+  $items['fb_form_request_selector'] = array('#input' => TRUE,
+                                             '#tree' => TRUE, /* not sure what this does */
+                                             '#process' => array('fb_form_process_request_selector' => array()),
+                                             // The submit callback does not work properly in <fb:request-form>
+                                             '#executes_submit_callback' => TRUE,
+  );
 
+  /* deprecated */
   $items['friend_selector'] = array('#input' => TRUE,
                                     '#tree' => TRUE,
                                     '#process' => array('friend_selector_process' => array()),
   );
-  
-  return $items;
-  }
 
+  return $items;
+}
+
+/**
+ * Build a friend selector for use in <fb:request-form>.
+ * 
+ * Use this to select friends when sending an invite or request.
+ */
+function fb_form_process_request_selector($orig) {
+  global $fb;
+  // replace with FBML markup
+  $element = array('#type' => 'markup',
+                   '#value' => '<fb:multi-friend-selector ',
+  );
+ 
+  // actiontext is required
+  if (!$orig['#actiontext'])
+    // Which best corresponds to #actiontext, #title or #description?
+    if ($orig['#title'])
+      $orig['#actiontext'] = $orig['#title'];
+    else
+      $orig['#actiontext'] = t('Select the friends you want to invite.');
+  
+  foreach (array('#actiontext', '#showborder', '#rows', '#max', '#exclude_ids', '#bypass') as $attr) {
+    if ($orig[$attr]) {
+      $element['#value'] .= substr($attr, 1) . '="' . $orig[$attr] . '" ';
+    }
+  }
+  
+  // Some settings for FAPI.
+  foreach (array('#parents', '#weight', '#name', '#id', '#input', '#required') as $key)
+    if (isset($orig[$key]))
+      $element[$key] = $orig[$key];
+  
+  
+  $element['#value'] .= '/>'; /* close tag */
+  
+  return $element;
+}
+
+/* deprecated */
 function friend_selector_process($orig) {
   global $fb;
   if (!$fb)
@@ -86,16 +243,17 @@ function friend_selector_process($orig) {
   $element['#type'] = 'select';
   $element['#options'] = $options;
 
-  drupal_set_message("fb_form processed " . dpr($orig, 1) . " into " . dpr($element, 1));
+  //drupal_set_message("fb_form processed " . dpr($orig, 1) . " into " . dpr($element, 1));
   return $element;
 }
 
 function friend_selector_value(&$form) {
-  drupal_set_message("friend_selector_value" . dpr($form, 1));
+  //drupal_set_message("friend_selector_value" . dpr($form, 1));
 }
 
 // TODO: provide some alternative when NOT a facebook app.
-function theme_friend_selectorXXX($fbu = NULL) {
+// deprecated!
+function theme_friend_selector($fbu = NULL) {
   drupal_set_message ("theme_friend_selector");
   if (!$fbu)
     $fbu = fb_facebook_user();
