@@ -114,6 +114,7 @@ function fb_devel_canvas_info() {
   $info['fb_get_fbu'] = fb_get_fbu($user->uid);
   $info['base_url'] = $base_url;
   $info['base_path'] = $base_path;
+  $info['url() returns'] = url();
   $info['session_id'] = session_id();
   $info['session_name'] = session_name();
 

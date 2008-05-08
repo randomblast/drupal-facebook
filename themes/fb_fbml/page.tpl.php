@@ -18,10 +18,11 @@
 <?php if ($site_name): ?>
   <h1><?php print $title; ?></h1>
 <?php endif;?>
+<div id="end-canvas-header"><!-- IE needs help --></div>
 </div>
 <?php print $tabs; ?>
 <div id="content-wrap" class="content-wrap">
-<div class="middle">
+<div id="content-main" class="content-main">
 	<?php print $messages; ?>
 <?php print $content; ?>
 <?php if ($content_footer):?>

@@ -40,13 +40,13 @@ function _phptemplate_variables($hook, $vars = array()) {
 	$body_classes[] = ($vars['is_front']) ? 'front' : 'not-front';
 	$body_classes[] = ($user->uid > 0) ? 'logged-in' : 'not-logged-in';
 	if ($vars['sidebar_left'] && $vars['sidebar_right']) {
-	  $body_classes[] = 'both-sidebars';
+	  $body_classes[] = 'with-both-sidebars';
 	}
 	else if ($vars['sidebar_right']) {
-	  $body_classes[] = 'sidebar-right';
+	  $body_classes[] = 'with-sidebar-right';
 	}
 	else if ($vars['sidebar_left']) {
-	  $body_classes[] = 'sidebar-left';
+	  $body_classes[] = 'with-sidebar-left';
 	}
 
 	$vars['body_classes'] = implode(' ', $body_classes);
@@ -117,10 +117,9 @@ function phptemplate_menu_local_tasks() {
 
 // collapsing fieldsets
 function phptemplate_fieldset($element) {
-
+  global $fb;
   if ($fb && $fb->in_fb_canvas()) {
 	
-	//drupal_set_message("fb_fbml_fieldset" . dpr($element, 1));
 	static $count = 0;
 	
 	if ($element['#collapsible']) {
@@ -145,7 +144,7 @@ function phptemplate_fieldset($element) {
 	if ($element['#title']) {
 	  $output .= '<legend>'. $element['#title'] .'</legend>';
 	}
-	$output .= '<div ' . drupal_attributes($contentattrs) . '>';
+	$output .= '<div class="fieldset-content" ' . drupal_attributes($contentattrs) . '>';
 	if ($element['#description'])
 	  $output .= '<div class="description">'. $element['#description'] .'</div>';
 	$output .= $element['#children'] . $element['#value'];
