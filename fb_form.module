@@ -50,12 +50,20 @@ function fb_form_form_alter($form_id, &$form) {
 function fb_form_invite_page() {
   global $fb, $fb_app;
 
+  if (function_exists('fb_canvas_is_fbml') &&
+      !fb_canvas_is_fbml()) {
+    drupal_set_message(t('Unable to display page.  FBML required.'), 'error');
+    drupal_not_found();
+    exit();
+  }
+  
   if ($fb_app) {
     drupal_set_title(t('Invite friends to use %application',
                        array('%application' => $fb_app->title)));
   }
 
   $output = drupal_get_form('fb_form_multi_add_invite_form');
+
   return $output;
 }
 
@@ -71,21 +79,48 @@ function fb_form_multi_add_invite_form() {
   
   // TODO: confirm that we're displaying an FBML canvas page.
   
+  if ($fbu = fb_facebook_user($fb)) {
+    // Exclude friends who have already installed app.
+    // http://wiki.developers.facebook.com/index.php/Fb:request-form
+    $rs = $fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)");
+    $arFriends = "";
+    //  Build an delimited list of users...
+    if ($rs) {
+      $arFriends .= $rs[0]["uid"];
+      for ( $i = 1; $i < count($rs); $i++ ) {
+        if ( $arFriends != "" )      
+          $arFriends .= ",";
+        $arFriends .= $rs[$i]["uid"];
+      }
+    }
+    
+    //  Construct a next url for referrals
+    $sNextUrl = urlencode("&refuid=".$user);
+  }
+
+  // Use node body in invite message.
   $node = node_load($fb_app->nid);
   $node = node_prepare($node);
   $content = $node->teaser;
+
+  if ($fb_app->id) {
+    $content .= "<fb:req-choice url=\"http://www.facebook.com/add.php?api_key={$fb_app->id}&next={$sNextUrl}\" label=\"" . t('Add !title application.',
+                                                                                                                             array('!title' => $fb_app->title)) . " />";
+  }
 
   // form type fb:request-form
   $form = array('#type_hack' => 'fb_form_request', // becomes #type during form_alter
                 '#attributes' =>
                 array('type' => $fb_app->title,
-                      'content' => $node->teaser,
+                      'content' => htmlentities($content),
                       'invite' => 'true'),
                 '#action' => 'http://apps.facebook.com/' . $fb_app->canvas,
   );
-  
+
   $form['friends'] =
     array('#type' => 'fb_form_request_selector',
+          '#title' => t('Select the friends to invite.'),
+          '#attributes' => array('exclude_ids' => $arFriends),
     );
   
   return $form;
@@ -191,28 +226,21 @@ function fb_form_process_request_selector($orig) {
   $element = array('#type' => 'markup',
                    '#value' => '<fb:multi-friend-selector ',
   );
- 
-  // actiontext is required
-  if (!$orig['#actiontext'])
-    // Which best corresponds to #actiontext, #title or #description?
-    if ($orig['#title'])
-      $orig['#actiontext'] = $orig['#title'];
-    else
-      $orig['#actiontext'] = t('Select the friends you want to invite.');
+  if (!$orig['#attributes'])
+    $orig['#attributes'] = array();
+
+  // Use title for actiontext
+  if (!$orig['#attributes']['actiontext'])
+    $orig['#attributes']['actiontext'] = $orig['#title'];
   
-  foreach (array('#actiontext', '#showborder', '#rows', '#max', '#exclude_ids', '#bypass') as $attr) {
-    if ($orig[$attr]) {
-      $element['#value'] .= substr($attr, 1) . '="' . $orig[$attr] . '" ';
-    }
-  }
+  $element['#value'] .= drupal_attributes($orig['#attributes']);
   
   // Some settings for FAPI.
   foreach (array('#parents', '#weight', '#name', '#id', '#input', '#required') as $key)
     if (isset($orig[$key]))
       $element[$key] = $orig[$key];
   
-  
-  $element['#value'] .= '/>'; /* close tag */
+  $element['#value'] .= ' />'; /* close tag */
   
   return $element;
 }
