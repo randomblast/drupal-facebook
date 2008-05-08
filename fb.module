@@ -11,6 +11,7 @@ define('FB_OP_GET_FBU', 'get_fbu'); // Query the local user's FB account
 define('FB_OP_GET_APP', 'get_app'); // Query which app a FB callback addresses
 define('FB_OP_GET_INFINITE_SESSION', 'get_inf_sess'); // Query infinite session data
 define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
+define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
 
 // node_access realms (belongs here?)
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
@@ -123,14 +124,18 @@ function fb_api_init($fb_app, $fbu) {
   if (!$cache[$fb_app->apikey][$fbu]) {
     $fb = new Facebook($fb_app->apikey, $fb_app->secret);
     
+    // Iframes may link or redirect within the iframe, in which case facebook
+    // will not provide all its normal variables.  To prepare for such a case,
+    // we cache the facebook parameters in the session.
+    // We update the cache whenever possible, to keep it current.
+    if ($fb->in_frame() && $fb->fb_params) {
+      $_SESSION['fb_frame_params'] = $fb->fb_params; // dangerous to use fb's internal data structure
+    }
+
     if (($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
         && $fb->get_loggedin_user()) {
       // We're on a canvas page and we're already logged in.
       
-      // For future iframe request, save some info
-      if ($fb->in_frame()) {
-        $_SESSION['fb_frame_params'] = $fb->fb_params; // dangerous to use fb's internal data structure
-      }
     }
     else if (($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
              && isset($_SESSION['fb_frame_params'])) {
@@ -475,14 +480,30 @@ function _fb_invoke($fb_app, $op, $return = NULL, $data = NULL) {
 }
 
 /**
+ * This method will clean up URLs.  When serving canvas pages, extra
+ * information is included in URLs (see fb_settings.inc).  This will remove
+ * the extra information.
+ */
+function fb_scrub_urls($content) {
+  foreach (array(FB_SETTINGS_APP_NID, FB_SETTINGS_PAGE_TYPE) as $key) {
+    $patterns[] = "|$key/[^/]*/|";
+    $replacements[] = "";
+  }
+  $content = preg_replace($patterns, $replacements, $content);
+  return $content;
+}
+
+/**
  * Implementation of hook_node_grants.
  * 
  * We put this here so all facebook modules have a standard way to implement
  * hook_node_access_records.  They use that hook to insert records into the
  * node access table.  We use this hook to allow access when the grants are
  * there.
+ * 
+ * DEPRECATED.  Not sure where, if anywhere, this belongs.
  */
-function fb_node_grants($account, $op) {
+function fb_node_grantsXXX($account, $op) {
   $grants = array();
   $fbu = fb_get_fbu($account);
   if ($fbu) { // If not anonymous (facebook user not logged in to this app)
@@ -528,8 +549,14 @@ function fb_report_exception($exception) {
                      '!trace' => '<pre>'.$exception->getTraceAsString().'</pre>',
                ));
   watchdog('fb', $message, WATCHDOG_ERROR);
-  drupal_set_message($message, 'error');
+  //drupal_set_message($message, 'error');
   print $message;
+
+  print "<pre>\$_REQUEST:\n";
+  print_r($_REQUEST);
+  print "\n\nREQUEST_URI:\n" . $_SERVER['REQUEST_URI'];
+  print "</pre>";
+
 }
 
 ?>
