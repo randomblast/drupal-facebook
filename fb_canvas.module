@@ -60,7 +60,7 @@ function fb_canvas_fb($fb, $fb_app, $op, &$return) {
         $destination = fb_canvas_fix_url($destination, $fb_app);
 
         // If here, drupal_goto has been called, but it may not work within a
-        // canvase page, so we'll use Facebook's method.
+        // canvas page, so we'll use Facebook's method.
         // Will this preempt other hook_exits?
         if ($fb) {
           $fb->redirect($destination);
@@ -73,12 +73,25 @@ function fb_canvas_fb($fb, $fb_app, $op, &$return) {
         watchdog('fb', "Storing cached form page $cid, then redirecting");
         cache_set($cid, 'cache_page', $output, time() + (60 * 5), drupal_get_headers()); // (60 * 5) == 5 minutes
         
-        $dest = 'http://apps.facebook.com/' . $fb_app->canvas."/fb/form_cache/$cid";
+        $dest = 'http://apps.facebook.com/' . $fb_app->canvas . "/fb/form_cache/$cid";
         // $fb->redirect($url); // Does not work!
-        drupal_goto($dest,'', NULL, 303); // appears to work
+        
+        // Preserve some URL parameters
+        $query = array();
+        foreach (array('fb_force_mode') as $key) {
+          if ($_REQUEST[$key])
+            $query[] = $key . '=' . $_REQUEST[$key];
+        }
+        
+        //drupal_goto honors $_REQUEST['destination'], but we only want that when no errors occurred
+        if (form_get_errors()) {
+          unset($_REQUEST['destination']);
+          if ($_REQUEST['edit'])
+            unset($_REQUEST['edit']['destination']);
+        }
+
+        drupal_goto($dest, implode('&', $query), NULL, 303); // appears to work
       }
-      
-      
     }
   }
 }
@@ -181,7 +194,7 @@ function fb_canvas_form_alter($form_id, &$form) {
   global $fb, $fb_app;
   // We will send all form submission directly to us, not via
   // apps.facebook.com/whatever.
-  if ($fb && $fb->in_fb_canvas()) {
+  if (fb_canvas_is_fbml()) {
     // We're in a facebook callback
     
     // Can't use 'fb_handling_form' because facebook strips it.
@@ -194,6 +207,9 @@ function fb_canvas_form_alter($form_id, &$form) {
     }
     $form['#action'] = _fb_canvas_make_form_action_local($form['#action']);
     // Let's hope no subsequent hook_form_alters mess with #action.
+  }
+  else if (fb_canvas_is_iframe()) {
+    //dpm($form, 'fb_canvas_form_alter');
   }
 
 }
@@ -272,6 +288,9 @@ function fb_canvas_fix_url($url, $fb_app) {
   // Here we assume apps.facebook.com.  Is this safe?
   $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
   
+  $patterns[] = "|fb_cb_type/[^/]*/|";
+  $replacements[] = "";
+
   // Facebook will prepend "appNNN_" all our ids
   $patterns[] = "|#([^\?]*)|";
   $replacements[] = "#app{$fb_app->id}_$1";
@@ -330,12 +349,13 @@ function fb_canvas_process($output, $add_target = TRUE) {
   if ($fb) {
 	$page_type = fb_settings(FB_SETTINGS_PAGE_TYPE);
 	$nid = $fb_app->nid;
+    $base = url();  // short URL with rewrite applied.
 	if (fb_canvas_is_fbml()) {
       //dpm($output, "before fb_canvas_process");
       // We're producing FBML for a canvas page
-
+      
 	  // Change links to use canvas on Facebook
-	  $patterns[] = "|=\"{$base_path}".FB_SETTINGS_APP_NID."/{$nid}/|";
+	  $patterns[] = "|=\"{$base}|";
 	  $replacements[] = "=\"/{$fb_app->canvas}/";
 	  
 	  // Workaround Drupal does not let us rewrite the frontpage url
@@ -358,8 +378,13 @@ function fb_canvas_process($output, $add_target = TRUE) {
         // Add target=_top to all links
         $patterns[] = "|<a |";
         $replacements[] = "<a target=\"_top\" ";
-        $patterns[] = "|<form |";
-        $replacements[] = "<form target=\"_top\" ";
+        // Do not change local forms, but do change external ones
+        $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
+        $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
+
+        // Make internal links point to canvas pages
+        $patterns[] = "|<a([^>]*)href=\"{$base}|";
+        $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$fb_app->canvas}/";
       }
       else {
         // Add target=_top to only external links
@@ -370,8 +395,8 @@ function fb_canvas_process($output, $add_target = TRUE) {
       }
       
 	  // Workaround Drupal does not let us rewrite the frontpage url
-	  $patterns[] = "|=\"{$base_path}\"|";
-	  $replacements[] = "=\"{$base_path}fb_canvas/{$page_type}/{$nid}/\"";	 // XXX
+	  //$patterns[] = "|=\"{$base_path}\"|";
+	  //$replacements[] = "=\"{$base_path}fb_canvas/{$page_type}/{$nid}/\"";	 // XXX
 	}
   }
   if (count($patterns)) {
