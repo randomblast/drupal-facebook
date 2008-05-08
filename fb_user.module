@@ -48,36 +48,81 @@ function fb_user_menu($may_cache) {
 }
 
 /**
- * The post-add page is where the user is sent after adding the application.
+ * This method will redirect a user if the post-add page need not be displayed.
  * 
- * Note that the Facebook App settings must be set up.  See "post-add"
- * callback.  To customize this behavior, use form_alter to modify the default
- * form, or create your own callback.
- * 
- * Special case when $_REQUEST['destination'] is set.  In this case we've come
- * after a request from our sync callback (or any call to $fb->require_add)
- * and we're going to cache some data so it can be used on the other end.
+ * If replacing the normal post-add page with a custom implementation, do call this.
  */
-function fb_user_post_add_cb() {
+function fb_user_post_add_check() {
   global $fb, $fb_app, $user;
-
   // This page is for canvas pages only
   if (!$fb) {
     drupal_access_denied();
     exit();
   }
   
-  // Destination will be set if we've called $fb->require_add.  In this case
+  // redirect will be set if we've called $fb->require_add.  In this case
   // we forward the user on, adding some useful information to the URL.
-  if ($_REQUEST['destination']) {
-    _fb_user_sync_redirect($_REQUEST['destination']);
+  if ($_REQUEST['redirect']) {
+    _fb_user_sync_redirect($_REQUEST['redirect']);
   }
-  
-  // Destination was not passed in, present a form prompting the user to
+  // This function returns only if post add page needs to be rendered.  Otherwise user is redirected.
+}
+
+/**
+ * The post-add page is where the user is sent after adding the application.
+ * 
+ * Note that the Facebook App settings must be set up.  See "post-add"
+ * callback.  To customize this behavior, use form_alter to modify the default
+ * form, or create your own callback.
+ * 
+ * Special case when $_REQUEST['redirect'] is set.  In this case we've come
+ * after a request from our sync callback (or any call to $fb->require_add)
+ * and we're going to cache some data so it can be used on the other end.
+ */
+function fb_user_post_add_cb() {
+  global $fb, $fb_app, $user;
+
+  // Check that actually need to render this page.
+  fb_user_post_add_check();  // Will exit() if user has been redirected.
+  // redirect was not passed in, present form(s) prompting the user to
   // decide what to do next.
-  //watchdog('debug', 'fb_user_post_add_cb' . dprint_r($_REQUEST, 1));
-  $output = drupal_get_form('fb_user_post_add_bifurcate_form');
-  return $output;
+
+  $weight = 0;
+  
+  // Although user has just added the app, they may have an authmap entry
+  // already.  This happens if they have installed then removed the app, or
+  // they've added another app on this same server.  In this case, we don't
+  // want to display the login form.
+  if (!$user->uid) {
+    //watchdog('debug', 'fb_user_post_add_cb' . dprint_r($_REQUEST, 1));
+    $output['login'] = array('#type' => 'fieldset',
+                             '#title' => t('Login to !site account',
+                                           array('!site' => variable_get('site_name', 'Drupal'))),
+                             '#collapsible' => TRUE,
+                             '#collapsed' => TRUE,
+                             '#weight' => $weight++,
+    );
+    $output['login']['form'] = array('#value' => drupal_get_form('user_login'));
+    
+    $output['register'] = array('#type' => 'fieldset',
+                                '#title' => t('Register new account',
+                                              array('!site' => variable_get('site_name', 'Drupal'))),
+                                '#collapsible' => TRUE,
+                                '#collapsed' => TRUE,
+                                '#weight' => $weight++,
+    );
+    $output['register']['form'] = array('#value' => drupal_get_form('user_register'));
+  }
+
+  $output['skip'] = array('#value' => l(t('Skip registration, use !app',
+                                          array('!app' => t($fb_app->title))), '<front>', array('class' => 'fb_button')),
+                          '#weight' => $weight++,
+                          '#prefix' => '<p>',
+                          '#suffix' => '</p>',
+  );
+  
+  // TODO: make output customizable by third-party modules.
+  return drupal_render($output);
 }
 
 /**
@@ -85,9 +130,9 @@ function fb_user_post_add_cb() {
  * account or synchronize facebook account with an existing account.  Really,
  * all we do is redirect the user to the login or registration forms.
  */
-function fb_user_post_add_bifurcate_form() {
+function fb_user_post_add_form() {
   global $fb, $fb_app, $user;
-
+  
   // This form only works on canvas pages.
   if (!$fb_app) {
     drupal_access_denied();
@@ -134,8 +179,8 @@ function fb_user_post_add_bifurcate_form() {
   return $form;
 }
 
-function fb_user_post_add_bifurcate_form_submit($form_id, $values) {
-  dpm(func_get_args(), 'fb_user_post_add_bifurcate_form_submit');
+function fb_user_post_add_form_submit($form_id, $values) {
+  //dpm(func_get_args(), 'fb_user_post_add_form_submit');
 
   // Here we simply redirect the user to the appropriate page
   return $values['redirect'];
@@ -156,7 +201,7 @@ function fb_user_post_remove_cb() {
 }
 
 
-function _fb_user_sync_redirect($destination) {
+function _fb_user_sync_redirect($redirect) {
   global $user;
   global $fb, $fb_app;
   $cache_data = array('request' => $_REQUEST,
@@ -170,7 +215,7 @@ function _fb_user_sync_redirect($destination) {
   cache_set($key, 'cache', serialize($cache_data), CACHE_TEMPORARY);
   
   // Note that drupal_goto will fail here, but $fb->redirect succeeds.
-  $fb->redirect(url($destination, 'auth_token='.$key, NULL, TRUE));
+  $fb->redirect(url($redirect, 'auth_token='.$key, NULL, TRUE));
   exit();
 }
 
@@ -266,7 +311,8 @@ function fb_user_sync_cb() {
 // There are several pages where we don't want to automatically create a new
 // account or use an account configured for this app.
 function _fb_user_special_page() {
-  return (arg(0) == 'user' || arg(0) == 'fb_user');
+  return (arg(0) == 'user' || arg(0) == 'fb_user' ||
+          (arg(0) == 'fb' && arg(1) == 'form_cache'));
 }
 
 function _fb_user_track($fb, $fb_app) {
@@ -322,7 +368,7 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
         // Check if the local account is already made.
         if ($user->fbu != fb_facebook_user() && (!_fb_user_special_page())) {
           // We need to make a local account for this facebook user.
-          $user = fb_user_create_local_user($fb_app, fb_facebook_user(), 
+          $user = fb_user_create_local_user($fb, $fb_app, fb_facebook_user(), 
                                             array('app_specific' => $fb_user_data['unique_account'],
                                                   'roles' => array($fb_user_data['new_user_rid'] => TRUE),
                                             ));
@@ -417,7 +463,7 @@ function fb_user_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
     //dpm(func_get_args(), 'fb_user_nodeapi');
     if (user_access('administer fb apps')) {
       $fb_app = $node->fb_app;
-      $output = theme('dl', array(t('Post-add URL') => "http://apps.facebook.com/{$fb_app->canvas}/".FB_USER_POST_ADD_PATH."?destination=",
+      $output = theme('dl', array(t('Post-add URL') => "http://apps.facebook.com/{$fb_app->canvas}/".FB_USER_POST_ADD_PATH."?redirect=",
                                   t('Post-remove URL') => url(FB_SETTINGS_APP_NID .'/'. $node->nid . '/' . FB_USER_POST_REMOVE_PATH, NULL, NULL, TRUE),
                                   t('Add URL') => "http://apps.facebook.com/{$fb_app->canvas}/".FB_USER_SYNC_PATH . '<br/>' . t('(Send an authenticated user to this URL so that local account will be authmapped to facebook account.)')));
       $node->content['fb_user'] = array('#value' => $output,
@@ -650,7 +696,7 @@ function _fb_user_authname($fb_app, $fbu) {
  * 'app_specific' - Set to true if the same facebook id might correspond to different local accounts, depending on which apps the user has used.  Set to false if the user shares one local account across facebook apps.
  * 'roles' - an array with keys corresponding to role ids the new user should receive.
  */
-function fb_user_create_local_user($fb_app, $fbu,
+function fb_user_create_local_user($fb, $fb_app, $fbu,
                                    $config = array()) {
 
   // TODO: ensure $fbu is a real user, not FB_FB_ANY or FB_FBU_CURRENT
@@ -686,6 +732,9 @@ function fb_user_create_local_user($fb_app, $fbu,
                           'authname_fb_user' => $authmap,
     );
     
+    // Allow $config to set other values, including mail
+    $user_default = array_merge($user_default, $config);
+
     $user_default['roles'][DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
     if (count($config['roles']))
       foreach ($config['roles'] as $rid => $value)
@@ -695,7 +744,28 @@ function fb_user_create_local_user($fb_app, $fbu,
     
     $account = user_save('', $user_default);
 
-    // Is there a need for POST_USER hook_fb call?  Or is hook_user sufficient?
+    watchdog('fb_user', t('New user: %name %email.', array('%name' => $name, '%email' => '<'. $mail .'>')), WATCHDOG_NOTICE, l(t('edit'), 'user/'. $account->uid .'/edit'));
+
+    // Allow third-party modules to act after account creation.
+    $config = _fb_invoke($fb_app, FB_OP_POST_USER, 
+                         NULL, array('account' => $account));
+
+    // TODO: move this to fb_action.  Temporarily disabled.
+    if (FALSE) {
+      // Prepare to send an email.
+      $base = url('<front>', NULL, NULL, TRUE);
+      $variables = array('!username' => $account->name, '!site' => variable_get('site_name', 'Drupal'), '!password' => $user_default['pass'], '!uri' => $base, '!uri_brief' => substr($base, strlen('http://')), '!mailto' => $mail, '!date' => format_date(time()), '!login_uri' => url('user', NULL, NULL, TRUE), '!edit_uri' => url('user/'. $account->uid .'/edit', NULL, NULL, TRUE), '!login_url' => user_pass_reset_url($account));
+      
+      $subject = _user_mail_text('welcome_subject', $variables);
+      $body = _user_mail_text('welcome_body', $variables);
+      
+      // Fix links
+      $subject = fb_scrub_urls($subject);
+      $body = fb_scrub_urls($body);
+      
+      // TODO: make it configurable whether an email is sent, and what it contains.
+      $fb->api_client->notifications_sendEmail($fbu, $subject, $body, $body);
+    }
   }
   
   if (!$account->fbu) {
