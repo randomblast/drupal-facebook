@@ -522,7 +522,7 @@ function fb_user_form_alter($form_id, &$form) {
       array('#type' => 'radios',
             '#title' => t('Create Local Account'),
             '#description' => t('This option will create a local account automatically and map the local account to the Facebook account.  This happens whenever the user visits a canvas page, except user/ pages and the landing page for anonymous users.'),
-            '#options' => array(FB_USER_OPTION_CREATE_NEVER => t('Never (I\'ll map the accounts some other way)'),
+            '#options' => array(FB_USER_OPTION_CREATE_NEVER => t('Never (user/register page will still work)'),
                                 FB_USER_OPTION_CREATE_LOGIN => t('If user has logged in'),
                                 FB_USER_OPTION_CREATE_ADD => t('If user has added this app'),
                                 
@@ -533,7 +533,7 @@ function fb_user_form_alter($form_id, &$form) {
     $form['fb_app_data']['fb_user']['map_account'] =
       array('#type' => 'radios',
             '#title' => t('Map Accounts'),
-            '#description' => t('This option maps a Facebook account to a local account, when a user logs in or registers via a canvas page.'),
+            '#description' => t('This option maps a Facebook account to a previously created local account, when a user logs in or registers via a canvas page.'),
             '#options' => array(FB_USER_OPTION_MAP_NEVER => t('Never map accounts'),
                                 FB_USER_OPTION_MAP_ALWAYS => t('Map account when user logs in or registers'),
             ),
@@ -542,9 +542,10 @@ function fb_user_form_alter($form_id, &$form) {
       );
     // TODO: prompt for role with a select.  Don't make user figure out id
     $form['fb_app_data']['fb_user']['new_user_rid'] =
-      array('#type' => 'textfield',
-            '#title' => t('New user role (rid)'),
-            '#description' => t('When creating an account, this role will be assigned.  Use this to give every user that adds the app a particular Drupal role.  Type a numerical role id.'),
+      array('#type' => 'select',
+            '#title' => t('New user role'),
+            '#options' => user_roles(1),
+            '#description' => t('When a user has added this application, they will receive this role.'),
             '#default_value' => $fb_user_data['new_user_rid'],
       );
     
