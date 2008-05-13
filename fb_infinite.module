@@ -21,18 +21,14 @@ function fb_infinite_fb($fb, $fb_app, $op, &$return) {
   }
 }
 
-
+/**
+ * hook_menu
+ */
 function fb_infinite_menu($may_cache) {
   $items = array();
   if ($may_cache) {
-    $items[] = array('path' => 'fb/infinite/instructions',
-                     'title' => t('Facebook infinite session help'),
-                     'access' => user_access('administer fb apps'), // perm defined in fb_app.module
-                     'callback' => 'fb_infinite_instructions_page',
-                     'type' => MENU_CALLBACK,
-    );
     $items[] = array('path' => 'fb/infinite/display',
-                     'title' => t('Facebook infinite session display'),
+                     'title' => t('Facebook session information'),
                      'access' => user_access('administer fb apps'), // perm defined in fb_app.module
                      'callback' => 'fb_infinite_display_page',
                      'type' => MENU_CALLBACK,
@@ -64,7 +60,7 @@ function fb_infinite_menu($may_cache) {
  * Implementation of hook_form_alter.
  */
 function fb_infinite_form_alter($form_id, &$form) {
-  //drupal_set_message("fb_user_form_alter($form_id) " . dpr($form, 1));
+  //drupal_set_message("fb_infinte_form_alter($form_id) " . dpr($form, 1));
   
   // Add our settings to the fb_app edit form.
   if (is_array($form['fb_app_data'])) {
@@ -84,6 +80,18 @@ function fb_infinite_form_alter($form_id, &$form) {
         array('#value' => '<p>'.t('Save your apikey and secret settings first.  Then return here to set up the infinite session.').'</p>');
     }
     else {
+      if ($node->fb_app->canvas) {
+        $form['fb_app_data']['fb_infinite']['help'] = array('#value' => t('<a href=!url target=_blank>Get your session key</a>.  If prompted to log in, be sure to check the box that prevents your session from expiring.', 
+                                                                          array('!url' => "http://apps.facebook.com/".$node->fb_app->canvas."/fb/infinite/display")),
+                                                            '#prefix' => '<p>',
+                                                            '#suffix' => '</p>');
+      }
+      else {
+        $form['fb_app_data']['fb_infinite']['help'] = array('#value' => t('Configure canvas pages for additional help generating an infinite session key.'),
+                                                            '#prefix' => '<p>',
+                                                            '#suffix' => '</p>');
+      }
+      
       $form['fb_app_data']['fb_infinite']['fbu'] = 
         array('#type' => textfield,
               '#title' => t('Facebook User ID'),
@@ -93,70 +101,67 @@ function fb_infinite_form_alter($form_id, &$form) {
         array('#type' => textfield,
               '#title' => t('Infinite Session Key'),
               '#default_value' => $fb_infinite_data['key'],
-              '#description' => t('If you do not have a key, you can get one !here.',
-                                  // XXX FIX THIS LINK
-                                  array('!here' => l(t('here'), 'fb/infinite/instructions/'.$node->fb_app->apikey, array('target' => '_blank')))),
         );
+
+      /* so far, I can't get this to work.
+      $form['fb_app_data']['fb_infinite']['code'] =
+        array('#type' => textfield,
+              '#title' => t('One-time code'),
+              '#description' => t('Get a one-time code from facebook, <a href=!url target=_blank>here</a>.',
+                                  array('!url' => "http://www.facebook.com/code_gen.php?v=1.0&api_key=" . $node->fb_app->apikey)),
+        );
+      */
     }
   }
 }
 
-function fb_infinite_instructions_page($apikey) {
-  if ($GLOBALS['fb_app']) {
-    $url = $GLOBALS['fb_old_base_url'] . "?q=".$_GET['q'];
-    return t('Do not use this page from a canvas page.  Try !link.',
-             array('!link' => l($url, $url)));
-  }
-  else {
-    $fb_app = fb_get_app($apikey);
-    if (!$fb_app)
-      return t('Sorry, I could not identify the Facebook Application.');
-    else {
-      $output .= '<ol><li>'.t('First, log out of !facebook, if you are already logged in.  If the link below does not prompt you to log in again, delete all your cookies and try again.',
-                              array('!facebook' => l(t('Facebook'), 'http://www.facebook.com'))) . '</li>';
-      $output .= '<li>'.t('Then, log into the following page.  When you do, make sure to check the optional "save my login info..." box.').'</li>';
-      $output .= '<li>'.t('After you !log_in, the following page displays your user id and session key.  Copy those values into the Facebook Application form.',
-                          array('!log_in' => l(t('log back into facebook'), 'fb/infinite/display/'.$apikey))).'</li>';
-      $output .= "</ol>\n";
-      
-      $output .= '<p>'.t('Caveat: If your server may be reached by multiple domain names, make sure to use the one you gave as your callback URL.  For example, if your callback URL starts with "http://www.example.com", but the URL of this page starts with "http://example.com" or "localhost", then the link above will not work.').'</p>';
+function fb_infinite_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  if ($node->type == 'fb_app') {
+    if ($op == 'submit') {
+      $fb_app_data = $node->fb_app_data;
+      $fb_infinite_data = $fb_app_data['fb_infinite'];
 
-      return $output;
+      // This is an attempt to make the one-time code work.  I can't figure it out.
+      // http://forum.developers.facebook.com/viewtopic.php?pid=76361#p76361
+      if ($code = $fb_infinite_data['code']) {
+        drupal_set_message("code is $code");
+        $fb = fb_api_init($fb_app, FB_FBU_CURRENT); // Does not set user.
+        
+        $session = $fb->api_client->auth_getSession($code);
+        //dpm($session, "auth_getSession returned");
+      }
     }
+  }
+}
+
+
+/**
+ * Menu callback.  Ensures the user is logged in and displays user id and
+ * session key.
+ */
+function fb_infinite_display_page() {
+  global $fb, $fb_app;
+
+  if (!$fb_app) {
+    drupal_set_message(t('This page must be viewed as a Facebook canvas page.'), 'error');
+    drupal_not_found();
+    exit();
   }
   
-}
-
-function fb_infinite_display_page($apikey) {
-  if ($GLOBALS['fb_app']) {
-    $url = $GLOBALS['fb_old_base_url'] . "?q=".$_GET['q'];
-    return t('Do not use this page from a canvas page.  Try !link.',
-             array('!link' => l($url, $url)));
-  }
-  else {
-    $fb_app = fb_get_app($apikey);
-    if (!$fb_app)
-      return t('Sorry, I could not identify the Facebook Application.');
-    else {
-      // This is based on http://wiki.developers.facebook.com/index.php/Infinite_session_howto
-      $fb = fb_api_init($fb_app, FB_FBU_CURRENT); // Does not set user.
-      
-      // force a login page
-      //$fb->require_frame();
-      $fbu = $fb->require_login();
-      
-      $output .= '<p>'.t('Facebook user id: %fbu',
-                         array('%fbu' => $fb->api_client->users_getLoggedInUser())). '</p>';
-      $output .= '<p>'.t('Facebook session key: %session',
-                         array('%session' => $fb->api_client->session_key)). '</p>';
-      $output .= '<p>'.t('Use the values above when configuring the infinite session of your Facebook App.').'</p>';
-
-      return $output;
-    }
-  }
+  $fbu = $fb->require_login();
   
+  $output .= '<p>'.t('Facebook user id: %fbu',
+                     array('%fbu' => $fb->api_client->users_getLoggedInUser())). '</p>';
+  $output .= '<p>'.t('Facebook session key: %session',
+                     array('%session' => $fb->api_client->session_key)). '</p>';
+  $output .= '<p>'.t('Use the values above when configuring the infinite session of your Facebook App.').'</p>';
+  
+  return $output;
 }
 
+/**
+ * Menu callback to test infinite session values.
+ */
 function fb_infinite_test_page($nid) {
   if ($GLOBALS['fb']) {
     $url = $GLOBALS['fb_old_base_url'] . "?q=".$_GET['q'];
