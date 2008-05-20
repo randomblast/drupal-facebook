@@ -195,7 +195,7 @@ function fb_user_post_remove_cb() {
   global $fb, $fb_app, $user;
   watchdog('debug', 'fb_user_post_remove_cb' . dprint_r($_REQUEST, 1) . dprint_r($user, 1) . dprint_r($fb_app, 1));
   // Update our database to reflect application is NOT added
-  _fb_user_track($fb, $fb_app);
+  _fb_user_track($fb, $fb_app, $user);
   // Nothing to return
   exit();
 }
@@ -315,16 +315,35 @@ function _fb_user_special_page() {
           (arg(0) == 'fb' && arg(1) == 'form_cache'));
 }
 
-function _fb_user_track($fb, $fb_app) {
+function _fb_user_track($fb, $fb_app, $user) {
   // Keep track of all our app users.  We need this info when updating
   // profiles during cron.  We keep session keys in case user has an
   // infinite session, and we can actually log in as them during cron.
   // TODO: is this a violation of facebook terms?
-  db_query("REPLACE INTO {fb_user_app} (apikey, fbu, added, time_access, session_key, session_key_expires) VALUES ('%s', %d, %d, %d, '%s', %d)",
-           $fb_app->apikey, fb_facebook_user(), 
-           $fb->api_client->users_isAppAdded(), time(),
-           $fb->api_client->session_key, $_REQUEST['fb_sig_expires']
-  );
+
+  // In special cases, do not modify the uid column.
+  $fb_app_data = fb_app_get_data($fb_app);
+  $fb_user_data = $fb_app_data['fb_user']; // our configuration
+  
+  if (!$user->uid || $user->uid == $fb_user_data['not_logged_in_uid'] || $user->uid == $fb_user_data['logged_in_uid']) {
+    $result =db_query("REPLACE INTO {fb_user_app} (apikey, fbu, added, time_access, session_key, session_key_expires) VALUES ('%s', %d, %d, %d, '%s', %d)",
+                      $fb_app->apikey, fb_facebook_user(),
+                      $fb->api_client->users_isAppAdded(), time(),
+                      $fb->api_client->session_key, $_REQUEST['fb_sig_expires']
+    );
+  }
+  else {
+    // Uid is accurate.
+    $result =db_query("REPLACE INTO {fb_user_app} (apikey, fbu, uid, added, time_access, session_key, session_key_expires) VALUES ('%s', %d, %d, %d, %d, '%s', %d)",
+                      $fb_app->apikey, fb_facebook_user(),
+                      $user->uid,
+                      $fb->api_client->users_isAppAdded(), time(),
+                      $fb->api_client->session_key, $_REQUEST['fb_sig_expires']
+    );
+  }
+  if ($result === FALSE) {
+    watchdog('fb_user', t("Failed to update fb_user_app table."), WATCHDOG_ERROR);
+  }
 }
 
 /**
@@ -397,7 +416,7 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
       }
       
       // Keep a record of when user accesses app, and whether they have added it.
-      _fb_user_track($fb, $fb_app);
+      _fb_user_track($fb, $fb_app, $user);
     }
     
     // Don't mess with the user info if the user is visiting the login pages or submitting a form (i.e. the login form).
@@ -796,6 +815,7 @@ function fb_user_get_local_user($fbu, $fb_app) {
  * Given a local user id, find the facebook id.  This is for internal use.
  * Outside modules use fb_get_fbu().
  */
+// TODO: change this to use the newly added uid column in fb_user_app table.
 function _fb_user_get_fbu($uid, $fb_app) {
   static $cache = array();
 

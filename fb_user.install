@@ -8,12 +8,15 @@ function fb_user_install() {
 CREATE TABLE IF NOT EXISTS {fb_user_app} (
 apikey varchar(128) NOT NULL,
 fbu int(11) unsigned NOT NULL,
+uid int(11) unsigned DEFAULT NULL,
 added int(4) unsigned NOT NULL,
 time_cron int(11) unsigned NOT NULL,
 time_access int(11) unsigned NOT NULL,
 session_key varchar(128) NOT NULL,
 session_key_expires int(11) unsigned NOT NULL,
-PRIMARY KEY (apikey, fbu)
+PRIMARY KEY (apikey, fbu),
+INDEX (uid),
+UNIQUE INDEX (uid, apikey)
 ) /*!40100 DEFAULT CHARACTER SET UTF8 */;
 QUERY;
   }
@@ -35,5 +38,25 @@ QUERY;
 
 function fb_user_update_1() {
   fb_user_install();
-  db_query("DROP TABLE IF EXISTS {fb_user_app}");
+  // Changed name of table to fb_user_app
+  $ret[] = update_sql("DROP TABLE IF EXISTS {fb_app_user}");
+  return $ret;
 }
+
+function fb_user_update_2() {
+  $ret = array();
+  // Add local uid to fb_user_app table.
+  $ret[] = update_sql("ALTER TABLE {fb_user_app} ADD COLUMN uid int(11) DEFAULT NULL");
+  $ret[] = update_sql("ALTER TABLE {fb_user_app} ADD INDEX (uid)");
+  $ret[] = update_sql("ALTER TABLE {fb_user_app} ADD UNIQUE INDEX (uid, apikey)");
+  return $ret;
+}
+
+function fb_user_update_3() {
+  // populate the uid column we created in update 2
+  $ret[] = update_sql("UPDATE {fb_user_app},{authmap} SET {fb_user_app}.uid={authmap}.uid WHERE substring_index(authname, '@', 1)=fbu");
+  return $ret;
+}
+
+
+?>
