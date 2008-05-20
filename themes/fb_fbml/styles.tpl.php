@@ -97,7 +97,7 @@
   }
   #canvas-header {
     margin: 0px;
-    padding: 20px 10px 10px 20px;
+    padding: 10px 10px 10px 20px;
 	/*border-bottom: 1px solid #cccccc; IE will not render this */
 	overflow: hidden;
   }
@@ -292,4 +292,21 @@ ul.inline li {
 td.topics, td.posts {text-align: center;}
 th {padding: 0 2px;}
 
+/* make tabs align with header and content padding */
+.left_tabs {padding-left: 20px;}
+
+/* pager */
+.pager {
+  width: 100%;
+ padding: 10px 0;
+ }
+
+.pager a, .pager-list strong {margin-right: 1em;}
+
+.block-fb_devel {
+  border: solid 1px #e2c822;
+  background: #fff9d7;
+  margin: 10px 0;
+ padding: 5px;
+ }
 </style>
