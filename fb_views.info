@@ -1,4 +1,4 @@
 name=Facebook Views
-description=Provides special views treatment for Facebook Apps
+description=Provides features specific to Views module for Facebook Apps
 package=Facebook
 dependencies=views

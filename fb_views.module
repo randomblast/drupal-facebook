@@ -1,5 +1,99 @@
 <?php
 
+function fb_views_views_tables() {
+  // The fb_user_app table allows us to associate a node author's uid to a
+  // facebook id.
+  // Will be present if fb_user.module is used.
+  // This might need to be improved to take the apikey into account (for sites that host more than one app.)
+  $tables['fb_user_app'] = 
+    array('name' => 'fb_user_app',
+          'join' => array('left' => array('table' => 'node',
+                                          'field' => 'uid'),
+                          'right' => array('field' => 'uid')),
+          
+    );
+  
+  return $tables;
+  }
+
+function fb_views_views_arguments() {
+  $items['fb_user_author'] =
+    array('name' => t('Facebook User: Author is Friend'),
+          'help' => t('The node\'s author is a friend of the user.  <br/>The application hint is needed on non-canvas pages, ignored on canvas pages.'),
+          'handler' => 'fb_views_handler_author_is_friend',
+          'option' => array('#type' => 'select',
+                            '#options' => fb_get_app_options(FALSE),
+                            '#title' => t('App Hint'),
+          ),
+    );
+  
+  return $items;
+}
+
+function fb_views_handler_author_is_friend($op, &$query, $a1, $a2 = null) {
+  //dpm(func_get_args(), "fb_views_handler_author_is_friend");
+  // For convenience, allow 'current' for current user
+  if ($a2 == 'current') {
+    global $user;
+    $a2 = $user->uid;
+  }
+
+  if ($op == 'summary') {
+    // Ideally, we'd display all users who are known facebook users.  However, because the primary table is node, we can only show those who have actually posted content.
+    $query->add_table('fb_user_app', TRUE);
+    $query->add_where('fb_user_app.uid IS NOT NULL');
+    $query->add_table('users', true);
+    $query->add_field('name', 'users');
+    $query->add_field('uid', 'users');
+    $fieldinfo['field'] = "users.name";
+    return $fieldinfo;
+  }
+  else if ($op == 'filter') {
+    $fb_app = $GLOBALS['fb_app']; // Canvas pages only.
+    if (!$fb_app)
+      $fb_app = fb_get_app(array('nid' => $a1['options']));
+    
+    $uid = intval($a2);
+    $fbu = fb_get_fbu($uid, $fb_app);
+    
+    $friends = array();
+    
+    // On non-canvas pages, we have to work harder to get the facebook id.
+    if ($uid && !$fbu) {
+      // This code may never be reached.
+      $result = db_query("SELECT fbu FROM {fb_user_app} WHERE uid='%d'",
+                         $uid);
+      
+      while ($data = db_fetch_object($result)) {
+        $friends = array_merge($friends, fb_get_friends($data->fbu));
+      }
+    }
+    else
+      $friends = fb_get_friends($fbu, $fb_app);
+    
+    if (is_array($friends) && count($friends)) {
+      $query->add_table('fb_user_app', TRUE);
+      $query->add_where('fb_user_app.fbu IN (%s)', implode(',', $friends));
+    }
+    else {
+      // No friends found.  How best to handle this?
+      $query->add_where('0');
+    }
+  }
+  else if ($op == 'link') {
+    return l($query->name, "$a2/" . intval($query->uid));
+  }
+  else if ($op == 'title') {
+    if ($query == 'current') {
+      global $user;
+      $query = $user->uid;
+    }
+    $data = db_fetch_object(db_query("SELECT name FROM {users} WHERE uid = '%d'", $query));
+    return check_plain($data->name);
+    
+  }
+}
+
   /**
    * Introduce a theme style that mimics a facebook discussion board.
    * 
