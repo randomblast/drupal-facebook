@@ -100,8 +100,12 @@ function fb_init() {
  * 
  */
 function fb_api_init($fb_app, $fbu) {
-  static $cache = array();
+  //dpm(func_get_args(), "fb_api_init");
+  //$trace = debug_backtrace();
+  //dpm($trace, "fb_api_init call stack");
 
+  static $cache = array();
+  
   if (!count($cache)) {
     // Include FB API code.
     if (substr(phpversion(), 0, 1) == '4' || FB_USE_PHP4_API) {
@@ -120,62 +124,109 @@ function fb_api_init($fb_app, $fbu) {
   if (!$cache[$fb_app->apikey]) {
     $cache[$fb_app->apikey] = array();
   }
+  $fbu_orig = $fbu;
+
+  // Determine the actual facebook user id to use.
+  if ($GLOBALS['fb'] && $GLOBALS['fb']->validate_fb_params() &&
+      ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY ||
+       $fbu == $GLOBALS['fb']->get_loggedin_user())) {
+    return $GLOBALS['fb'];
+  }
+  else if (($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
+           && isset($_SESSION['fb_frame_params'])) {
+    $params = $_SESSION['fb_frame_params'];
+    $fbu = $params['user'];
+    $session = $params['session_key'];
+  }
+  else if ($fbu == FB_FBU_CURRENT && $GLOBALS['fb']) {
+    // No current user to use, probably anonymous canvas page.
+    return $GLOBALS['fb'];
+  }
+  else if ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
+    // Learn the infinite session id and key
+    $data = _fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION, array());
+    $fbu = $data[0];
+    $session = $data[1];
+  }
+  else {
+    // FB user id passed in.
+  }
   
   if (!$cache[$fb_app->apikey][$fbu]) {
+    // We don't have a cached resource for this app/user combo, so we're going to create one.
     $fb = new Facebook($fb_app->apikey, $fb_app->secret);
     
     // Iframes may link or redirect within the iframe, in which case facebook
     // will not provide all its normal variables.  To prepare for such a case,
     // we cache the facebook parameters in the session.
     // We update the cache whenever possible, to keep it current.
-    if ($fb->in_frame() && $fb->fb_params) {
-      $_SESSION['fb_frame_params'] = $fb->fb_params; // dangerous to use fb's internal data structure
+    if ($fb->in_frame() && $fb->validate_fb_params() && $fb->fb_params) {
+      $_SESSION['fb_frame_params'] = $fb->fb_params; // hacky to use fb's internal data structure
     }
-
-    if (($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
-        && $fb->get_loggedin_user()) {
-      // We're on a canvas page and we're already logged in.
-      
+    
+    // If we learned the session, above, use it
+    if ($fbu && $session) {
+      $fb->set_user($fbu, $session);
     }
-    else if (($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
-             && isset($_SESSION['fb_frame_params'])) {
-      $params = $_SESSION['fb_frame_params'];
-      $fb->set_user($params['user'], $params['session_key']);
-    }
-    else if ($fbu == FB_FBU_CURRENT) {
-      // No current user to use, probably anonymous canvas page.
-    }
-    else if ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
-      // Learn the infinite session id and key
-      $data = _fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION, array());
-      if (count($data) && $data[0] && $data[1]) {
-        $fb->set_user($data[0], $data[1]);
-      }
+    else if ($fbu && $fbu == $fb->get_loggedin_user() && $fb->validate_fb_params()) {
+      // Canvas page, current user is logged in already.
+      // Nothing to do here.
     }
     else {
-      // FB user id passed in.  If we happen to have session info for them, we
-      // can log in as them.
+      // FB user id passed in.  If we happen to have valid session info for
+      // them, we can log in as them.
       $data = _fb_invoke($fb_app, FB_OP_GET_USER_SESSION, array(), array('fbu' => $fbu));
+      
       if (count($data) && $data[0] && $data[1]) {
         $fb->set_user($data[0], $data[1]);
+        $fbu = $data[0];
       }
       
     }
+
+    // Cache the result, in case we're called again.
     $cache[$fb_app->apikey][$fbu] = $fb;
+    
     // Note that facebook api has not actually logged into facebook yet.
     // We won't really know if our session is valid until later.
     // get_loggedin_user does not really test it.
-    if ($fbu != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
+    if ($fbu_orig != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
       // An FBU other than CURRENT was specified, but we failed to log in.
       watchdog('fb', t('Failed to log into facebook app %app as user %user',
                        array('%app' => $fb_app->title,
-                             '%user' => $fbu)), WATCHDOG_ERROR);
+                             '%user' => $fbu_orig)), WATCHDOG_ERROR);
     }
   }
   
   $fb = $cache[$fb_app->apikey][$fbu];
   return $fb;
 }
+
+/**
+ * Wrapper function for fb_api_init.  This helps for functions that should
+ * work whether or not we are on a canvas page.  For canvas pages, the active
+ * fb object is used.  For non-canvas pages, it will initialize the API using
+ * an infinite session, if configured.
+ * 
+ * @param $fb_app Note this is ignored on canvas pages.
+ * 
+ * This is for internal use.  Third party modules use fb_api_init().
+ */
+function _fb_api_init($fb_app = NULL) {
+  $fb = $GLOBALS['fb']; // Default to active app on canvas pages
+  if (!$fb && $fb_app)
+    // Otherwise, log into facebook api.
+    $fb = fb_api_init($fb_app, FB_FBU_ANY);
+  
+  if (!$fb) {
+    watchdog('fb', t('%function unable to initialize Facebook API.',
+                     array('%function' => '_fb_api_init()')), WATCHDOG_ERROR);
+    return;
+  }
+  else
+    return $fb;
+}
+
 
 // deprecated
 function fb_init_pathXXX($fb_app, $restore = FALSE) {
@@ -298,19 +349,35 @@ function fb_get_all_apps() {
   return $apps;
 }
 
-// return array of facebook uids
-function fb_get_friends($fbu) {
+/**
+ * A convenience method for returning a list of facebook friends.  This should
+ * work efficiently in canvas pages for finding friends of the current user.
+ * In other cases it tries to work, but will be an expensive operation and
+ * only succeed when the user has created an infinite session.
+ * 
+ * @return: an array of facebook ids
+ */
+function fb_get_friends($fbu, $fb_app = NULL) {
   static $cache = array();
-  global $fb;
+  
+  // Facebook only allows us to query the current user's friends, so let's try
+  // to log in as that user.  It will only actually work if they are the
+  // current user of a canvas page, or they've signed up for an infinite
+  // session.
+  $fb = fb_api_init($fb_app, $fbu);
   if (!$fb || !$fbu)
     return;
 
   if (!isset($cache[$fbu])) {
-    if ($fbu == fb_facebook_user())
+    if ($fb == $GLOBALS['fb'] && $fbu == fb_facebook_user($fb))
       $items = $fb->api_client->friends_get();
     // friends_get does not work in cron call, so we double check.
     if (!$items || !count($items)) {
-      $result = $fb->api_client->fql_query("SELECT uid2 FROM friend WHERE uid1=$fbu");
+      $logged_in = fb_facebook_user($fb);
+      $query = "SELECT uid2 FROM friend WHERE uid1=$fbu";
+      $result = $fb->api_client->fql_query($query);
+      fb_report_errors($fb);
+      
       $items = array();
       if (is_array($result)) 
         foreach ($result as $data) {
@@ -321,7 +388,7 @@ function fb_get_friends($fbu) {
     // has no friends.  We need to clean that up.
     if (!$items[0])
       unset($items[0]);
-
+    
     $cache[$fbu] = $items;
   }
   
@@ -329,7 +396,7 @@ function fb_get_friends($fbu) {
 }
 
 // Return array of facebook gids
-function fb_get_groups($fbu) {
+function fb_get_groups($fbu, $fb_app = NULL) {
   $items = array();
   $groups = fb_get_groups_data($fbu);
 
@@ -340,9 +407,10 @@ function fb_get_groups($fbu) {
   return $items;
 }
 
-function fb_get_groups_data($fbu) {
+function fb_get_groups_data($fbu, $fb_app = NULL) {
   static $cache = array();
-  global $fb;
+
+  $fb = _fb_api_init($fb_app);
   if (!$fb || !$fbu)
     return;
   
