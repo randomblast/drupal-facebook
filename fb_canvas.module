@@ -369,6 +369,15 @@ function fb_canvas_process($output, $add_target = TRUE) {
       // patterns).
 	  $patterns[] = '|="'.$base_path."(?!{$fb_app->canvas})|";
 	  $replacements[] = '="'.$base_url.'/';
+
+      // Experimental!  Change 1234@facebook to an <fb:name> tag.  This is our
+      // default user name convention when creating new users.  Ideally, this
+      // would be accomplished with something like:
+      // http://drupal.org/node/102679.  In the meantime, this may help for
+      // canvas pages only.
+      $patterns[] = '|([\d]*)@facebook|';
+      $replacements[] = '<fb:name uid=$1 linked=false ifcantsee="$1@facebook" useyou=false />';
+      
 	}
 	else {
 	  // In iframe
