@@ -383,7 +383,7 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
       if ($fbu) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app, FB_FBU_ANY);
-        if (fb_facebook_user($fbggg)) {
+        if (fb_facebook_user($fb)) {
           $info = $fb->api_client->users_getInfo(array($fbu), 
                                                  array('about_me',
                                                        'affiliations',
