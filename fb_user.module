@@ -61,9 +61,18 @@ function fb_user_post_add_check() {
   }
   
   // redirect will be set if we've called $fb->require_add.  In this case
-  // we forward the user on, adding some useful information to the URL.
+  // we forward the user on.
   if ($_REQUEST['redirect']) {
-    _fb_user_sync_redirect($_REQUEST['redirect']);
+    if (function_exists('fb_canvas_fix_url')) {
+      // Redirect to a canvas page
+      $url = fb_canvas_fix_url($_REQUEST['redirect'], $fb_app);
+      if ($GLOBALS['facebook_config']['debug']) watchdog('fb_debug', "post_add_check redirecting to $url");
+      $fb->redirect($url);
+      exit();
+    }
+    else
+      // XXX is this still necessary?
+      _fb_user_sync_redirect($_REQUEST['redirect']);
   }
   // This function returns only if post add page needs to be rendered.  Otherwise user is redirected.
 }
@@ -81,6 +90,13 @@ function fb_user_post_add_check() {
  */
 function fb_user_post_add_cb() {
   global $fb, $fb_app, $user;
+
+  if ($GLOBALS['facebook_config']['debug']) {
+    watchdog('fb_debug', "New user has added an app, post-add callback called.");
+    if (function_exists('dprint_r'))
+      watchdog('fb_debug', "New user has added an app." . dprint_r($_REQUEST, 1));
+  }
+
 
   // Check that actually need to render this page.
   fb_user_post_add_check();  // Will exit() if user has been redirected.
@@ -208,21 +224,24 @@ function _fb_user_sync_redirect($redirect) {
                       'fbu' => fb_facebook_user(),
                       'fb_app' => $fb_app);
   // Generate a one-time key for cached data.  We used to use Facebook's
-  // auth_token here, hence the name in the url, but it's not always available
+  // auth_token here, but it's not always available
   // so better to generate our own.
   $key = uniqid('fb_user_');
   
   cache_set($key, 'cache', serialize($cache_data), CACHE_TEMPORARY);
   
   // Note that drupal_goto will fail here, but $fb->redirect succeeds.
-  $fb->redirect(url($redirect, 'auth_token='.$key, NULL, TRUE));
+  $url = url($redirect, 'sync_token='.$key, NULL, TRUE);
+  if ($GLOBALS['facebook_config']['debug']) watchdog('fb_debug', "Redirecting to $url");
+  
+  $fb->redirect($url);
   exit();
 }
 
 /**
  * The sync callback is invoked first on a canvas page, in which case we
  * require the user to add the application.  Later the user will be redirected
- * to this callback on the locale server, with an auth_token that allows us to
+ * to this callback on the locale server, with an token that allows us to
  * write the necessary row to the authmap table.
  */
 function fb_user_sync_cb() {
@@ -250,8 +269,8 @@ function fb_user_sync_cb() {
     $output = '';
     // On non canvas pages, we have returned to the local server.  Hopefully
     // the user has added the app and we can now sync the two accounts.
-    if ($_REQUEST['auth_token']) {
-      $key = $_REQUEST['auth_token'];
+    if ($_REQUEST['sync_token']) {
+      $key = $_REQUEST['sync_token'];
       $cache = cache_get($key);
       cache_clear_all($key, 'cache'); // So noone else uses this key
       $data = unserialize($cache->data);
