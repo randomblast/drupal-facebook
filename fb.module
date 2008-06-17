@@ -228,54 +228,6 @@ function _fb_api_init($fb_app = NULL) {
 }
 
 
-// deprecated
-function fb_init_pathXXX($fb_app, $restore = FALSE) {
-  // Here's one of the uglier parts...
-  // Fool url() function into linking back to facebook
-  // Note that elsewhere we get forms to submit directly to us by tweaking their action parameter.
-  global $base_path, $base_url;
-  // The old paths will actually be used to modify form actions.  That's why these are global as opposed to static.
-  global $fb_old_base_url, $fb_old_base_path;
-  // But we also support a stack of paths, in case we need to log into more than one app in a single request.
-  static $stack = array();
-  if (!$restore) {
-    if (!$fb_old_base_path) {
-      $fb_old_base_url = $base_url;
-      $fb_old_base_path = $base_path;
-    }
-    $original = array('base_url' => $base_url,
-                      'base_path' => $base_path);
-    
-    /**
-    $base_path = "/$fb_app->canvas/";
-    // TODO: make the "apps.facebook.com" part configurable.
-    $base_url = "http://apps.facebook.com/$fb_app->canvas";
-    
-    // New way:
-    $base_path = $fb_old_base_url . '/';
-    $base_url = '';
-    **/
-
-    if (!variable_get('clean_url', FALSE)) {
-      $original['clean_url'] = FALSE;
-      // Force clean URLs because links between canvas pages will work this way.
-      // In settings.inc we do this more cleanly.  However, for cron jobs this is necessary.
-      variable_set('clean_url', TRUE);
-    }
-    // Save settings so they may be restored
-    array_push($stack, $original);
-  }
-  else {
-    // restore original settings.
-    $original = array_pop($stack);
-    $base_url = $original['base_url'];
-    $base_path = $original['base_path'];  
-    if (isset($original['clean_url']))
-      variable_set('clean_url', $old_clean_url);
-  }
-}
-
-
 /**
  * Returns the facebook user id currently visiting a canvas page, or if set_user has been called.
  * Unlike fb_get_fbu(), works only on canvas pages or when infinite session has been initialized.
@@ -290,6 +242,8 @@ function fb_facebook_user($fb = NULL) {
   $fbu = $fb->get_loggedin_user();
   if ($fb->api_client->error_code) {
     watchdog('fb', 'Failed to get Facebook user id.', 'error');
+    if (function_exists('dprint_r'))
+      watchdog('fb', 'Failed to get Facebook user id.  detail:' . dprint_r($_REQUEST, 1), 'error');
   }
   return $fbu;
 }
@@ -626,5 +580,53 @@ function fb_report_exception($exception) {
   print "</pre>";
 
 }
+
+/**
+ * Helper function for facebook's users_getInfo API.
+ *
+ * This function makes calls to users_getInfo more efficient, by caching
+ * results in the session, so calls do not always require hitting Facebook's
+ * servers.
+ *
+ * Particularly useful when displaying user info on canvas pages, where
+ * <fb:user> tags are not available.
+ *
+ * @param $oids
+ * Array of facebook object IDs.  In this case they should each be a user id.
+ */
+function fb_users_getInfo($oids, $fb = NULL) {
+  if (!$fb) {
+    $fb = $GLOBALS['fb'];
+  }
+  $infos = array();
+
+  if ($fb) {
+    // First try cache
+    foreach ($oids as $oid) {
+      if ($info = $_SESSION['fb'][$fb->api_key]['userinfo'][$oid])
+        $infos[] = $info;
+      // else break
+    }
+    if (count($infos) != count($oids)) {
+      // Session cache did not include all users, update the cache.
+      $infos = $fb->api_client->users_getInfo($oids,
+                                              array('about_me',
+                                                    'affiliations',
+                                                    'name',
+                                                    'is_app_user',
+                                                    'pic_big',
+                                                    'profile_update_time',
+                                                    'status',
+                                                    ));
+      // Update cache with recent results.
+      foreach($infos as $info) {
+        $_SESSION['fb'][$fb->api_key]['userinfo'][$info['uid']] = $info;
+      }
+    }
+
+    return $infos;
+  }
+}
+
 
 ?>
