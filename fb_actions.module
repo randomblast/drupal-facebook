@@ -49,8 +49,9 @@ function fb_actions_action_info() {
 
 
 
-function fb_actions_minifeed($values = array(), &$object) {
-  // drupal_set_message("fb_actions_minifeed" . dpr($values, 1) . dpr($object, 1)); // debug
+function fb_actions_minifeed(&$object, $values = array()) {
+  //dpm(func_get_args(), 'fb_actions_minifeed');
+  
   if ($values['hook'] == 'nodeapi') {
     $node = $values['node'];
   }
@@ -90,6 +91,14 @@ function fb_actions_minifeed($values = array(), &$object) {
     $body = token_replace($body, 'comment', $comment);
     $body = token_replace($body, 'user', $account);
     $body = token_replace($body, 'fb_app', $fb_app);
+
+    // Rewrite links to reference canvas pages
+    if ($fb_app->canvas && function_exists('fb_canvas_process_fbml')) {
+      $title = fb_canvas_process_fbml($title, $fb_app);
+      $body = fb_canvas_process_fbml($body, $fb_app);
+    }
+
+
     $fb->api_client->feed_publishActionOfUser($title, $body);
     fb_report_errors($fb);
   }
@@ -151,7 +160,7 @@ function fb_actions_profile_fbml_form($values) {
   $form['body'] = array('#type' => 'textarea',
                         '#title' => t('Profile FBML'),
                         '#default_value' => $values['body'],
-                        '#description' => t('FBML to write to user\'s profile.<br />The following token will be replaced: !token_help',
+                        '#description' => t('FBML to write to user\'s profile.  Make sure to choose an input filter that allows FBML!<br />The following token will be replaced: !token_help',
                                             array('!token_help' => theme('token_help', 'fb_app'))),
   );
   $form['body_filter'] = filter_form($values['body_filter'],
@@ -168,8 +177,9 @@ function fb_actions_profile_fbml_submit($form_id, $values) {
                'body_filter' => $values['body_filter'],
   );
 }
-function fb_actions_profile_fbml($values, &$object) {
-  //drupal_set_message("fb_actions_profile_fbml" . dpr($values, 1) . dpr($object, 1));
+function fb_actions_profile_fbml(&$object, $values) {
+  //dpm(func_get_args(), "fb_actions_profile_fbml");
+
   if ($values['hook'] == 'nodeapi') {
     $node = $values['node'];
   }
@@ -180,21 +190,23 @@ function fb_actions_profile_fbml($values, &$object) {
   else if ($values['hook'] == 'user') {
     $account = $values['user']; // untested
   }
-
-  // Log into facebook as the current user.
-  if ($fb_app = $GLOBALS['fb_app'])
-    if ($values['fb_app_nid'] == FB_APP_CURRENT || 
-        $fb_app->nid == $values['fb_app_nid'])
-      // We're in a canvas page for the desired app.  We're already logged in.
-      $fb = $GLOBALS['fb'];
-  if (!$fb && $values['fb_app_nid'] != FB_APP_CURRENT) {
-    // Need to log into this app.
-    $fb_app = fb_get_app(array('nid' => $values['fb_app_nid']));
-    $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
+  
+  // Determine which app to use
+  if ($object) {
+    $fb_app = $object;
   }
-    
+  else if ($values['fb_app_nid'] && is_numeric($values['fb_app_nid'])) {
+    $fb_app = fb_get_app(array('nid' => $values['fb_app_nid']));
+  }
+  else if ($values['fb_app_nid'] == FB_APP_CURRENT) {
+    $fb_app = $GLOBALS['fb_app'];
+  }
+  
+  // Login to facebook as either the current user or the infinite session
+  if ($fb_app)
+    $fb = fb_api_init($fb_app, FB_FBU_ANY);
+  
   if ($fb && $fb->get_loggedin_user()) {
-    fb_init_path($fb_app);
     global $user;
     $fbu = fb_get_fbu($user->uid, $fb_app);
     // Replace fb_app related tokens
@@ -207,11 +219,17 @@ function fb_actions_profile_fbml($values, &$object) {
     $patterns[] = '/"'.str_replace('/','\/', $base_path).'([^"]*)"/';
     $replacements[] = '"'.$base_url.'/$1"';
     $body = preg_replace($patterns, $replacements, $body);
+    // Rewrite links to reference canvas pages
+    if ($fb_app->canvas && function_exists('fb_canvas_process_fbml')) {
+      $body = fb_canvas_process_fbml($body, $fb_app);
+    }
     
-    // print("Setting facebook profile markup for $user->name to " . dpr($body, 1));
+    if (variable_get('fb_actions_verbose', FALSE))
+      watchdog('fb_actions', t('Setting Facebook profile markup for !user to %body',
+                               array('!user' => theme('username', $user),
+                                     '%body' => htmlentities($body))));
     $fb->api_client->profile_setFBML($body, $fbu);
     fb_report_errors($fb);
-    fb_init_path($fb_app, TRUE);
   }
 }
 
@@ -237,7 +255,7 @@ function fb_actions_ref_fbml_form($values) {
                           '#default_value' => $values['handle'],
   );
   $form['body'] = array('#type' => 'textarea',
-                        '#title' => t('Profile FBML'),
+                        '#title' => t('Reference FBML'),
                         '#default_value' => $values['body'],
                         '#description' => t('FBML to write to user\'s profile.<br />The following token will be replaced: !token_help',
                                             array('!token_help' => theme('token_help', 'fb_app'))),
@@ -251,12 +269,13 @@ function fb_actions_ref_fbml_validate($form_id, $values) {
   // TODO
 }
 function fb_actions_ref_fbml_submit($form_id, $values) {
-  return array('handle' => $values['handle'],
+  return array('fb_app_nid' => $values['fb_app_nid'],
+               'handle' => $values['handle'],
                'body' => $values['body'],
                'body_filter' => $values['body_filter'],
   );
 }
-function fb_actions_ref_fbml($values, &$object) {
+function fb_actions_ref_fbml(&$object, $values) {
   if ($values['hook'] == 'nodeapi') {
     $node = &$object;
   }
@@ -281,14 +300,20 @@ function fb_actions_ref_fbml($values, &$object) {
   }
   
   // This will be set on canvas pages and Facebook App cron actions.
-  if ($fb) {
-    fb_init_path($fb_app);
+  if ($fb && $fb_app) {
     // Replace fb_app related tokens
     $body = token_replace($values['body'], 'fb_app', $fb_app);
+
     $body = check_markup($body, $values['body_filter'], FALSE);
+    if ($fb_app->canvas && function_exists('fb_canvas_process_fbml')) {
+      $body = fb_canvas_process_fbml($body, $fb_app);
+    }
+    if (variable_get('fb_actions_verbose', FALSE))
+      watchdog('fb_actions', t('Setting Facebook ref FBML for %handle to %body',
+                               array('%handle' => $values['handle'],
+                                     '%body' => htmlentities($body))));
     $fb->api_client->fbml_setRefHandle($values['handle'], $body);
     fb_report_errors($fb);
-    fb_init_path($fb_app, TRUE); // Restore old paths
   }
 }
 
@@ -302,7 +327,7 @@ function fb_actions_cron_per_user_form($values) {
           '#title' => t('Application'),
           '#multiple' => TRUE,
           '#required' => TRUE,
-          '#default_value' => $values['fb_app_nid'],
+          '#default_value' => $values['fb_app_nids'],
           '#options' => $options,
           '#description' => t('Perform these actions for each user of which applications?'),
     );
@@ -333,11 +358,13 @@ function fb_actions_cron_per_user_submit($form_id, $values) {
                'throttle' => $values['throttle'],
   );
 }
-function fb_actions_cron_per_user($values, $obj) {
+function fb_actions_cron_per_user($obj, $values) {
+  //$args = func_get_args();
+  //watchdog('fb_action_debug', "fb_actions_cron_per_user" . dpr($args, 1), WATCHDOG_ERROR);
+
   foreach ($values['fb_app_nids'] as $nid) {
     $fb_app = fb_get_app(array('nid' => $nid));
     // Set paths as if on a canvas page.
-    fb_init_path($fb_app);
 
     // perform per-user actions
     // Save current settings
@@ -352,8 +379,11 @@ function fb_actions_cron_per_user($values, $obj) {
     while ($data = db_fetch_object($result)) {
       // Log into facebook as the user from the database
       $account = fb_user_get_local_user($data->fbu, $fb_app);
+      if (variable_get('fb_actions_verbose', FALSE))
+        watchdog('fb_action_debug', "fb_actions_cron_per_user fbu is $data->fbu, local user is " . theme('username', $account), WATCHDOG_ERROR);
+      
       if (!$account || !$account->uid) {
-        watchdog('fb cron', t('Facebook user %fbu does not correspond to a local account.  Purging bad data from Facebook User table.',
+        watchdog('fb cron', t('Facebook user %fbu does not correspond to a local account.',
                               array('%fbu' => $data->fbu)));
         //db_query("DELETE FROM {fb_user_app} WHERE apikey='%s' AND fbu = %d",
         //         $fb_app->apikey,
@@ -397,7 +427,6 @@ function fb_actions_cron_per_user($values, $obj) {
     $GLOBALS['fb'] = $before_fb;
     $GLOBALS['fb_app'] = $before_fb_app;
     
-    fb_init_path($fb_app, TRUE); // restore original path settings.
   }
 }
 
@@ -561,6 +590,15 @@ function action_fb_set_ref_fbml($op, $edit = array(), $fb_app) {
   else if ($op == 'form') {
     $options = fb_get_app_options(TRUE);
     $form['description'] = array('#value' => t('This action will update reference FBML.  See Facebook\'s documentation of the &lt;fb:ref&gt; tag.  Suitable for canvas pages and cron jobs (if infinite session is configured).'));
+    $form['fb_app_nid'] = 
+      array('#type' => 'select',
+            '#title' => t('Application'),
+            '#default_value' => $edit['fb_app_nid'],
+            '#options' => $options,
+            '#description' => t('Log into Facebook as which application?  %current is OK when invoked from canvas pages or cron jobs.',
+                                array('%current' => $options[FB_APP_CURRENT])),
+      );
+    
     $form['handle'] = array('#type' => 'textfield',
                             '#title' => t('Handle'),
                             '#default_value' => $edit['handle'],
