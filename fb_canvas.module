@@ -1,15 +1,15 @@
 <?php
-  /**
-   * @file
-   * 
-   * This module provides some app-specific navigation to facebook apps.  This
-   * is fairly experimental material.  May change a lot in near future.
-   * 
-   */
+/**
+ * @file
+ * 
+ * This module provides some app-specific navigation to facebook apps.  This
+ * is fairly experimental material.  May change a lot in near future.
+ * 
+ */
 
-  /**
-   * Implementation of hook_fb.
-   */
+/**
+ * Implementation of hook_fb.
+ */
 function fb_canvas_fb($fb, $fb_app, $op, &$return) {
   if ($op == FB_OP_INITIALIZE) {
     // Get our configuration settings.
@@ -94,7 +94,7 @@ function fb_canvas_fb($fb, $fb_app, $op, &$return) {
       }
     }
   }
-}
+  }
 
 
 /**
@@ -113,8 +113,8 @@ function fb_canvas_form_alter($form_id, &$form) {
     $fb_canvas_data = array_merge(array('theme_fbml' => 'fb_fbml',
                                         'theme_iframe' => 0),
                                   $fb_canvas_data);
-
-
+    
+    
     $form['fb_app_data']['fb_canvas'] = array('#type' => 'fieldset',
                                               '#collapsible' => TRUE,
                                               '#collapsed' => TRUE,
@@ -163,8 +163,8 @@ function fb_canvas_form_alter($form_id, &$form) {
             '#options' => $secondary_options,
             '#description' => t('If you select the same menu as primary links then secondary links will display the appropriate second level of your navigation hierarchy.'),
       );
-
-
+    
+    
     // Override themes
     $themes = system_theme_data();
     ksort($themes);
@@ -190,7 +190,7 @@ function fb_canvas_form_alter($form_id, &$form) {
       );
   }
   
-
+  
   global $fb, $fb_app;
   // We will send all form submission directly to us, not via
   // apps.facebook.com/whatever.
@@ -207,11 +207,11 @@ function fb_canvas_form_alter($form_id, &$form) {
     }
     $form['#action'] = _fb_canvas_make_form_action_local($form['#action']);
     // Let's hope no subsequent hook_form_alters mess with #action.
+
   }
   else if (fb_canvas_is_iframe()) {
     //dpm($form, 'fb_canvas_form_alter');
   }
-
 }
 
 function fb_canvas_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
@@ -279,7 +279,7 @@ function _fb_canvas_make_form_action_local($action) {
 /**
  * Convert a local fully qualified path to a facebook app path.  This needs to
  * be used internally, to fix drupal_gotos upon form submission.  Third party
- * module should not need to call this, I believe.
+ * modules should not need to call this, I believe.
  */
 function fb_canvas_fix_url($url, $fb_app) {
 
@@ -339,6 +339,21 @@ function fb_canvas_secondary_links() {
     return menu_secondary_links();
 }
 
+/**
+ * This function uses regular expressions to convert links on canvas pages 
+ * to URLs that begin http://apps.facebook.com/...  
+ * 
+ * Call this method from themes when producing either FBML or iframe canvas
+ * pages.  This is a relatively expensive operation.  Its unfortunate that we
+ * must do it on every page request.  However to the best of my knowledge,
+ * Drupal provides no better way.
+ * 
+ * @param $output is the page (or iframe block) about to be returned.
+ * 
+ * @param $add_target will cause target=_top to be added when producing an
+ * iframe.
+ * 
+ */
 function fb_canvas_process($output, $add_target = TRUE) {
   global $base_path, $base_url;
   global $fb, $fb_app;
@@ -408,6 +423,37 @@ function fb_canvas_process($output, $add_target = TRUE) {
 	  //$replacements[] = "=\"{$base_path}fb_canvas/{$page_type}/{$nid}/\"";	 // XXX
 	}
   }
+  if (count($patterns)) {
+	$return = preg_replace($patterns,
+						   $replacements,
+						   $output);
+	
+	return $return;
+  }
+  else
+	return $output;
+}
+ 
+//This API needs testing and may need to be improved...
+/**
+ * Similar to fb_canvas_process, this also uses regular expressions to alter
+ * link destinations.  Use this function when producing FBML for a profile box
+ * or news feed, and the pages need to link to canvas pages rather than the
+ * default URL.
+ * 
+ */
+function fb_canvas_process_fbml($output, $fb_app) {
+  $patterns = array();
+  $replacements = array();
+
+  $base = url();  // short URL with rewrite applied.
+
+  if ($fb_app->canvas) {
+    // Change links to use canvas on Facebook
+    $patterns[] = "|href=\"{$base}|";
+    $replacements[] = "href=\"http://apps.facebook.com/{$fb_app->canvas}/";
+  }
+
   if (count($patterns)) {
 	$return = preg_replace($patterns,
 						   $replacements,
