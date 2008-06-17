@@ -146,7 +146,7 @@ function theme_views_fb_discussion($view, $nodes, $type) {
       $reply_count = format_plural($data->node_comment_statistics_comment_count+1, '1 post', '@count posts');
 
       $output .= '<div style="padding: 10px 20px 10px 5px; border-bottom: 1px solid #cccccc;">';
-      $output .= '<div style="font-weight: bold; font-size: 10px;">'.l($data->node_title, 'node/'.$data->nid, array(), NULL, NULL, TRUE)."</div><div style=\"font-size: 9px;\"><span style=\"color: #333333;\">$reply_count</span><span style=\"color: #888888; margin-left: 5px;\">Updated ". format_interval(time() - $data->node_comment_statistics_last_comment_timestamp)." ago.</span></div>\n";
+      $output .= '<div style="font-weight: bold; font-size: 10px;">'.l($data->node_title, 'node/'.$data->nid, array(), NULL, NULL, FALSE)."</div><div style=\"font-size: 9px;\"><span style=\"color: #333333;\">$reply_count</span><span style=\"color: #888888; margin-left: 5px;\">Updated ". format_interval(time() - $data->node_comment_statistics_last_comment_timestamp)." ago.</span></div>\n";
       $output .= "</div>\n";
     }
   }
@@ -211,7 +211,7 @@ function theme_views_fb_teasers($view, $nodes, $type) {
   foreach ($nodes as $data) {
     $node = node_load($data->nid);
     $output .= '<div style="padding: 10px 20px 10px 5px; border-bottom: 1px solid #cccccc;">';
-    $output .= '<div style="font-weight: bold; font-size: 10px;">'.l($node->title, 'node/'.$data->nid, array(), NULL, NULL, TRUE)."</div>";
+    $output .= '<div style="font-weight: bold; font-size: 10px;">'.l($node->title, 'node/'.$data->nid, array(), NULL, NULL, FALSE)."</div>";
     $node = node_build_content($node, TRUE, FALSE);
     $output .= drupal_render($node->content);
     $output .= "</div>\n";
