@@ -32,7 +32,7 @@ function fb_devel_fb($fb, $fb_app, $op, &$return, $data) {
     // Theme sanity check
     global $theme; // for debug message
     if (isset($theme)) {
-      $message = t('!drupal_for_facebook is unable to override the theme settings.  This is usually because some module causes theme_init() to be invoked before fb_init().  See the !readme.',
+      $message = t('Drupal for Facebook is unable to override the theme settings.  This is usually because some module causes theme_init() to be invoked before fb_init().  See the !readme.',
                    array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
                          // This link should work with clean URLs
                          // disabled.
@@ -51,16 +51,21 @@ function fb_devel_fb($fb, $fb_app, $op, &$return, $data) {
 function _fb_debug_cb() {
   global $fb, $fb_app;
   global $user;
+
+  if ($_REQUEST['require_login'])
+    $fb->require_login();
+  else if ($_REQUEST['require_add'])
+    $fb->require_add();
   
   if ($fb) {
     // These will work in a canvas page.
     drupal_set_message("in_fb_canvas returns " . $fb->in_fb_canvas());
     drupal_set_message("get_loggedin_user returns " . $fb->get_loggedin_user());
     drupal_set_message("current_url returns " . $fb->current_url());
-  
+    
     drupal_set_message("base_url: " . $GLOBALS['base_url']);
     drupal_set_message("base_path: " . $GLOBALS['base_path']);
-
+    drupal_set_message("session_key is " . $fb->api_client->session_key);
   }
 
   dpm(fb_get_fbu($user), 'Facebook user via fb_get_fbu');
@@ -120,6 +125,7 @@ function fb_devel_canvas_info() {
 
   $info['request'] = $_REQUEST;
   $info['fb_app'] = $fb_app;
+  $info['session'] = $_SESSION;
 
   $form = array();
   foreach ($info as $key => $val) {
