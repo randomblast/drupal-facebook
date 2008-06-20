@@ -1,4 +1,5 @@
 <?php
+  // $Id$
 
   // hook_fb
 define('FB_HOOK', 'fb');
@@ -42,6 +43,30 @@ define('FB_USE_PHP4_API', variable_get('fb_use_php4_api', TRUE)); // Force the u
 function fb_init() {
   global $fb, $fb_app, $fb_app_node; // Set by this function.
 
+  // Session sanity check.  This is relevant on iframe pages when user once
+  // had the app added, but has since removed it.  This is a bit of a hack
+  // because we rely on the fb_... params passed by facebook.
+  if ($_SESSION['fb_frame_params'] &&
+      $_REQUEST['fb_sig']) {
+    if ($_REQUEST['fb_sig_session_key'] != $_SESSION['fb_frame_params']['session_key']) {
+      // The session key from facebook has changed.  Treat this as a new session.
+      $req = array();
+      foreach ($_REQUEST as $key => $val) {
+        if (strpos($key, 'fb_') === 0)
+          $req[] = $key . '=' . $val;
+      }
+      $url = url($_REQUEST['q'], implode('&', $req), NULL, TRUE);
+      if (fb_verbose())
+        watchdog('fb_debug', t('Facebook session key was %old, now %new.  Destroying session and sending user to %url.',
+                               array('%old' => $_SESSION['fb_frame_params']['session_key'],
+                                     '%new' => $_REQUEST['fb_sig_session_key'],
+                                     '%url' => $url)));
+      
+      session_destroy();
+      drupal_goto($url);
+    }
+  }
+  
   // Perform sanity check, help users who skip the README.
   if (!variable_get('fb_settings_check', FALSE) && user_access('access administration pages')) {
     drupal_set_message(t('!drupal_for_facebook has been enabled, but not properly installed.  Please read the !readme.',
@@ -125,7 +150,7 @@ function fb_api_init($fb_app, $fbu) {
     $cache[$fb_app->apikey] = array();
   }
   $fbu_orig = $fbu;
-
+  
   // Determine the actual facebook user id to use.
   if ($GLOBALS['fb'] && $GLOBALS['fb']->validate_fb_params() &&
       ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY ||
@@ -133,7 +158,7 @@ function fb_api_init($fb_app, $fbu) {
     return $GLOBALS['fb'];
   }
   else if (($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
-           && isset($_SESSION['fb_frame_params'])) {
+           && isset($_SESSION['fb_frame_params']) && !$_REQUEST['fb_sig']) {
     $params = $_SESSION['fb_frame_params'];
     $fbu = $params['user'];
     $session = $params['session_key'];
@@ -151,7 +176,7 @@ function fb_api_init($fb_app, $fbu) {
   else {
     // FB user id passed in.
   }
-  
+
   if (!$cache[$fb_app->apikey][$fbu]) {
     // We don't have a cached resource for this app/user combo, so we're going to create one.
     $fb = new Facebook($fb_app->apikey, $fb_app->secret);
@@ -628,5 +653,7 @@ function fb_users_getInfo($oids, $fb = NULL) {
   }
 }
 
-
+function fb_verbose() {
+  return variable_get('fb_verbose', NULL);
+}
 ?>
