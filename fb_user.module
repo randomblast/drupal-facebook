@@ -66,7 +66,7 @@ function fb_user_post_add_check() {
     if (function_exists('fb_canvas_fix_url')) {
       // Redirect to a canvas page
       $url = fb_canvas_fix_url($_REQUEST['redirect'], $fb_app);
-      if ($GLOBALS['facebook_config']['debug']) watchdog('fb_debug', "post_add_check redirecting to $url");
+      if (fb_verbose()) watchdog('fb_debug', "post_add_check redirecting to $url");
       $fb->redirect($url);
       exit();
     }
@@ -90,8 +90,8 @@ function fb_user_post_add_check() {
  */
 function fb_user_post_add_cb() {
   global $fb, $fb_app, $user;
-
-  if ($GLOBALS['facebook_config']['debug']) {
+  
+  if (fb_verbose()) {
     watchdog('fb_debug', "New user has added an app, post-add callback called.");
     if (function_exists('dprint_r'))
       watchdog('fb_debug', "New user has added an app." . dprint_r($_REQUEST, 1));
@@ -209,9 +209,17 @@ function fb_user_post_add_form_submit($form_id, $values) {
  */
 function fb_user_post_remove_cb() {
   global $fb, $fb_app, $user;
-  watchdog('debug', 'fb_user_post_remove_cb' . dprint_r($_REQUEST, 1) . dprint_r($user, 1) . dprint_r($fb_app, 1));
+  if (fb_verbose()) watchdog('debug', 'fb_user_post_remove_cb, session_id is ' . session_id() . ' session_name is ' . session_name() . dprint_r($_REQUEST, 1) . dprint_r($user, 1) . dprint_r($fb_app, 1));
+  
   // Update our database to reflect application is NOT added
   _fb_user_track($fb, $fb_app, $user);
+
+  // TODO: invoke hook_fb to let other modules know about removal
+  
+  // Ideally, we would destroy the user's session here.  However the session
+  // currently active is not the same as the user's.  We have no robust way to
+  // delete their session.
+  
   // Nothing to return
   exit();
 }
@@ -232,7 +240,7 @@ function _fb_user_sync_redirect($redirect) {
   
   // Note that drupal_goto will fail here, but $fb->redirect succeeds.
   $url = url($redirect, 'sync_token='.$key, NULL, TRUE);
-  if ($GLOBALS['facebook_config']['debug']) watchdog('fb_debug', "Redirecting to $url");
+  if (fb_verbose()) watchdog('fb_debug', "Redirecting to $url");
   
   $fb->redirect($url);
   exit();
