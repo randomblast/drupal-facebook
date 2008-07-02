@@ -431,11 +431,11 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
           $fb_user_data['new_user_rid'] && !$user->roles[$fb_user_data['new_user_rid']]) {
         // there should be an API for this...
         db_query('INSERT INTO {users_roles} (uid, rid) VALUES (%d, %d)', 
-                 $user->uid, $fb_app->rid);
+                 $user->uid, $fb_user_data['new_user_rid']);
         watchdog('fb_user', t("Added role %role to existing user !username for application %app",
                               array('!username' => theme('username', $user),
                                     '%app' => $fb_app->label,
-                                    '%role' => $fb_app->rid)));
+                                    '%role' => $fb_user_data['new_user_rid'])));
         // Here, we need to somehow refresh the user's permissions! Otherwise
         // they won't take effect until next page.
         // sess_regenerate() doesn't seem to do it.

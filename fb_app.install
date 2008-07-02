@@ -21,7 +21,6 @@ canvas varchar(128) NOT NULL,
 require_login int(4) NOT NULL,
 create_account int(4) NOT NULL,
 unique_account int(4) NOT NULL,
-rid int(10) unsigned NOT NULL,
 data longtext,
 PRIMARY KEY (nid),
 UNIQUE KEY (apikey)

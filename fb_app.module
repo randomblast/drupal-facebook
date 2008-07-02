@@ -256,28 +256,21 @@ function theme_dl($items) {
 function fb_app_insert($node) {
   //drupal_set_message("fb_app_insert" . dpr($node,1));
   $fb_app = (object) $node->fb_app;
-  
-  // Create a new role for users of this account
-  // Might be more clean to programatically fill out the add role form
-  $role_name = $fb_app->label . ' user';
-  db_query("INSERT INTO {role} (name) VALUES ('%s')", $role_name);
-  $role = db_fetch_object(db_query("SELECT * FROM {role} WHERE name='%s'",
-                                   $role_name));
 
   $data = serialize($node->fb_app_data);
   
-  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, require_login, create_account, unique_account, rid, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, %d, %d, %d, '%s')",
+  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, require_login, create_account, unique_account, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, %d, %d, '%s')",
            $node->nid, $fb_app->label, $fb_app->apikey, $fb_app->secret,
            $fb_app->id,
            $fb_app->canvas, $fb_app->require_login, $fb_app->create_account, 
-           $fb_app->unique_account, $role->rid, $data
+           $fb_app->unique_account, $data
   );
 
   _fb_app_blocks_update($node);
 
-  watchdog('fb_app', t('Created Facebook Application %label.  Created role %role.',
+  watchdog('fb_app', t('Created Facebook Application %label.',
                        array('%label' => $fb_app->label,
-                             '%role' => $role_name)),
+                       )),
            WATCHDOG_NOTICE,
            l($node->title, 'node/'.$node->nid));
   
@@ -311,9 +304,6 @@ function fb_app_update($node) {
   _fb_app_blocks_update($node);  
 }
 function fb_app_delete($node) {
-  // TODO: clean up users, permissions
-  db_query('DELETE FROM {role} WHERE rid=%d',
-           $node->fb_app->rid);
   db_query('DELETE FROM {fb_app} WHERE nid=%d',
            $node->nid);
   db_query('DELETE FROM {fb_app_block} WHERE nid=%d', $node->nid);
