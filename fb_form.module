@@ -33,9 +33,9 @@ function fb_form_menu($may_cache) {
  */
 function fb_form_form_alter($form_id, &$form) {
   // Drupal allows no clean way to set $form['#type'], so we hack...
-  if ($type = $form['#type_hack']) {
+  if ($type = $form['#fb_form_type_hack']) {
     $form['#type'] = $type;
-    unset($form['#type_hack']);
+    unset($form['#fb_form_type_hack']);
   }
 }
 
@@ -93,9 +93,6 @@ function fb_form_multi_add_invite_form() {
         $arFriends .= $rs[$i]["uid"];
       }
     }
-    
-    //  Construct a next url for referrals
-    $sNextUrl = urlencode("&refuid=".$user);
   }
 
   // Use node body in invite message.
@@ -103,13 +100,13 @@ function fb_form_multi_add_invite_form() {
   $node = node_prepare($node);
   $content = $node->teaser;
 
-  if ($fb_app->id) {
-    $content .= "<fb:req-choice url=\"http://www.facebook.com/add.php?api_key={$fb_app->id}&next={$sNextUrl}\" label=\"" . t('Add !title application.',
-                                                                                                                             array('!title' => $fb_app->title)) . " />";
+  // Do we need to append &next=[someURL] to the url here?
+  $content .= "<fb:req-choice url=\"http://www.facebook.com/add.php?api_key={$fb_app->api_key}\" label=\"" . t('Add !title application.',
+                                                                                                               array('!title' => $fb_app->title)) . " />";
   }
 
   // form type fb:request-form
-  $form = array('#type_hack' => 'fb_form_request', // becomes #type during form_alter
+  $form = array('#fb_form_type_hack' => 'fb_form_request', // becomes #type during form_alter
                 '#attributes' =>
                 array('type' => $fb_app->title,
                       'content' => htmlentities($content),
