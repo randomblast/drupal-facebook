@@ -61,9 +61,9 @@ function fb_form_invite_page() {
     drupal_set_title(t('Invite friends to use %application',
                        array('%application' => $fb_app->title)));
   }
-
+  
   $output = drupal_get_form('fb_form_multi_add_invite_form');
-
+  
   return $output;
 }
 
@@ -94,26 +94,25 @@ function fb_form_multi_add_invite_form() {
       }
     }
   }
-
+  
   // Use node body in invite message.
   $node = node_load($fb_app->nid);
   $node = node_prepare($node);
   $content = $node->teaser;
-
+  
   // Do we need to append &next=[someURL] to the url here?
   $content .= "<fb:req-choice url=\"http://www.facebook.com/add.php?api_key={$fb_app->api_key}\" label=\"" . t('Add !title application.',
                                                                                                                array('!title' => $fb_app->title)) . " />";
-  }
-
+  
   // form type fb:request-form
   $form = array('#fb_form_type_hack' => 'fb_form_request', // becomes #type during form_alter
-                '#attributes' =>
-                array('type' => $fb_app->title,
-                      'content' => htmlentities($content),
-                      'invite' => 'true'),
+                                                           '#attributes' =>
+                                                           array('type' => $fb_app->title),
+                'content' => htmlentities($content),
+                'invite' => 'true',
                 '#action' => 'http://apps.facebook.com/' . $fb_app->canvas,
   );
-
+  
   $form['friends'] =
     array('#type' => 'fb_form_request_selector',
           '#title' => t('Select the friends to invite.'),
