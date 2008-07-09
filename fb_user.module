@@ -1,4 +1,5 @@
 <?php
+// $Id$
 
 /**
  * @file
@@ -391,6 +392,9 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
     // If we know the user's fbu, try to load the corresponding local account.
     $fbu = fb_facebook_user();
     if ($fbu) {
+      // Remember the original uid (probably 0 for anonymous)
+      $original_uid = $user->uid;
+
       if ($user->fbu != $fbu) {
         // Try the application-specific account.
         $account = user_external_load("$fbu-$fb_app->apikey@facebook.com");
@@ -436,10 +440,16 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
                               array('!username' => theme('username', $user),
                                     '%app' => $fb_app->label,
                                     '%role' => $fb_user_data['new_user_rid'])));
-        // Here, we need to somehow refresh the user's permissions! Otherwise
-        // they won't take effect until next page.
-        // sess_regenerate() doesn't seem to do it.
-        // Perhaps we need to do a goto???
+      }
+
+      if ($user->uid != $original_uid) {
+        // We've changed the user.  In order to ensure that drupal handles permissions properly, the user must make the request all over again.
+        if (function_exists('fb_canvas_fix_url')) {
+          // Redirect to a canvas page
+          $url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), NULL, NULL, TRUE), $fb_app);
+          if (fb_verbose()) watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $url to ensure permissions are correct."); // debug
+          $fb->redirect($url);
+        }
       }
       
       // Keep a record of when user accesses app, and whether they have added it.
