@@ -653,7 +653,36 @@ function fb_users_getInfo($oids, $fb = NULL) {
   }
 }
 
+/**
+ * Helper function for FBJS files.
+ * 
+ * Useful for adding Facebook Javascript, which will be incorporated into
+ * canvas pages or profile boxes.  When included this way, javascript must be
+ * embedded inline, rather than refer to an external URL.  So this function
+ * will actually read a local file and include the contents inline.
+ */
+function fb_add_js($filename) {
+  static $first_time;
+  if (!$first_time) {
+    $baseUrl = url('', NULL, NULL, TRUE);
+    drupal_add_js(array('fbjs' => array('baseUrlFb' => $baseUrl,
+                                        'baseUrl' => fb_scrub_urls($baseUrl),
+                        ),
+                  ),
+                  'setting', 'fbjs'
+    );
+  }
+  $fh = fopen($filename, 'r');
+  $js = fread($fh, filesize($filename));
+  fclose($fh);
+  drupal_add_js($js, 'inline', 'fbjs');
+}
+
+/**
+ * For debugging, add $conf['fb_verbose'] = TRUE; to settings.php.
+ */
 function fb_verbose() {
   return variable_get('fb_verbose', NULL);
 }
+
 ?>

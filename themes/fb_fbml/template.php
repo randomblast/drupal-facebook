@@ -15,7 +15,13 @@ function _phptemplate_variables($hook, $vars = array()) {
   global $fb_app, $user;
 
   if ($hook == 'page') {
+	// Include styles inline.  Facebook does not allow use to refer to
+	// them in the header.
     $vars['styles'] = _phptemplate_callback('styles', $vars);
+
+	// Include only Facebook aware javascript.
+	$vars['fbjs'] = drupal_get_js('fbjs');
+
 
     // Enforce that only admins see admin block.  This can be done (more
     // cleanly?) elsewhere.  But we're doing it here to make sure.
@@ -118,7 +124,8 @@ function phptemplate_menu_local_tasks() {
 // collapsing fieldsets
 function phptemplate_fieldset($element) {
   global $fb;
-  if ($fb && $fb->in_fb_canvas()) {
+  if (($fb && $fb->in_fb_canvas()) ||
+	  (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml())) {
 	
 	static $count = 0;
 	
@@ -153,8 +160,8 @@ function phptemplate_fieldset($element) {
   } 
   else
 	$output = theme_fieldset($element);
-
-	return $output;
+  
+  return $output;
 }
 
 ?>

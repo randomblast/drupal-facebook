@@ -1,4 +1,29 @@
 <?php print $styles; ?>
+<?php if ($fbjs) { ?>
+	<script><!--
+	// Javascript
+
+	var Drupal = Drupal || {};
+
+	/**
+	 * Extends the current object with the parameter. Works recursively.
+	 */
+	Drupal.extend = function(obj) {
+	  for (var i in obj) {
+		if (this[i]) {
+		  Drupal.extend.apply(this[i], [obj[i]]);
+		}
+		else {
+		  this[i] = obj[i];
+		}
+	  }
+	};
+	--></script>
+
+	<?php print $js_settings ?>
+	<?php print $fbjs ?>
+
+<?php } ?>
 <div class="page-wrap <?php print $body_classes?>">
 <div id="canvas-header" class="header">
 <?php print $breadcrumb; ?>

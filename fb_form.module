@@ -32,12 +32,61 @@ function fb_form_menu($may_cache) {
  * hook_form_alter.
  */
 function fb_form_form_alter($form_id, &$form) {
-  // Drupal allows no clean way to set $form['#type'], so we hack...
+  // Drupal allows no clean way to set $form['#type'], so we hack.
+
   if ($type = $form['#fb_form_type_hack']) {
     $form['#type'] = $type;
     unset($form['#fb_form_type_hack']);
   }
+
+  // Support for ahah (see ahah_forms.module)
+  if (function_exists('fb_canvas_is_fbml') &&
+      fb_canvas_is_fbml()) {
+    $form['#after_build'][] =  'fb_ahah_bind_form';
+  }
+  
 }
+
+/**
+ * Support for AHAH in forms.
+ * 
+ * This is intended to be compatible with the syntax of ahah_forms.module.
+ * However, much of what that module does requires jquery.  In FBML we have to
+ * jquery and are therefor limited in what we can support.  For example, we
+ * only support the id selectors, you can't specify selector in your
+ * ahah_bindings.
+ */
+function fb_ahah_bind_form( $form ) {	
+  // Facebook javascript appears to work only when the user is logged in.  Not
+  // sure whether this is on purpose or not.  So we only activate AHAH when
+  // user is logged in.
+  global $fb;
+  if ($fb && $fb->api_client->added && function_exists('ahah_forms_scan_form_children')) {
+    $bindings = array();	
+    ahah_forms_scan_form_children( $form, $form['#id'],  $bindings );
+    //	drupal_set_message( "After Scan: Wrapper Bindings = " . dprint_r( $bindings, TRUE ) ); 
+    
+    if( count( $bindings ) > 0 ) {
+      //add in required javascript files
+      $module_path = drupal_get_path('module', 'ahah_forms');
+      
+      fb_add_js(drupal_get_path('module', 'fb_form') . '/fb_ahah_forms.js');
+      
+      drupal_add_js( 
+                    array( 
+                          'ahah' => array(
+                                          'basePaths' => array( 'base' => base_path(), 'module' => $module_path ), 
+                                          'bindings' => array( $bindings ),
+                          ),
+                    ),
+                    'setting', 'fbjs'
+      );
+    }
+  }
+  
+  return $form;
+}
+
 
 /**
  * Create a page to invite friends to add an app.
