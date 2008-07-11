@@ -57,6 +57,7 @@ function fb_form_form_alter($form_id, &$form) {
  * ahah_bindings.
  */
 function fb_ahah_bind_form( $form ) {	
+  static $one_time_only;
   // Facebook javascript appears to work only when the user is logged in.  Not
   // sure whether this is on purpose or not.  So we only activate AHAH when
   // user is logged in.
@@ -67,20 +68,34 @@ function fb_ahah_bind_form( $form ) {
     //	drupal_set_message( "After Scan: Wrapper Bindings = " . dprint_r( $bindings, TRUE ) ); 
     
     if( count( $bindings ) > 0 ) {
-      //add in required javascript files
-      $module_path = drupal_get_path('module', 'ahah_forms');
-      
-      fb_add_js(drupal_get_path('module', 'fb_form') . '/fb_ahah_forms.js');
-      
-      drupal_add_js( 
-                    array( 
-                          'ahah' => array(
-                                          'basePaths' => array( 'base' => base_path(), 'module' => $module_path ), 
-                                          'bindings' => array( $bindings ),
-                          ),
-                    ),
-                    'setting', 'fbjs'
-      );
+      if (!$one_time_only) {
+        //add in required javascript files
+        $module_path = drupal_get_path('module', 'ahah_forms');
+        
+        fb_add_js(drupal_get_path('module', 'fb_form') . '/fb_ahah_forms.js');
+        
+        drupal_add_js( 
+                      array( 
+                            'ahah' => array(
+                                            'basePaths' => array( 'base' => base_path(), 'module' => $module_path ), 
+                                            'bindings' => array( $bindings ),
+                            ),
+                      ),
+                      'setting', 'fbjs'
+        );
+        $one_time_only = TRUE;
+      }
+      else {
+        drupal_add_js( 
+                      array( 
+                            'ahah' => array(
+                                            'bindings' => array( $bindings ),
+                            ),
+                      ),
+                      'setting', 'fbjs'
+        );
+        
+      }
     }
   }
   

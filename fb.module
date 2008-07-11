@@ -662,8 +662,9 @@ function fb_users_getInfo($oids, $fb = NULL) {
  * will actually read a local file and include the contents inline.
  */
 function fb_add_js($filename) {
-  static $first_time;
-  if (!$first_time) {
+  static $cache;
+  if (!$cache) {
+    // Add some settings
     $baseUrl = url('', NULL, NULL, TRUE);
     drupal_add_js(array('fbjs' => array('baseUrlFb' => $baseUrl,
                                         'baseUrl' => fb_scrub_urls($baseUrl),
@@ -671,11 +672,16 @@ function fb_add_js($filename) {
                   ),
                   'setting', 'fbjs'
     );
+    
+    $cache = array();
   }
-  $fh = fopen($filename, 'r');
-  $js = fread($fh, filesize($filename));
-  fclose($fh);
-  drupal_add_js($js, 'inline', 'fbjs');
+  if (!$cache[$filename]) {
+    $fh = fopen($filename, 'r');
+    $js = fread($fh, filesize($filename));
+    fclose($fh);
+    drupal_add_js($js, 'inline', 'fbjs');
+    $cache[$filename] = TRUE;
+  }
 }
 
 /**
