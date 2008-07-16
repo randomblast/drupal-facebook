@@ -4,12 +4,16 @@ function fb_devel_menu($may_cache) {
   $items = array();
 
   if ($may_cache) {
-    $items[] = array('path' => 'fb/debug',
-                     'callback' => '_fb_debug_cb',
+    $items[] = array('path' => 'fb/devel',
+                     'callback' => 'fb_devel_page',
                      'type' => MENU_CALLBACK,
                      'access' => TRUE, // TODO: restrict access
     );
-    
+    $items[] = array('path' => 'fb/devel/fbu',
+                     'callback' => 'fb_devel_fbu_page',
+                     'type' => MENU_CALLBACK,
+                     'access' => TRUE,
+    );
   }
   return $items;
   }
@@ -48,7 +52,7 @@ function fb_devel_fb($fb, $fb_app, $op, &$return, $data) {
  * Provides a page with useful debug info.
  * 
  */
-function _fb_debug_cb() {
+function fb_devel_page() {
   global $fb, $fb_app;
   global $user;
 
@@ -68,18 +72,62 @@ function _fb_debug_cb() {
     drupal_set_message("session_key is " . $fb->api_client->session_key);
   }
 
+  if ($fbu = fb_get_fbu($user)) {
+    $path = "fb/devel/fbu/$fbu";
+    drupal_set_message(t("Learn more about the current user at !link",
+                         array('!link' => l($path, $path))));
+  }
+
   dpm(fb_get_fbu($user), 'Facebook user via fb_get_fbu');
-  dpm($user, "Local user " . theme('username', $user));
+  //dpm($user, "Local user " . theme('username', $user));
   
-  dpm($_COOKIE, 'cookie');
-  dpm($_REQUEST, "Request");
-  dpm($fb_app, "fb_app");
-  drupal_set_message("session_id returns " . session_id());
-  dpm($_SESSION, "session:");
+  //dpm($_COOKIE, 'cookie');
+  //dpm($_REQUEST, "Request");
+  //dpm($fb_app, "fb_app");
+  //drupal_set_message("session_id returns " . session_id());
+  //dpm($_SESSION, "session:");
 
   return "This is the facebook debug page.";
 }
 
+
+/**
+ * A page which tests function which work with facebook user ids
+ */
+function fb_devel_fbu_page($fbu = NULL) {
+  if ($fbu) {
+    $output = "<p>Debug info about facebook id $fbu:</p>\n";
+    $friends = fb_get_friends($fbu);
+    //dpm($friends, "fb_get_friends($fbu) returned");
+    $items = array();
+    foreach ($friends as $_fbu) {
+      $items[] = l($_fbu, "fb/devel/fbu/{$_fbu}");
+    }
+    if (count($items)) {
+      $output .= "\n<p>Known friends:<ul><li>";
+      $output .= implode("</li>\n  <li>", $items);
+      $output .= "</li></ul></p>\n\n";
+    }
+
+
+    
+    $local_friends = fb_user_get_local_friends($fbu);
+
+    $items = array();
+    foreach ($local_friends as $uid) {
+      $account = user_load(array('uid' => $uid));
+      $items[] = theme('username', $account);
+    }
+    if (count($items)) {
+      $output .= "\n<p>Local friends:<ul><li>";
+      $output .= implode("</li>\n  <li>", $items);
+      $output .= "</li></ul></p>\n\n";
+    }
+  }
+  else
+    drupal_set_message("You have to specify a facebook user id.", 'error');
+  return $output;
+}
 
 function fb_devel_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {
@@ -108,7 +156,7 @@ function fb_devel_canvas_info() {
     }
     else {
       // Followed a link from within an iframe.
-      $info['Page Status'] = t('Global fb instance is set (followed link in iframe).');
+      $info['Page Status'] = t('Global fb instance is set (followed link in iframe, or handling a form).');
     }
     $info['fb_facebook_user'] = fb_facebook_user();
   }
