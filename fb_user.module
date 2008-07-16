@@ -847,6 +847,39 @@ function fb_user_get_local_user($fbu, $fb_app) {
   }
 }
 
+/**
+ * Returns local uids of friends of a given user.
+ * 
+ * Query is relatively efficient for the current user of a canvas page.  For
+ * all other users, and non-canvas pages it requires expensive call to
+ * facebook.  That said, our local database query may be inefficient for users
+ * with large numbers of friends, so use with caution.
+ * 
+ * TODO: should this function cache results?
+ * 
+ * Note: the api takes fbu as a parameter, but this usually causes problems
+ * because facebook restricts users to query only about their own friends.
+ * For the time being, expect this function to work only on canvas pages to
+ * find friends of the current user.
+ */
+function fb_user_get_local_friends($fbu = NULL, $fb_app = NULL) {
+  if (!isset($fbu)) {
+    $fbu = fb_facebook_user();
+  }
+  $uids = array();
+  if ($fbus = fb_get_friends($fbu, $fb_app)) {
+    // Should this query be limited to users of the app?
+    $query = "SELECT uid FROM {fb_user_app} WHERE fbu in (%s)";
+    $args[] = implode(',', $fbus);
+    $result = db_query($query, $args);
+    
+    while ($data = db_fetch_object($result)) {
+      $uids[] = $data->uid;
+    }
+  }
+  return $uids;
+}
+
 
 /**
  * Given a local user id, find the facebook id.  This is for internal use.
