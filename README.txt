@@ -36,7 +36,7 @@ tar xvzf facebook-platform.tar.gz
 require_once "profiles/custom/modules/fb/fb_settings.inc";
 
   (Or whatever path is appropriate, could be
-  "sites/all/module/fb/fb_settings.inc")
+  "sites/all/modules/fb/fb_settings.inc")
 
 - Enable the Facebook modules via the drupal admin pages, as usual.
   You must enable at least fb.module and fb_app.module.  You will
