@@ -348,7 +348,8 @@ function fb_get_friends($fbu, $fb_app = NULL) {
     return;
 
   if (!isset($cache[$fbu])) {
-    if ($fb == $GLOBALS['fb'] && $fbu == fb_facebook_user($fb))
+    if ($fb === $GLOBALS['fb'] && 
+        $fbu == fb_facebook_user($fb))
       $items = $fb->api_client->friends_get();
     // friends_get does not work in cron call, so we double check.
     if (!$items || !count($items)) {
