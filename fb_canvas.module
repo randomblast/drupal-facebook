@@ -370,6 +370,10 @@ function fb_canvas_process($output, $add_target = TRUE) {
       // We're producing FBML for a canvas page
       
 	  // Change links to use canvas on Facebook
+      // Links ending in #something:
+	  $patterns[] = "|=\"{$base}([^\"]*#)|";
+	  $replacements[] = "=\"/{$fb_app->canvas}/$1app{$fb_app->id}_";
+      // Other links
 	  $patterns[] = "|=\"{$base}|";
 	  $replacements[] = "=\"/{$fb_app->canvas}/";
 	  
@@ -427,7 +431,6 @@ function fb_canvas_process($output, $add_target = TRUE) {
 	$return = preg_replace($patterns,
 						   $replacements,
 						   $output);
-	
 	return $return;
   }
   else
