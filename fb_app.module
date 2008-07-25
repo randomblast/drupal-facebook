@@ -231,11 +231,17 @@ function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
   return $node;
 }
 
+function fb_app_get_about_url($fb_app) {
+  if ($fb_app->id)
+    return url("http://www.facebook.com/apps/application.php", "id=$fb_app->id");
+}
+
 function theme_fb_app($data) {
+  $about_url = fb_app_get_about_url($data);
   return theme('dl', array(t('Label') => $data->label,
                            t('API Key') => $data->apikey,
                            t('Secret') => $data->secret,
-                           t('About page') => $data->id ? url("http://www.facebook.com/apps/application.php", "id=$data->id") : t('N/A'),
+                           t('About page') => $about_url ? $about_url : t('N/A'),
                            
                            // TODO: edit and logout URLs
                ));
@@ -294,7 +300,6 @@ function fb_app_update($node) {
   $fb_app = (object) $node->fb_app;
   $data = serialize($node->fb_app_data);
 
-  // TODO: test if role name needs to change
   db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', id='%s', canvas='%s', require_login=%d, create_account=%d, unique_account=%d, data='%s' WHERE nid=%d",
            $fb_app->label, $fb_app->apikey, $fb_app->secret,
            $fb_app->id,
