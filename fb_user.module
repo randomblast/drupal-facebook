@@ -29,7 +29,7 @@ function fb_user_menu($may_cache) {
   if ($may_cache) {
     global $user;
     $items[] = array('path' => FB_USER_SYNC_PATH,
-                     'access' => $user->uid > 0, // TODO: support anonymous adds
+                     'access' => TRUE,
                      'callback' => 'fb_user_sync_cb',
                      'type' => MENU_CALLBACK,                     
     );
@@ -240,7 +240,8 @@ function _fb_user_sync_redirect($redirect) {
   cache_set($key, 'cache', serialize($cache_data), CACHE_TEMPORARY);
   
   // Note that drupal_goto will fail here, but $fb->redirect succeeds.
-  $url = url($redirect, 'sync_token='.$key, NULL, TRUE);
+  $url = fb_scrub_urls(url($redirect, 'sync_token='.$key, NULL, TRUE));
+
   if (fb_verbose()) watchdog('fb_debug', "Redirecting to $url");
   
   $fb->redirect($url);
@@ -260,7 +261,8 @@ function fb_user_sync_cb() {
 
   // On canvas pages, require user to add the app...
   if ($fb) {
-    watchdog('debug', 'fb_user_sync_cb request ' . dprint_r($_REQUEST, 1));
+    if (fb_verbose() && function_exists('dprint_r'))
+      watchdog('debug', 'fb_user_sync_cb request ' . dprint_r($_REQUEST, 1));
     
     $fb->require_add();
     
@@ -294,17 +296,29 @@ function fb_user_sync_cb() {
       drupal_set_title(t('Added %appname Application',
                          array('%appname' => $fb_app->title)));
       if ($fbu && $fb_app) {
-        $authname = _fb_user_authname($fb_app, $fbu);
-        watchdog('fb_user', t('Syncing local user %uid with facebook user %fbu via authmap entry %authname',
-                              array('%fbu' => $fbu,
-                                    '%uid' => $user->uid,
-                                    '%authname' => $authname)));
-        user_set_authmaps($user, array('authname_fb_user' => $authname));
-        watchdog('fb_user', t('Synced local user %uid with facebook user %fbu via authmap entry %authname',
-                              array('%fbu' => $fbu,
-                                    '%uid' => $user->uid,
-                                    '%authname' => $authname)));
+        list ($module, $authname) = _fb_user_authmap($fb_app, $fbu);
         
+        // Check if the authname is already in use.
+        $account = user_external_load($authname);
+        if ($account && $account->uid != $user->uid) {
+          watchdog('fb_user', t('Re-syncing facebook account.  The authname %authname currently refers to !old_user_link.  Updating to point to !new_user_link.',
+                                array('%authname' => $authname,
+                                      '%old_username' => $account->name,
+                                      '%old_uid' => $account->uid,
+                                      '!old_user_link' => theme('username', $account),
+                                      '!new_user_link' => theme('username', $user),
+                                )));
+          // This will delete the old authmap entry
+          user_set_authmaps($account, array($module => NULL));
+        }
+        if (fb_verbose())
+          watchdog('fb_user', t('Syncing local user %uid with facebook user %fbu via authmap entry %authname',
+                                array('%fbu' => $fbu,
+                                      '%uid' => $user->uid,
+                                      '%authname' => $authname)));
+        
+        // Write the authmap
+        user_set_authmaps($user, array($module => $authname));
         
         drupal_set_message(t('Your <a href="!localurl">local account</a> is linked to your <a href="!facebookurl">Facebook profile</a>.',
                              array('!localurl' => url('user/'.$user->uid),
@@ -514,14 +528,30 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
   
 }
 
+/**
+ * To help map local accounts to facebook accounts, we can bounce a logged in
+ * user to a canvas page.  That page will ensure they have added the
+ * application, then bounce them back to a local HTML page.  When they are
+ * bounced back, a cached key allows us to know which facebook account
+ * corresponds to the user.
+ * 
+ * @return a fully qualified URL of the canvas page
+ */
+function fb_user_get_map_url($fb_app) {
+  if ($fb_app->canvas)
+    return "http://apps.facebook.com/{$fb_app->canvas}/".FB_USER_SYNC_PATH;
+}
+
 function fb_user_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   if ($op == 'view' && $node->type == 'fb_app') {
     //dpm(func_get_args(), 'fb_user_nodeapi');
     if (user_access('administer fb apps')) {
       $fb_app = $node->fb_app;
+      $add_url = fb_user_get_map_url($fb_app);
       $output = theme('dl', array(t('Post-add URL') => "http://apps.facebook.com/{$fb_app->canvas}/".FB_USER_POST_ADD_PATH."?redirect=",
                                   t('Post-remove URL') => url(FB_SETTINGS_APP_NID .'/'. $node->nid . '/' . FB_USER_POST_REMOVE_PATH, NULL, NULL, TRUE),
-                                  t('Add URL') => "http://apps.facebook.com/{$fb_app->canvas}/".FB_USER_SYNC_PATH . '<br/>' . t('(Send an authenticated user to this URL so that local account will be authmapped to facebook account.)')));
+                                  t('Add URL') => $add_url ? $add_url . '<br/>' . t('(Send an authenticated user to this URL so that local account will be authmapped to facebook account.)') : t('none'),
+                      ));
       $node->content['fb_user'] = array('#value' => $output,
                                         '#weight' => 2,
       );
@@ -620,7 +650,8 @@ function fb_user_form_alter($form_id, &$form) {
  */
 function fb_user_user($op, &$edit, &$account, $category = NULL) {
   global $fb, $fb_app; // Set only in canvas pages.
-  
+  global $user;
+
   // If form posted from an FBML canvas page, we learn the app and fbu from the post.
   // TODO: do we need additional validation here? (i.e. an fb_api_init to confirm the facebook params?)
   if ($_REQUEST['fb_sig']) {
@@ -639,7 +670,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     $fb_user_data = $fb_app_data['fb_user']; // our configuration
     if ($fbu &&
         $fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS) {
-      $authname = _fb_user_authname($fb_app, $fbu);
+      list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
       
       if ($op == 'insert') {
         // User has registered, we set up the authmap this way...
@@ -647,20 +678,19 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       }
       else if ($op == 'login') {
         // On login, we set up the map this way...
-        user_set_authmaps($account, array('authname_fb_user' => $authname));
+        user_set_authmaps($account, array($module => $authname));
       }
-      // debug
-      //watchdog('debug', "fb_user_user created authmap on $op.  $account->uid --> $authname");
 
       // TODO: if the app has a role, make sure the user gets that role. (presently, that will not happen until their next request)
     }
   }
-
+  
   // Add tabs on user edit pages to manage maps between local accounts and facebook accounts.
   if ($op == 'categories') {
     $items[] = array('name' => 'fb_user',
                      'title' => t('Facebook Applications'),
-                     'weight' => 0);
+                     'weight' => 1,
+    );
     return $items;
   }
   else if ($op == 'form' && $category == 'fb_user') {
@@ -673,42 +703,88 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       $fb_user_data = $fb_app_data['fb_user']; // our configuration
       
       $fbu = _fb_user_get_fbu($account->uid, $fb_app);
-      $is_added = FALSE;
+
       if ($fbu && !$info[$fbu]) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app, FB_FBU_ANY);
+        // Note: this requires infinite session with facebook.  TODO: fallback to fb_user_app table.
         $info[$fbu] = $fb->api_client->users_getInfo(array($fbu), 
                                                      array('name',
                                                            'is_app_user',
                                                      ));
-        dpm($info[$fbu], "Info from facebook for $fbu");
+        //dpm($info[$fbu], "Info from facebook for $fbu");
       }
-      if ($fb_user_data['unique_account']) {
-        $form['map'][$fb_app->nid] = array('#type' => 'checkbox',
-                                           '#title' => $fb_app->title,
-                                           '#default_value' => $fbu,
+      
+      if ($fbu) {
+        list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
+
+        if ($fb_user_data['unique_account']) {
+          $form['map'][$module] = array('#type' => 'checkbox',
+                                        '#title' => $fb_app->title,
+                                        '#default_value' => $authname,
+                                        '#return_value' => $authname,
+          );
+        }
+        else {
+          $shared_maps[] = $fb_app->title;
+          $shared_fbu = $fbu; // Same for all shared apps.
+          $shared_module = $module;
+          $shared_authname = $authname;
+        }
+      }
+      if ($shared_maps) {
+        $form['map'][$shared_module] = array('#type' => 'checkbox',
+                                             '#title' => implode('<br/>', $shared_maps),
+                                             '#default_value' => $shared_authname,
+                                             '#return_value' => $shared_authname,
         );
+        if ($info[$shared_fbu]) {
+          $data = $info[$shared_fbu][0];
+          $fb_link = l($data['name'], 'http://www.facebook.com/profile.php', NULL, 'id='.$data['uid']);
+          
+          $form['map'][$shared_module]['#description'] .= t('Local account (!username) corresponds to !profile_page on Facebook.com.',
+                                                              array('!username' => theme('username', $account),
+                                                                    '!profile_page' => $fb_link));
+        }
       }
-      else {
-        $shared_maps[] = $fb_app->title;
-        $shared_fbu = $fbu; // Same for all shared apps.
-      }
-    }
-    if ($shared_maps) {
-      $form['map']['global'] = array('#type' => 'checkbox',
-                                     '#title' => implode('<br/>', $shared_maps),
-                                     '#default_value' => $shared_fbu,
-      );
-      if ($info[$shared_fbu]) {
-        $data = $info[$shared_fbu][0];
-        $fb_link = l($data['name'], 'http://www.facebook.com/profile.php', NULL, 'id='.$data['uid']);
-        
-        $form['map']['global']['#description'] .= t('Local account (!username) corresponds to !profile_page on Facebook.com.',
-                                                   array('!username' => theme('username', $account),
-                                                         '!profile_page' => $fb_link));
+      
+
+      if (!$fbu) {
+        if ($user->uid == $account->uid && 
+            $map_url = fb_user_get_map_url($fb_app)) {
+          $about_url = fb_app_get_about_url($fb_app);
+          
+          $form[$fb_app->nid] = array('#type' => 'markup',
+                                      '#value' => t('You may add !application_about_page to your <a href="!facebook_url" target=_blank>Facebook</a> account.  <ol><li>First, log into <a href="!facebook_url" target=_blank>Facebook</a>.</li><li>Then, <a href="!map_url">click here to add the %application application</a>.</li></ol>',
+                                                    array('!map_url' => $map_url,
+                                                          '!facebook_url' => 'http://www.facebook.com',
+                                                          '%application' => $fb_app->title,
+                                                          '!application_about_page' => $about_url ? l($fb_app->title, $about_url) : '<em>'.$fb_app->title.'</em>',
+                                                    )),
+                                      '#prefix' => "\n<p>",
+                                      '#suffix' => "</p>\n",
+          );
+        }
+        else {
+          $form[$fb_app->nid] = array('#type' => 'markup',
+                                      '#value' => t('!username does not use !application.',
+                                                    array('!username' => theme('username', $account),
+                                                          '!application' => l($fb_app->title, 'node/'.$fb_app->nid),
+                                                    )),
+                                      '#prefix' => "\n<p>",
+                                      '#suffix' => "</p>\n",
+          );
+        }
       }
     }
     return $form;
+  }
+  else if ($op == 'update' && $category == 'fb_user') {
+    //dpm($edit, "fb_user_user($op)");
+    
+    foreach ($edit['map'] as $module => $authname) {
+      user_set_authmaps($account, array($module => $authname));
+    }
   }
 }
 
@@ -727,19 +803,27 @@ function theme_fb_app_name_with_links($fb_app, $is_added = NULL) {
  * 
  * When a single Drupal instance hosts multiple Facebook apps, the apps can
  * share the same mapping, or each have their own.
+ * 
+ * @return an array with both a 'module' and an authname.  A 
+ * data structure necessary for Drupal's authmap api.
  */
-function _fb_user_authname($fb_app, $fbu) {
+function _fb_user_get_authmap($fb_app, $fbu) {
   $fb_app_data = fb_app_get_data($fb_app);
   $fb_user_data = $fb_app_data['fb_user']; // our configuration
   $app_specific = $fb_user_data['unique_account'];
   // map fbu to uid, include apikey if user is app_specific
-  if ($app_specific)
+  if ($app_specific) {
     // would rather use the shorter app id (not apikey), but no way to query it
-    $authmap = "$fbu-$fb_app->apikey@facebook.com";
-  else
-    $authmap = "$fbu@facebook.com";
-
-  return $authmap;
+    $authname = "$fbu-$fb_app->apikey@facebook.com";
+    $module = "fb_user-$fb_app->nid";
+  }
+  else {
+    $authname = "$fbu@facebook.com";
+    $module = "fb_user";
+  }
+  
+  //return array('module' => $module, 'authname' => $authname);
+  return array($module, $authname);
 }
 
 /**
