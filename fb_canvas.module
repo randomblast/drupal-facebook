@@ -244,7 +244,7 @@ function fb_canvas_is_fbml() {
 function fb_canvas_is_iframe() {
   global $fb, $fb_app;
   if ($fb && $fb_app) {
-    return ($fb->in_frame() || !fb_canvas_is_fbml());
+    return ($fb->in_frame() && !fb_canvas_is_fbml());
   }
 }
 
