@@ -14,7 +14,11 @@ function fb_fbml_page($content, $show_blocks = TRUE) {
 function _phptemplate_variables($hook, $vars = array()) {
   global $fb_app, $user;
 
-  if ($hook == 'page') {
+  
+  if ($hook == 'page' && function_exists('fb_canvas_is_iframe') && fb_canvas_is_iframe()) {
+	$vars['template_file'] = 'iframe';
+  }
+  else if ($hook == 'page') {
 	// Include styles inline.  Facebook does not allow use to refer to
 	// them in the header.
     $vars['styles'] = _phptemplate_callback('styles', $vars);
@@ -90,6 +94,8 @@ function fb_fbml_regions() {
 				   'right' => t('Canvas Right'),
 				   'content_footer' => t('Content Footer'),
 				   'canvas_footer' => t('Canvas Footer'),
+				   'iframe_header' => t('Iframe Header'),
+				   'iframe_footer' => t('Iframe Footer'),
 				   );
   return $regions;
 }
