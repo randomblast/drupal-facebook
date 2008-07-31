@@ -26,15 +26,6 @@ PRIMARY KEY (nid),
 UNIQUE KEY (apikey)
 ) /*!40100 DEFAULT CHARACTER SET UTF8 */;
 ");
-      db_query("
-CREATE TABLE IF NOT EXISTS {fb_app_block} (
-nid int(11) unsigned NOT NULL,
-delta varchar(32) NOT NULL,
-format int(11) DEFAULT 0,
-body longtext NOT NULL,
-PRIMARY KEY (nid, delta)
-) /*!40100 DEFAULT CHARACTER SET UTF8 */;
-");
 
       // This table schema has to match the cache_filter table.
       db_query("

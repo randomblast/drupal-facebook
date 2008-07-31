@@ -237,8 +237,13 @@ function fb_canvas_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
 
 function fb_canvas_is_fbml() {
   global $fb, $fb_app;
-  if ($fb && $fb_app)
-    return ($fb->in_fb_canvas() || fb_canvas_handling_form());
+  if ($fb && $fb_app) {
+    // Facebook events are not canvas pages
+    if (arg(0) == 'fb_app' && arg(1) == 'event')
+      return FALSE;
+    else
+      return ($fb->in_fb_canvas() || fb_canvas_handling_form());
+  }
 }
 
 function fb_canvas_is_iframe() {

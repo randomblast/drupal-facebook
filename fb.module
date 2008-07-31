@@ -26,10 +26,6 @@ define('FB_FBU_ANY', 'fbu_any'); // Use current user on canvas page, fall back t
 //// Constants for internal use
 define('FB_APP_CURRENT', '000_app_current'); // Canvas pages only.  000 makes it appear first in options list
 
-define('FB_USE_PHP4_API', variable_get('fb_use_php4_api', TRUE)); // Force the use of facebook's php4 api until we decide to require php5.  The php5 api throws exceptions, and there's no clean way to handle them in code that will also run in php4.
-
-
-
 /**
  * Implementation of hook_init
  * 
@@ -42,7 +38,7 @@ define('FB_USE_PHP4_API', variable_get('fb_use_php4_api', TRUE)); // Force the u
  */
 function fb_init() {
   global $fb, $fb_app, $fb_app_node; // Set by this function.
-
+  
   // Session sanity check.  This is relevant on iframe pages when user once
   // had the app added, but has since removed it.  This is a bit of a hack
   // because we rely on the fb_... params passed by facebook.
@@ -75,29 +71,29 @@ function fb_init() {
                                // disabled.
                                '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>')), 'error');
   }
-
-
+  
+  
   // Ask other modules for app detail
-  $fb_app = _fb_invoke(NULL, FB_OP_GET_APP);
-
+  $fb_app = fb_invoke(NULL, FB_OP_GET_APP);
+  
   if ($fb_app) {
     // we are in a callback
     
     // For canvas pages, use current user, never infinite session.
     $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
-
+    
     if ($fb) {
       if ($fb->in_fb_canvas() && FALSE) // XXX deprecated
         fb_init_path($fb_app);
-
+      
       // Give other modules a chance to initialize, require login, etc...
-      _fb_invoke($fb_app, FB_OP_INITIALIZE);
+      fb_invoke($fb_app, FB_OP_INITIALIZE);
     }
     else
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook");
     
   }
-  _fb_invoke($fb_app, FB_OP_POST_INIT);
+  fb_invoke($fb_app, FB_OP_POST_INIT);
 }
 
 
@@ -130,21 +126,25 @@ function fb_api_init($fb_app, $fbu) {
   //dpm($trace, "fb_api_init call stack");
 
   static $cache = array();
+
+  // This helps with uncaught exceptions.  However, it should be configurable
+  // or at least not overwrite previously declared handler.
+  set_exception_handler('fb_report_exception');
   
   if (!count($cache)) {
-    // Include FB API code.
-    if (substr(phpversion(), 0, 1) == '4' || FB_USE_PHP4_API) {
-      require_once('facebook-platform/php4client/facebook.php');
+    $filename = variable_get('fb_api_file', 'facebook-platform/client/facebook.php');
+
+    if (!file_exists($filename)) {
+      // Print an error directly to the canvas page.
+      print("Failed to open Facebook API file $filename.  Either fix this problem or disable Facebook modules.");
+      
     }
-    else {
-      require_once('facebook-platform/client/facebook.php');
-      // Ideally, we'd check that drupal has not already specified an exception handler.
-      set_exception_handler('fb_report_exception');
-    }
+    else
+      require_once($filename);
   }
   
   global $facebook_config;
-  $facebook_config['debug'] = FALSE; // set TRUE for debug output from FB API
+  $facebook_config['debug'] = variable_get('fb_debug', FALSE); // set TRUE for debug output from FB API
   
   if (!$cache[$fb_app->apikey]) {
     $cache[$fb_app->apikey] = array();
@@ -169,7 +169,7 @@ function fb_api_init($fb_app, $fbu) {
   }
   else if ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
     // Learn the infinite session id and key
-    $data = _fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION, array());
+    $data = fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION, array());
     $fbu = $data[0];
     $session = $data[1];
   }
@@ -200,7 +200,7 @@ function fb_api_init($fb_app, $fbu) {
     else {
       // FB user id passed in.  If we happen to have valid session info for
       // them, we can log in as them.
-      $data = _fb_invoke($fb_app, FB_OP_GET_USER_SESSION, array(), array('fbu' => $fbu));
+      $data = fb_invoke($fb_app, FB_OP_GET_USER_SESSION, array(), array('fbu' => $fbu));
       
       if (count($data) && $data[0] && $data[1]) {
         $fb->set_user($data[0], $data[1]);
@@ -288,7 +288,7 @@ function fb_get_fbu($uid, $fb_app = NULL) {
     $uid = $uid->uid;
 
   // User management is handled by another module.  Use our hook to ask for mapping.
-  $fbu = _fb_invoke($fb_app, FB_OP_GET_FBU, NULL, array('uid' => $uid));
+  $fbu = fb_invoke($fb_app, FB_OP_GET_FBU, NULL, array('uid' => $uid));
   
   return $fbu;
 }
@@ -301,7 +301,7 @@ function fb_get_app($search_data) {
   if (!is_array($search_data))
     $search_data = array('apikey' => $search_data);
   
-  $fb_app = _fb_invoke(NULL, FB_OP_GET_APP, NULL, $search_data);
+  $fb_app = fb_invoke(NULL, FB_OP_GET_APP, NULL, $search_data);
   return $fb_app;
 }
 
@@ -324,7 +324,7 @@ function fb_get_app_options($include_current) {
  * Convenience method to return array of all know fb_apps.
  */
 function fb_get_all_apps() {
-  $apps = _fb_invoke(NULL, FB_OP_GET_ALL_APPS, array());
+  $apps = fb_invoke(NULL, FB_OP_GET_ALL_APPS, array());
   return $apps;
 }
 
@@ -469,7 +469,7 @@ function fb_menu($may_cache) {
  */
 function fb_exit($destination = NULL) {
   global $fb_app, $fb;
-  _fb_invoke($fb_app, FB_OP_EXIT, $destination);
+  fb_invoke($fb_app, FB_OP_EXIT, $destination);
 }
 
 function _fb_form_cache_cb($cid) {
@@ -499,7 +499,7 @@ function _fb_session_cb() {
 
   $output .= '<p>'.t('Current session key: %key',
                      array('%key' => htmlentities($fb->api_client->session_key)))."</p>\n";
-
+  
   return $output;
 }
 
@@ -512,13 +512,16 @@ function fb_session_key_form() {
                 ),
                 'submit' => array('#type' => 'submit',
                                   '#value' => t('Submit')),
-
-                '#redirect' => FALSE, // necessary when submitting via facebook
+                
+                '#redirect' => FALSE, /* necessary when submitting via facebook */
   );
   return $form;
 }
 
-function _fb_invoke($fb_app, $op, $return = NULL, $data = NULL) {
+/**
+ * Invoke hook_fb.
+ */
+function fb_invoke($fb_app, $op, $return = NULL, $data = NULL) {
   global $fb;
   foreach (module_implements(FB_HOOK) as $name) {
     $function = $name . '_' . FB_HOOK;
@@ -551,7 +554,7 @@ function fb_scrub_urls($content) {
  * 
  * DEPRECATED.  Not sure where, if anywhere, this belongs.
  */
-function fb_node_grantsXXX($account, $op) {
+ function fb_node_grantsXXX($account, $op) {
   $grants = array();
   $fbu = fb_get_fbu($account);
   if ($fbu) { // If not anonymous (facebook user not logged in to this app)
@@ -568,12 +571,12 @@ function fb_node_grantsXXX($account, $op) {
 
   return $grants;
 }
-
+ 
 /**
  * Convenience method for displaying facebook api errors.
  */
-function fb_report_errors($fb = FB_APP_CURRENT) {
-  if ($fb == FB_APP_CURRENT) {
+ function fb_report_errors($fb = FB_APP_CURRENT) {
+   if ($fb == FB_APP_CURRENT) {
     $fb = $GLOBALS['fb'];
   }
   if ($fb) {
@@ -587,13 +590,13 @@ function fb_report_errors($fb = FB_APP_CURRENT) {
     }
   }
 }
-
+ 
 /**
  * Exception handler for PHP5 exceptions.
  */
-function fb_report_exception($exception) {
-  $message = t('Facebook API exception %message.  !trace',
-               array('%message' => $exception->getMessage(),
+ function fb_report_exception($exception) {
+   $message = t('Facebook API exception %message.  !trace',
+                array('%message' => $exception->getMessage(),
                      '!trace' => '<pre>'.$exception->getTraceAsString().'</pre>',
                ));
   watchdog('fb', $message, WATCHDOG_ERROR);

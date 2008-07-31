@@ -1,76 +1,87 @@
-This is an early development release of Drupal for Facebook.  Expect
-things to change...
+Drupal for Facebook
+-------------------
+
+More information: http://www.drupalforfacebook.org, http://drupal.org/project/fb
+
+Primary author and maintainer: Dave Cohen (http://www.dave-cohen.com/contact)
+
+Version: HEAD (version 2.x for Drupal 5.x)
+Please read http://drupal.org/node/288721#version and confirm that
+you are using the correct version.
+
+IMPORTANT: THIS VERSION IS ONLY PARTIALLY CONVERTED FOR THE NEW API.
+USE THIS VERSION ONLY IF YOU ARE CAPABLE OF FIXING ISSUES AS YOU
+ENCOUNTER THEM AND SUBMITTING PATCHES TO THE ISSUE QUEUE.  OTHERWISE,
+FOR THE TIME-BEING, USE VERSION 1.x.
 
 Installation and setup documentation now available online
 http://drupal.org/node/195035.  (Read this document first, as it
 contains the most up-to-date information.  Then consult the online
 documentation for more detailed instructions.)
 
-More information: http://www.drupalforfacebook.org, http://drupal.org/project/fb
-
-by Dave Cohen (http://www.dave-cohen.com/contact)
-
 To install:
+   
+- This version requires a newer version of the Facebook API.  As of
+  this writing, you can get this via Subversion at
+  http://svn.facebook.com/svnroot/platform/clients/php/branches/redesign-changes
 
-- Link or move the contents of ./themes/ into a Drupal themes
-  directory.  (The themes are so closely associated with the modules
-  that it seemed appropriate to include them here, rather than
-  download seperately.)
+- Once you have the new API client, place it somewhere where it can be
+  loaded, and set a drupal variable, 'fb_api_file', to the location of
+  facebook.php.  For example, first checkout redesign-changes in the
+  directory where this file is located.  Then, add 
+  $conf['fb_api_file'] = 'redesign-changes/facebook.php';
+  near the end of your settings.php file.
+  You will get a cryptic error message until you done this correctly.
 
-- Download the facebook-platform PHP code from developer.facebook.com.
-  Extract it into the 'modules/fb' directory, so you have
-  modules/fb/facebook-application/
-
-wget http://developers.facebook.com/clientlibs/facebook-platform.tar.gz
-tar xvzf facebook-platform.tar.gz
-  
-  Extract the client API for PHP4, and simplexml, as instructed by
-  Facebook.  Or, if you want to use PHP5 API, set
-  $conf['fb_use_php4_api'] = FALSE in your settings.php.  Note that
-  you may encounter uncaught exceptions using the PHP5 API.
+- Install a Facebook-aware theme into one of Drupal's themes
+  directories.  One example theme is provided in the 'themes'
+  directory of this module, but Drupal will not find it there.  So,
+  you must copy the entire theme directory to sites/all/themes, or
+  another of Drupal's themes directories.  Use a symbolic link, rather
+  than copy, if you intend to make no changes and you want updates to
+  be easier.  Visit Site Building >> Themes so that Drupal will detect
+  the new theme.
 
 - Edit your settings.php file (sites/default/settings.php, depending
-  on your install) to include settings.inc (in this directory).  For
-  example:
+  on your install) to include fb_settings.inc (in this directory).  For
+  example, add this at the very end of your settings.php:
 
-require_once "profiles/custom/modules/fb/fb_settings.inc";
+require_once "sites/all/modules/fb/fb_settings.inc";
 
   (Or whatever path is appropriate, could be
-  "sites/all/modules/fb/fb_settings.inc")
+  "profiles/custom/modules/fb/fb_settings.inc")
 
 - Enable the Facebook modules via the drupal admin pages, as usual.
   You must enable at least fb.module and fb_app.module.  You will
   probably want to enable fb_user and more of the modules as your App
   needs them.
 
-- It is highly recommended that you enable clean URLs.  If you don't,
-  some links that drupal creates will not work properly on canvas
-  pages.
+- You must enable clean URLs.  If you don't, some links that drupal
+  creates will not work properly on canvas pages.
 
-- Create a Facebook Application (under "create content").  You will
-  have to create the application on Facebook.com first, to get the
-  secret and api key fields.  Then fill those values into the form on
-  Drupal.  It will suggest a callback URL for you to use.  Go back to
-  the form on facebook and fill the callback URL field in.
+- Create an application on Facebook, currently at
+  http://www.facebook.com/developers/editapp.php?new.  Fill in just
+  the minimum required to get an apikey and secret.
 
-
+- Go to Create Content >> Facebook Application.  Use the apikey and
+  secret that Facebook has shown you.  If you have any trouble with
+  the other fields, use Facebook's documentation to figure it out.
+  Once you submit your changes, you'll be shown important information,
+  like a callback URL and so on.  Return to the application settings
+  form on Facebook, and fill in all the values Drupal for Facebook has
+  shown you.
 
 
 
 Troubleshooting:
 ---------------
 
-If you get an error along the lines of "FacebookRestClient" not found,
-check the facebook-platform/client/facebook.php for an include like
-so:
+Reread this file and follow instructions carefully.
 
-include_once $_SERVER['PHP_ROOT'].'/lib/api/client/php_1_1/facebookapi_php5_restlib.php';
+Enable the devel module, http://drupal.org/project/devel.
 
-You will need to either install faceboook-platform in this location, or patch the file to read more like:
-
-require_once 'facebookapi_php5_restlib.php';
-
-
+Enable the fb_devel module and add the block it provides to the footer
+of your Facebook theme.
 
 If you see FBML Error (line 62): illegal tag "body" under "fb:canvas",
 or many "CSS Errors", visit ?q=admin/build/themes.  Make sure you see
@@ -89,3 +100,11 @@ If you see "The page you requested was not found."  Make sure the
 canvas page you specified agrees exactly with the canvas page assigned
 by facebook.  Note also that facebook will make all letters lower case
 even if you typed them upper.
+
+Bug reports and feature requests may be submitted.  
+Here's an idea: check the issue queue before you submit
+(http://drupal.org/project/issues/fb).  
+
+If you do submit an issue, start the description with "I read the
+README.txt from start to finish," and you will get a faster, more
+thoughtful response.

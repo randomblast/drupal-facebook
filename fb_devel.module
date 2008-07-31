@@ -32,7 +32,7 @@ function fb_devel_fb($fb, $fb_app, $op, &$return, $data) {
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message);
     }
-
+    
     // Theme sanity check
     global $theme; // for debug message
     if (isset($theme)) {
@@ -45,7 +45,28 @@ function fb_devel_fb($fb, $fb_app, $op, &$return, $data) {
       watchdog('fb_devel', $message);      
     }
 
+    // New facebook API sanity check
+    if (!variable_get('fb_api_file', FALSE)) {
+      $message = t('It looks like you have upgraded from version 1.x to 2.x of !drupal_for_facebook without changing all the necessary settings.  Read the !readme and follow the instructions carefully.',
+                   array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
+                         // This link should work with clean URLs
+                         // disabled.
+                         '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>'));
+      
+    }
   }
+  
+  else if ($op == FB_APP_OP_EVENT) {
+    $type = $data['event_type'];
+    // Facebook has notified us of some event.
+    $message = t('Facebook has notified the %label application of a %type event.',
+                 array('%label' => $fb_app->label,
+                       '%type' => $type));
+    $message .= dprint_r($data, 1);
+    $message .= dprint_r($_REQUEST,1);
+    watchdog('fb_devel', $message);
+  }
+
 }
 
 /**

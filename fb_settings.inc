@@ -68,6 +68,7 @@ if(!function_exists('custom_url_rewrite')) {
  */
 function fb_settings_url_rewrite($type, $path, $original){
   //dpm(func_get_args(), 'fb_canvas_url_rewrite');
+  //print("fb_canvas_url_rewrite($type, $path, $original)");
   $prefixes = array(FB_SETTINGS_APP_NID, FB_SETTINGS_PAGE_TYPE);
   if ($type == 'source') {
     // See if this is a request for us.
