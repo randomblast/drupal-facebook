@@ -119,6 +119,9 @@ function phptemplate_menu_local_tasks() {
 	  $output .= "</fb:tabs>\n";
 	}
 	// TODO secondary local tasks
+	if ($secondary = menu_secondary_local_tasks()) {
+	  $output .= "<ul class=\"tabs secondary\">\n". $secondary ."</ul>\n";
+	}
   }
   else 
 	$output = theme_menu_local_tasks();

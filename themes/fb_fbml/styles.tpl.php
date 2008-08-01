@@ -295,6 +295,19 @@ th {padding: 0 2px;}
 /* make tabs align with header and content padding */
 .left_tabs {padding-left: 20px;}
 
+/* sub-tabs */
+.secondary {
+ border: none;
+ height: 1em;
+  list-style: none;
+ }
+.secondary li {
+  float: left;
+ margin: 0 0 0 20px;
+}
+.secondary li.active {
+  font-weight: bold;
+}
 /* pager */
 .pager {
   width: 100%;
