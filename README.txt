@@ -19,7 +19,7 @@ http://drupal.org/node/195035.  (Read this document first, as it
 contains the most up-to-date information.  Then consult the online
 documentation for more detailed instructions.)
 
-To install:
+To install or upgrade from an earlier version of Drupal for Facebook:
    
 - This version requires a newer version of the Facebook API.  As of
   this writing, you can get this via Subversion at
@@ -71,6 +71,11 @@ require_once "sites/all/modules/fb/fb_settings.inc";
   form on Facebook, and fill in all the values Drupal for Facebook has
   shown you.
 
+- If upgrading from an earlier Drupal for Facebook, revisit all of the
+  Facebook Application nodes.  Edit each one, look over all the
+  settings as many have changed, especially the choices under user
+  management.  You'll have to submit your changes in order for your
+  application to work properly with the new Facebook API.
 
 
 Troubleshooting:
