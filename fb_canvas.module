@@ -399,7 +399,12 @@ function fb_canvas_process($output, $add_target = TRUE) {
       // would be accomplished with something like:
       // http://drupal.org/node/102679.  In the meantime, this may help for
       // canvas pages only.
-      $patterns[] = '|([\d]*)@facebook|';
+
+      // Regexp avoids "1234@facebook" (surrounded by quotes) because that can
+      // appear in some forms.  Also avoids 1234@facebook.com, which can also
+      // appear in forms because it is used in authmaps.  TODO: investigate
+      // the efficiency of this regexp (and/or make it optional)
+      $patterns[] = '|(?<!["\d])([\d]*)@facebook(?!\.com)|';
       $replacements[] = '<fb:name uid=$1 linked=false ifcantsee="$1@facebook" useyou=false />';
       
 	}
