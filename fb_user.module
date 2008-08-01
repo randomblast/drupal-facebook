@@ -18,331 +18,21 @@ define('FB_USER_OPTION_CREATE_LOGIN', 2);
 define('FB_USER_OPTION_MAP_NEVER', 1);
 define('FB_USER_OPTION_MAP_ALWAYS', 2);
 
-define('FB_USER_SYNC_PATH', 'fb_user/sync');
 
-function fb_user_menu($may_cache) {
-  $items = array();
-  if ($may_cache) {
-    global $user;
-    // This callback helps us map facebook ids to local user ids
-    // Deprecated in favor of Facebook Connect
-    $items[] = array('path' => FB_USER_SYNC_PATH,
-                     'access' => TRUE,
-                     'callback' => 'fb_user_sync_cb',
-                     'type' => MENU_CALLBACK,                     
-    );
-  }
-  
-  return $items;
-}
 
 /**
- * This method will redirect a user if the post-add page need not be displayed.
- * 
- * If replacing the normal post-add page with a custom implementation, do call this.
+ * There are several pages where we don't want to automatically create a new
+ * account or use an account configured for this app.
  */
-function fb_user_post_add_check() {
-  global $fb, $fb_app, $user;
-  // This page is for canvas pages only
-  if (!$fb) {
-    drupal_access_denied();
-    exit();
-  }
-  
-  // redirect will be set if we've called $fb->require_add.  In this case
-  // we forward the user on.
-  if ($_REQUEST['redirect']) {
-    if (function_exists('fb_canvas_fix_url')) {
-      // Redirect to a canvas page
-      $url = fb_canvas_fix_url($_REQUEST['redirect'], $fb_app);
-      if (fb_verbose()) watchdog('fb_debug', "post_add_check redirecting to $url");
-      $fb->redirect($url);
-      exit();
-    }
-    else
-      // XXX is this still necessary?
-      _fb_user_sync_redirect($_REQUEST['redirect']);
-  }
-  // This function returns only if post add page needs to be rendered.  Otherwise user is redirected.
-}
-
-/**
- * The post-add page is where the user is sent after adding the application.
- * 
- * Note that the Facebook App settings must be set up.  See "post-add"
- * callback.  To customize this behavior, use form_alter to modify the default
- * form, or create your own callback.
- * 
- * Special case when $_REQUEST['redirect'] is set.  In this case we've come
- * after a request from our sync callback (or any call to $fb->require_add)
- * and we're going to cache some data so it can be used on the other end.
- */
-function fb_user_post_add_cb() {
-  global $fb, $fb_app, $user;
-  
-  if (fb_verbose()) {
-    watchdog('fb_debug', "New user has added an app, post-add callback called.");
-    if (function_exists('dprint_r'))
-      watchdog('fb_debug', "New user has added an app." . dprint_r($_REQUEST, 1));
-  }
-
-
-  // Check that actually need to render this page.
-  fb_user_post_add_check();  // Will exit() if user has been redirected.
-  // redirect was not passed in, present form(s) prompting the user to
-  // decide what to do next.
-
-  $weight = 0;
-  
-  // Although user has just added the app, they may have an authmap entry
-  // already.  This happens if they have installed then removed the app, or
-  // they've added another app on this same server.  In this case, we don't
-  // want to display the login form.
-  if (!$user->uid) {
-    //watchdog('debug', 'fb_user_post_add_cb' . dprint_r($_REQUEST, 1));
-    $output['login'] = array('#type' => 'fieldset',
-                             '#title' => t('Login to !site account',
-                                           array('!site' => variable_get('site_name', 'Drupal'))),
-                             '#collapsible' => TRUE,
-                             '#collapsed' => TRUE,
-                             '#weight' => $weight++,
-    );
-    $output['login']['form'] = array('#value' => drupal_get_form('user_login'));
-    
-    $output['register'] = array('#type' => 'fieldset',
-                                '#title' => t('Register new account',
-                                              array('!site' => variable_get('site_name', 'Drupal'))),
-                                '#collapsible' => TRUE,
-                                '#collapsed' => TRUE,
-                                '#weight' => $weight++,
-    );
-    $output['register']['form'] = array('#value' => drupal_get_form('user_register'));
-  }
-
-  $output['skip'] = array('#value' => l(t('Skip registration, use !app',
-                                          array('!app' => t($fb_app->title))), '<front>', array('class' => 'fb_button')),
-                          '#weight' => $weight++,
-                          '#prefix' => '<p>',
-                          '#suffix' => '</p>',
-  );
-  
-  // TODO: make output customizable by third-party modules.
-  return drupal_render($output);
-}
-
-/**
- * A form which helps a facebook user either register a new local drupal
- * account or synchronize facebook account with an existing account.  Really,
- * all we do is redirect the user to the login or registration forms.
- */
-function fb_user_post_add_form() {
-  global $fb, $fb_app, $user;
-  
-  // This form only works on canvas pages.
-  if (!$fb_app) {
-    drupal_access_denied();
-    exit();
-  }
-  // And if the user's account is recognized, we can skip this.
-  if ($user->uid && FALSE) {
-    drupal_goto("<front>");
-    exit();
-  }
-
-  // Substitutions for translation
-  $t = array('%sitename' => variable_get('site_name', t('this website')),
-             '%appname' => $fb_app->title);
-
-  drupal_set_title(t('Welcome to %appname', $t));
-
-  $parents = array('redirect');
-  // Could use 'radios' type, but using 'radio' is more flexible.
-  $form['redirect']['user/login'] = array('#type' => 'radio',
-                                          '#title' => t('I already have an account on %sitename', $t),
-                                          '#description' => t('You will be prompted for your password.', $t),
-                                          '#return_value' => 'user/login',
-                                          '#parents' => $parents,
-  );
-  $form['redirect']['user/register'] = array('#type' => 'radio',
-                                             '#title' => t('Complete my registration now', $t),
-                                             '#description' => t('You will be asked for additional information and given a new password.', $t),
-                                             '#return_value' => 'user/register',
-                                             '#parents' => $parents,
-                                             '#default_value' => 'user/register',
-  );
-  $form['redirect']['frontpage'] = array('#type' => 'radio',
-                                         '#title' => t('I will register later', $t),
-                                         '#description' => t('Use this application without registering on %sitename.', $t),
-                                         '#return_value' => '<front>',
-                                         '#parents' => $parents,
-  );
-  $form['submit'] = array('#type' => 'submit',
-                          '#value' => t('Continue')
-  );
-
-
-  return $form;
-}
-
-function fb_user_post_add_form_submit($form_id, $values) {
-  //dpm(func_get_args(), 'fb_user_post_add_form_submit');
-
-  // Here we simply redirect the user to the appropriate page
-  return $values['redirect'];
-}
-
-/**
- * The post-remove page is visited by Facebook after a user removes the
- * application.  The user never visits the page, it is simply called by
- * Facebook to notify us of the change.
- */
-function fb_user_post_remove_cb() {
-  global $fb, $fb_app, $user;
-  if (fb_verbose()) watchdog('debug', 'fb_user_post_remove_cb, session_id is ' . session_id() . ' session_name is ' . session_name() . dprint_r($_REQUEST, 1) . dprint_r($user, 1) . dprint_r($fb_app, 1));
-  
-  // Update our database to reflect application is NOT added
-  _fb_user_track($fb, $fb_app, $user);
-
-  // Ideally, we would destroy the user's session here.  However the session
-  // currently active is not the same as the user's.  We have no robust way to
-  // delete their session.
-  
-  // Nothing to return
-  exit();
-}
-
-
-function _fb_user_sync_redirect($redirect) {
-  global $user;
-  global $fb, $fb_app;
-  $cache_data = array('request' => $_REQUEST,
-                      'fbu' => fb_facebook_user(),
-                      'fb_app' => $fb_app);
-  // Generate a one-time key for cached data.  We used to use Facebook's
-  // auth_token here, but it's not always available
-  // so better to generate our own.
-  $key = uniqid('fb_user_');
-  
-  cache_set($key, 'cache', serialize($cache_data), CACHE_TEMPORARY);
-  
-  // Note that drupal_goto will fail here, but $fb->redirect succeeds.
-  $url = fb_scrub_urls(url($redirect, 'sync_token='.$key, NULL, TRUE));
-
-  if (fb_verbose()) watchdog('fb_debug', "Redirecting to $url");
-  
-  $fb->redirect($url);
-  exit();
-}
-
-/**
- * The sync callback is invoked first on a canvas page, in which case we
- * require the user to add the application.  Later the user will be redirected
- * to this callback on the locale server, with an token that allows us to
- * write the necessary row to the authmap table.
- */
-function fb_user_sync_cb() {
-  global $user;
-  global $fb, $fb_app;
-  // TODO: ensure that user does not already have a mapping to some other facebook id.
-
-  // On canvas pages, require user to add the app...
-  if ($fb) {
-    if (fb_verbose() && function_exists('dprint_r'))
-      watchdog('debug', 'fb_user_sync_cb request ' . dprint_r($_REQUEST, 1));
-    
-    $fb->require_login();
-    
-    // The user has already added the app.
-    // Redirect to the local page where the authmap will be generated.
-    _fb_user_sync_redirect(FB_USER_SYNC_PATH);
-  }
-  else {
-    // Double check user is logged in.  No point syncing the anonymous account.
-    if (!$user->uid) {
-      drupal_access_denied();
-      exit();
-    }
-
-    $output = '';
-    // On non canvas pages, we have returned to the local server.  Hopefully
-    // the user has added the app and we can now sync the two accounts.
-    if ($_REQUEST['sync_token']) {
-      $key = $_REQUEST['sync_token'];
-      $cache = cache_get($key);
-      cache_clear_all($key, 'cache'); // So noone else uses this key
-      $data = unserialize($cache->data);
-      if (!$data) {
-        drupal_set_message(t('Unable to locate Facebook account information.'), 'error');
-        drupal_access_denied();
-        exit();
-      }
-      watchdog('debug', 'got the data ' . dprint_r($data, 1));
-      $fbu = $data['fbu'];
-      $fb_app = $data['fb_app'];
-      drupal_set_title(t('Added %appname Application',
-                         array('%appname' => $fb_app->title)));
-      if ($fbu && $fb_app) {
-        list ($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
-        
-        // Check if the authname is already in use.
-        $account = user_external_load($authname);
-        if ($account && $account->uid != $user->uid) {
-          watchdog('fb_user', t('Re-syncing facebook account.  The authname %authname currently refers to !old_user_link.  Updating to point to !new_user_link.',
-                                array('%authname' => $authname,
-                                      '%old_username' => $account->name,
-                                      '%old_uid' => $account->uid,
-                                      '!old_user_link' => theme('username', $account),
-                                      '!new_user_link' => theme('username', $user),
-                                )));
-          // This will delete the old authmap entry
-          user_set_authmaps($account, array($module => NULL));
-        }
-        if (fb_verbose())
-          watchdog('fb_user', t('Syncing local user %uid with facebook user %fbu via authmap entry %authname',
-                                array('%fbu' => $fbu,
-                                      '%uid' => $user->uid,
-                                      '%authname' => $authname)));
-        
-        // Write the authmap
-        user_set_authmaps($user, array($module => $authname));
-        
-        drupal_set_message(t('Your <a href="!localurl">local account</a> is linked to your <a href="!facebookurl">Facebook profile</a>.',
-                             array('!localurl' => url('user/'.$user->uid),
-                                   '!facebookurl' => url('http://www.facebook.com/profile.php', 'id='.$fbu))));
-        
-        // Give the user feedback that the sync has been successful.
-        // Query facebook to learn more about their facebook account.
-        $fb = fb_api_init($fb_app, FB_FBU_ANY);
-        if ($fb) {
-          $info = $fb->api_client->users_getInfo(array($fbu), 
-                                                 array('about_me',
-                                                       'affiliations',
-                                                       'name',
-                                                       'is_app_user',
-                                                       'pic_big',
-                                                       'profile_update_time',
-                                                       'status',
-                                                 ));
-          if (count($info)) {
-            $output .= theme('fb_app_user_info', $fb_app, $info[0]);
-          }
-        }
-      }
-    }
-    
-  }
-
-  // TODO: allow modules a way to customize the output of this function.
-  return $output;
-}
-
-// There are several pages where we don't want to automatically create a new
-// account or use an account configured for this app.
 function _fb_user_special_page() {
   return (arg(0) == 'user' || arg(0) == 'fb_user' ||
           (arg(0) == 'fb' && arg(1) == 'form_cache'));
 }
 
+/**
+ * Keep track of when the user has visited the app, and whether they've
+ * authorized the app or not.
+ */
 function _fb_user_track($fb, $fb_app, $user) {
   // Keep track of all our app users.  We need this info when updating
   // profiles during cron.  We keep session keys in case user has an
@@ -616,14 +306,19 @@ function fb_user_form_alter($form_id, &$form) {
     
  
   }
+  else if ($form_id == 'user_edit' && ($app = $form['#fb_app'])) {
+    // Disable buttons on user/edit/app pages, nothing to submit
+    unset($form['submit']);
+    unset($form['delete']);
+  }
 }
 
 /**
  * Implementation of hook_user.
  */
 function fb_user_user($op, &$edit, &$account, $category = NULL) {
-  global $fb, $fb_app; // Set only in canvas pages.
   global $user;
+  static $apps;
 
   // If form posted from an FBML canvas page, we learn the app and fbu from the post.
   // TODO: do we need additional validation here? (i.e. an fb_api_init to confirm the facebook params?)
@@ -632,7 +327,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     $fb_app = fb_get_app(array('apikey' => $_REQUEST['fb_sig_api_key']));
     $fbu = $_REQUEST['fb_sig_user'];
   }
-  else if ($fb) {
+  else if ($GLOBALS['fb']) {
     // Post from iframe
     $fbu = fb_facebook_user();
   }
@@ -660,10 +355,38 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   
   // Add tabs on user edit pages to manage maps between local accounts and facebook accounts.
   if ($op == 'categories') {
+    // A tab for administrators
     $items[] = array('name' => 'fb_user',
                      'title' => t('Facebook Applications'),
                      'weight' => 1,
     );
+    // A tab for each application the user has authorized
+    $result = _fb_app_query_all();
+    $apps = array();
+    while ($fb_app = db_fetch_object($result)) {
+      $apps[$fb_app->label] = $fb_app;
+      $fb_app_data = fb_app_get_data($fb_app);
+      $fb_user_data = $fb_app_data['fb_user']; // our configuration
+      
+      $fbu = _fb_user_get_fbu($account->uid, $fb_app);
+
+      if ($fbu && !$info[$fbu]) {
+        // The drupal user is a facebook user.  Now, learn more from facebook.
+        $fb = fb_api_init($fb_app, FB_FBU_ANY);
+        // Note: this requires infinite session with facebook.  TODO: fallback to fb_user_app table.
+        $info[$fbu] = $fb->api_client->users_getInfo(array($fbu), 
+                                                     array('name',
+                                                           'is_app_user',
+                                                     ));
+        
+        if ($info[$fbu][0]['is_app_user']) {
+          $items[] = array('name' => $fb_app->label,
+                           'title' => $fb_app->title,
+                           'weight' => 2);
+        }
+        
+      }
+    }
     return $items;
   }
   else if ($op == 'form' && $category == 'fb_user') {
@@ -686,11 +409,13 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
                                                            'is_app_user',
                                                      ));
         //dpm($info[$fbu], "Info from facebook for $fbu");
+        
+        
       }
       
       if ($fbu) {
         list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
-
+        
         if ($fb_user_data['unique_account']) {
           $form['map'][$module] = array('#type' => 'checkbox',
                                         '#title' => $fb_app->title,
@@ -722,20 +447,8 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       }
 
       if (!$fbu) {
-        if ($user->uid == $account->uid && 
-            $map_url = fb_user_get_map_url($fb_app)) {
-          $about_url = fb_app_get_about_url($fb_app);
-          
-          $form[$fb_app->nid] = array('#type' => 'markup',
-                                      '#value' => t('You may add !application_about_page to your <a href="!facebook_url" target=_blank>Facebook</a> account.  <ol><li>First, log into <a href="!facebook_url" target=_blank>Facebook</a>.</li><li>Then, <a href="!map_url">click here to add the %application application</a>.</li></ol>',
-                                                    array('!map_url' => $map_url,
-                                                          '!facebook_url' => 'http://www.facebook.com',
-                                                          '%application' => $fb_app->title,
-                                                          '!application_about_page' => $about_url ? l($fb_app->title, $about_url) : '<em>'.$fb_app->title.'</em>',
-                                                    )),
-                                      '#prefix' => "\n<p>",
-                                      '#suffix' => "</p>\n",
-          );
+        if ($user->uid == $account->uid) {
+          // TODO: give a user a way to map their facebook account to their local account.
         }
         else {
           $form[$fb_app->nid] = array('#type' => 'markup',
@@ -751,6 +464,63 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     }
     return $form;
   }
+  else if ($op == 'form' && ($fb_app = $apps[$category])) {
+    // Application-specific settings
+    $form['#fb_app'] = $fb_app; // used in hook_form_alter.
+
+    if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
+      $sections = array('profile', 'info');
+      foreach ($sections as $section) {
+        $form[$section] =
+          array('#type' => 'markup',
+                '#value' => '<fb:add-section-button section="'.$section.'" />',
+          );
+      }
+    }
+    // http://wiki.developers.facebook.com/index.php/Extended_permissions
+    $permissions = 
+      array('email' => 'Allow %application to send you email', 
+            'offline_access' => 'Grant %application access to your Facebook profile.',
+            'status_update' => 'Allow %application to set your status.', 
+            'photo_upload' => 'Allow %application to upload photos.', 
+            'create_listing' => 'Allow %application to create marketplace listings on your behalf.',
+            'create_event' => 'Allow %application to create events on your behalf.',
+            'rsvp_event' => 'Allow %application to RSVP to events on your behalf',
+            'sms' => 'Allow %application to send you SMS text messages.',
+      );
+    foreach ($permissions as $key => $t) {
+      if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
+        $form[$key] =
+          array('#type' => 'markup',
+                '#value' => '<fb:prompt-permission perms="'.$key.'">'.
+                t($t, array('%application' => $fb_app->title)) .
+                '<br /></fb:prompt-permission>',
+          );
+      } 
+      else {
+        // Non-fbml page
+        // TODO: use API to hide permissions we already have
+        $url = url($_GET['q'], NULL, NULL, TRUE);
+        $form[$key] =
+          array('#type' => 'markup',
+                '#value' => l(t($t, array('%application' => $fb_app->title)),
+                              "http://www.facebook.com/authorize.php",
+                              array(),
+                              "api_key={$fb_app->api_key}&v=1.0&ext_perm={$key}&next={$url}&next_cancel={$url}"),
+          );
+        
+      }
+    }
+    $form['description'] =
+      array('#type' => 'markup',
+            '#value' => l(t('All settings for %application (and other Facebook Applications).', array('%application' => $fb_app->title)),
+                          'http://www.facebook.com/editapps.php',
+                          array(), NULL, NULL, FALSE, TRUE),
+            '#prefix' => '<p>',
+            '#suffix' => "</p>\n",
+      );
+    return $form;
+  }
   else if ($op == 'update' && $category == 'fb_user') {
     //dpm($edit, "fb_user_user($op)");
     
@@ -758,15 +528,6 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       user_set_authmaps($account, array($module => $authname));
     }
   }
-}
-
-function theme_fb_app_name_with_links($fb_app, $is_added = NULL) {
-  $output = $fb_app->title;
-  // TODO add link to about page
-  if ($is_added === FALSE) {
-    $links[] = 'add link'; //XXX
-  }
-  return $output;
 }
 
 
@@ -895,6 +656,7 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
  */
 function fb_user_get_local_user($fbu, $fb_app) {
   // TODO: this query probably needs to search for one authname or the other, not both.
+  // Alternately, use the fb_user_app table rather than authmap to look up this information.
   $result = db_query("SELECT am.* FROM authmap am WHERE am.authname='%s' OR am.authname='%s' ORDER BY am.authname",
                      "$fbu-$fb_app->apikey@facebook.com", "$fbu@facebook.com");
   if ($data = db_fetch_object($result)) {
