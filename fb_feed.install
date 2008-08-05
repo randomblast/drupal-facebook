@@ -1,0 +1,22 @@
+<?php
+function fb_feed_install() {
+  switch ($GLOBALS['db_type']) {
+    case 'mysql':
+    case 'mysqli':
+      db_query("
+CREATE TABLE IF NOT EXISTS {fb_feed_template} (
+nid int(11) unsigned NOT NULL,
+fb_app_nid int(11) unsigned NOT NULL,
+apikey varchar(128) NOT NULL,
+bundle_id BIGINT UNSIGNED NOT NULL,
+fb_feed_data longtext,
+PRIMARY KEY (nid),
+UNIQUE KEY (apikey, bundle_id),
+UNIQUE KEY (fb_app_nid, bundle_id)
+) /*!40100 DEFAULT CHARACTER SET UTF8 */;
+");
+  }
+
+}
+
+?>

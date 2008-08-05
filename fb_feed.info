@@ -1,0 +1,4 @@
+name=Drupal for Facebook Feeds
+description = Post stories to Facebook feeds
+package = Facebook
+dependencies = fb
