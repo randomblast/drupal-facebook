@@ -575,15 +575,16 @@ function fb_scrub_urls($content) {
 /**
  * Convenience method for displaying facebook api errors.
  */
- function fb_report_errors($fb = FB_APP_CURRENT) {
-   if ($fb == FB_APP_CURRENT) {
+function fb_report_errors($fb = FB_APP_CURRENT, $message = NULL) {
+  if ($fb == FB_APP_CURRENT) {
     $fb = $GLOBALS['fb'];
   }
   if ($fb) {
     if ($fb->api_client->error_code) {
-      $message = t('Facebook API error %code (see !link).',
+      $message = t('!message Facebook API error %code (see !link).',
                    array('%code' => $fb->api_client->error_code,
                          '!link' => l(t('error codes'), "http://wiki.developers.facebook.com/index.php/Error_codes"),
+                         '!message' => $message,
                    ));
       watchdog('fb', $message, WATCHDOG_ERROR);
       drupal_set_message($message, 'error');
