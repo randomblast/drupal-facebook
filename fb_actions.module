@@ -8,16 +8,7 @@
 
 
 function fb_actions_action_info() {
-  return array('fb_actions_minifeed' =>
-               array('type' => 'fb_action',
-                     'description' => t('Post to Facebook mini-feed'),
-                     'configurable' => TRUE,
-                     'hooks' => array('nodeapi' => array('delete', 'insert', 'update', 'view'),
-                                      'comment' => array('delete', 'insert', 'update', 'view'),
-                                      'user' => array('insert', 'update', 'delete', 'login', 'logout'),                                      
-                     ),
-               ),
-               'fb_actions_profile_fbml' =>
+  return array('fb_actions_profile_fbml' =>
                array('type' => 'fb_action',
                      'description' => t('Write to Facebook profile'),
                      'configurable' => TRUE,
@@ -48,95 +39,6 @@ function fb_actions_action_info() {
   }
 
 
-
-function fb_actions_minifeed(&$object, $values = array()) {
-  //dpm(func_get_args(), 'fb_actions_minifeed');
-  
-  if ($values['hook'] == 'nodeapi') {
-    $node = $values['node'];
-  }
-  else if ($values['hook'] == 'comment') {
-    $comment = $values['comment'];
-    $node = node_load($comment->nid);
-  }
-  else if ($values['hook'] == 'user') {
-    $account = $values['user'];
-  }
-  
-  // Log into facebook as the current user.
-  if ($fb_app = $GLOBALS['fb_app'])
-    if ($values['fb_app_nid'] == FB_APP_CURRENT || 
-        $fb_app->nid == $values['fb_app_nid'])
-      // We're in a canvas page for the desired app.  We're already logged in.
-      $fb = $GLOBALS['fb'];
-  if (!$fb && $values['fb_app_nid'] != FB_APP_CURRENT) {
-    global $user;
-    // Need to log into this app.
-    $fb_app = fb_get_app(array('nid' => $values['fb_app_nid']));
-    $fbu = fb_get_fbu($user->uid, $fb_app);
-    if ($fbu) {
-      $fb = fb_api_init($fb_app, $fbu);
-    }
-  }
-
-  // Even if we have an $fb now, it may not have permission to do all things
-  // we ask of it.
-  if ($fb) {
-    // Replace both node and fb_app related tokens
-    $title = token_replace($values['title'], 'node', $node);
-    $title = token_replace($title, 'comment', $comment);
-    $title = token_replace($title, 'user', $account);
-    $title = token_replace($title, 'fb_app', $fb_app);
-    $body = token_replace($values['body'], 'node', $node);
-    $body = token_replace($body, 'comment', $comment);
-    $body = token_replace($body, 'user', $account);
-    $body = token_replace($body, 'fb_app', $fb_app);
-
-    // Rewrite links to reference canvas pages
-    if ($fb_app->canvas && function_exists('fb_canvas_process_fbml')) {
-      $title = fb_canvas_process_fbml($title, $fb_app);
-      $body = fb_canvas_process_fbml($body, $fb_app);
-    }
-
-
-    $fb->api_client->feed_publishActionOfUser($title, $body);
-    fb_report_errors($fb);
-  }
-}
-
-function fb_actions_minifeed_form($values) {
-  $options = fb_get_app_options(TRUE);
-  $form['description'] = array('#value' => t('Note that this action will only succeed when executed from a Facebook canvas page when the user is logged in, or on non-canvas pages when the logged in user has an infinite session key.  These are privacy restrictions enforced by the Facebook API.'));
-  $form['fb_app_nid'] = 
-    array('#type' => 'select',
-          '#title' => t('Application'),
-          '#default_value' => $values['fb_app_nid'],
-          '#options' => $options,
-          '#description' => t('Log into Facebook as which action?  If %current, action will only be performed only on canvas pages.',
-                              array('%current' => $options[FB_APP_CURRENT])),
-    );
-  $form['title'] = array('#type' => 'textfield',
-                         '#title' => t('Title'),
-                         '#default_value' => $values['title'],
-                         '#description' => t('Title line of mini-feed item.  (Most Facebook mini-feed items have only a title, and no message body).'),
-                         '#required' => TRUE,
-  );
-  $form['body'] = array('#type' => 'textarea',
-                        '#title' => t('Body'),
-                        '#default_value' => $values['body'],
-                        '#description' => t('Text to publish on mini-feed.  In many cases, only the title is required and this may be left blank.<br />The following tokens will be replaced: !token_help',
-                                            array('!token_help' => theme('token_help', 'node') . theme('token_help', 'comment') . theme('token_help', 'fb_app'))),
-  );
-  return $form;
-}
-function fb_actions_minifeed_validate($form_id, $values) {
-}
-function fb_actions_minifeed_submit($form_id, $values) {
-  return array('fb_app_nid' => $values['fb_app_nid'],
-               'body' => $values['body'],
-               'title' => $values['title'],
-  );
-}
 
 
 /**

@@ -158,7 +158,7 @@ function fb_app_form(&$node, &$param) {
           '#title' => check_plain($type->body_label), 
           '#default_value' => $node->body, 
           '#required' => FALSE,
-          '#description' => 'Not sure yet how this will be used.',
+          '#description' => 'A brief description of the application.',
     ); 
   $form['body_filter']['filter'] = filter_form($node->format); 
   
@@ -231,7 +231,6 @@ function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
       array('#value' => theme('fb_app', $node->fb_app),
             '#weight' => 1);
     
-    $node->content['fb_app_blocks']['#weight'] = 10;
   }
   return $node;
 }
@@ -316,32 +315,6 @@ function fb_app_get_data(&$fb_app) {
     $fb_app->fb_app_data = unserialize($fb_app->data);
   }
   return $fb_app->fb_app_data;
-}
-
-
-function _fb_app_num_blocks() {
-  return variable_get('fb_app_num_blocks', 1);
-}
-
-function fb_app_block($op = 'list', $delta = 0, $edit = array()) {
-  if ($op == 'list') {
-    for ($i = 0; $i < _fb_app_num_blocks(); $i++)
-      $items[$i]['info'] = t('Facebook Application block !num',
-                             array('!num' => $i+1));
-    return $items;
-  }
-  else if ($op == 'view') {
-    global $fb_app;
-    $result = db_query("SELECT * FROM {fb_app_block} WHERE nid=%d AND delta='%s'",
-                       $fb_app->nid, $delta);
-    $data = db_fetch_object($result);
-    if ($data) {
-      $output = check_markup($data->body, $data->format, FALSE);
-      return array('content' => $output,
-                   // TODO: subject
-      );
-    }
-  }
 }
 
 /**

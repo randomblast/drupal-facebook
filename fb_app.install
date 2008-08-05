@@ -6,7 +6,7 @@
    */
   // TODO: some of these tables should be created by othe module install files.
 
-Function fb_app_install() {
+function fb_app_install() {
   switch ($GLOBALS['db_type']) {
     case 'mysql':
     case 'mysqli':
@@ -25,20 +25,6 @@ data longtext,
 PRIMARY KEY (nid),
 UNIQUE KEY (apikey)
 ) /*!40100 DEFAULT CHARACTER SET UTF8 */;
-");
-
-      // This table schema has to match the cache_filter table.
-      db_query("
-CREATE TABLE {fb_cache_filter} ( 
-cid varchar(255) NOT NULL default '', 
-data longblob, 
-expire int NOT NULL default '0', 
-created int NOT NULL default '0', 
-headers text, 
-PRIMARY KEY (cid), 
-INDEX expire (expire) 
-) /*!40100 DEFAULT CHARACTER SET UTF8 */;
-
 ");
 
   }
