@@ -129,15 +129,15 @@ function fb_api_init($fb_app, $fbu) {
 
   // This helps with uncaught exceptions.  However, it should be configurable
   // or at least not overwrite previously declared handler.
-  set_exception_handler('fb_report_exception');
+  set_exception_handler('fb_handle_exception');
   
   if (!count($cache)) {
     $filename = variable_get('fb_api_file', 'facebook-platform/client/facebook.php');
 
     if (!file_exists($filename)) {
       // Print an error directly to the canvas page.
-      print("Failed to open Facebook API file $filename.  Either fix this problem or disable Facebook modules.");
-      
+      //print("Failed to open Facebook API file $filename.  Either fix this problem or disable Facebook modules.");
+      return NULL;
     }
     else
       require_once($filename);
@@ -591,11 +591,24 @@ function fb_report_errors($fb = FB_APP_CURRENT, $message = NULL) {
     }
   }
 }
- 
+
+function fb_log_exception($e, $text = '') {
+  if ($text)
+    $message = $text .': '. $e->getMessage();
+  else
+    $message = $e->getMessage();
+  $message .= ' ' . $e->getCode();
+  
+  watchdog('fb', $message, WATCHDOG_ERROR);
+  if (user_access('administer fb apps')) {
+    drupal_set_message($message, 'error');    
+  }
+}
+
 /**
  * Exception handler for PHP5 exceptions.
  */
- function fb_report_exception($exception) {
+ function fb_handle_exception($exception) {
    $message = t('Facebook API exception %message.  !trace',
                 array('%message' => $exception->getMessage(),
                      '!trace' => '<pre>'.$exception->getTraceAsString().'</pre>',
