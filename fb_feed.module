@@ -19,7 +19,20 @@ define('FB_FEED_OP_TOKEN_ALTER', 'fb_feed_token_alter');
 function fb_feed_menu($may_cache) {
   $items = array();
   if ($may_cache) {
-    
+    $items[] = array('path' => 'fb_feed/register',
+                     'title' => t('Register template'),
+                     'type' => MENU_CALLBACK,
+                     'access' => user_access('adminster fb apps'),
+                     'callback' => 'fb_feed_register_cb',
+    );
+    $items[] = array('path' => 'fb_feed/deactivate',
+                     'title' => t('Deactivate template'),
+                     'type' => MENU_CALLBACK,
+                     'access' => user_access('adminster fb apps'),
+                     'callback' => 'drupal_get_form',
+                     'callback arguments' => array('fb_feed_deactivate_confirm'),
+    );
+
   }
   else {
     if (arg(0) == 'node' && is_numeric(arg(1))) {
@@ -39,14 +52,146 @@ function fb_feed_menu($may_cache) {
   return $items;
 }
 
-function fb_feed_template_page($fb_app_nid) {
+function fb_feed_deactivate_confirm($fb_app_nid, $bundle_id) {
+  $result = db_query("SELECT n.nid, n.title FROM {node} n LEFT JOIN {fb_feed_template} fft ON fft.nid = n.nid WHERE fft.fb_app_nid = %d AND fft.bundle_id = %d",
+                     $fb_app_nid, $bundle_id);
+  $data = db_fetch_object($result);
+  if ($data->nid) {
+    $form['nid'] = array('#type' => 'hidden', '#value' => $data->nid);
+    $description = t('This will deactivate the template on Facebook.  The template node will not be deleted.');
+    $question = t('Really deactivate the !template_link template?',
+                  array('!template_link' => l($data->title, 'node/'.$data->nid)));
+  }
+  else
+    $question = t('Really deactivate template bundle %bundle_id?',
+                  array('%bundle_id' => $bundle_id));
+  
+  $form['bundle_id'] = array('#type' => 'hidden',
+                             '#value' => $bundle_id);
+  $form['fb_app_nid'] = array('#type' => 'hidden',
+                              '#value' => $fb_app_nid);
+  
+  return confirm_form($form, $question, 'node/'.$fb_app_nid.'/fb_feed/templates',
+                      $description);
+}
+
+function fb_feed_deactivate_confirm_submit($form_id, $values) {
+  $success = fb_feed_deactivate_template($values['fb_app_nid'], $values['bundle_id']);
+  if ($success && $values['nid'])
+    db_query("UPDATE {fb_feed_template} SET bundle_id=0 WHERE nid=%d",
+             $values['nid']);
+
+  if ($success) {
+    drupal_set_message(t('The template %bundle_id has been deactivated.',
+                         array('%bundle_id' => $values['bundle_id'])));
+  }
+  else {
+    drupal_set_message(t('The template %bundle_id could not be deactivated.',
+                         array('%bundle_id' => $values['bundle_id'])), 'error');
+  }
+  return 'node/'.$values['fb_app_nid'].'/fb_feed/templates';  
+}
+
+function fb_feed_deactivate_template($fb_app_nid, $bundle_id) {
   $fb_app = fb_get_app(array('nid' => $fb_app_nid));
   $fb = fb_api_init($fb_app, FB_FBU_ANY);
+  if (!$fb) {
+    drupal_set_message(t('Facebook API failed to connect.  Template could not be deactivated.', 'error'));
+    return FALSE;
+  }
+  else {
+    $result = $fb->api_client->feed_deactivateTemplateBundleByID($bundle_id);
+    fb_report_errors($fb, 'Error while deactivating template.');
+  }
+  return $result;
+}
 
-  $registered = $fb->api_client->feed_getRegisteredTemplateBundles();
-  dpm($registered, "fb_feed_template_page");
+function fb_feed_register_cb($nid) {
+  $node = node_load($nid);
+  $bundle_id = fb_feed_register_template($node);
+  drupal_goto('node/'.$node->fb_app_nid.'/fb_feed/templates');
+}
+
+function fb_feed_template_page($fb_app_nid) {
+  $registered = array();
+  $unregistered = array();
+  // Query all known templates
+  $result = db_query("SELECT n.nid, n.title, n.status, fft.bundle_id FROM {node} n LEFT JOIN {fb_feed_template} fft ON fft.nid = n.nid WHERE fft.nid IS NOT NULL");
+  while ($data = db_fetch_object($result)) {
+    if ($data->bundle_id) {
+      $registered[$data->bundle_id] = $data;
+    }
+    else {
+      $unregistered[] = $data;
+    }
+  }
   
-  return "TODO";
+  // Query facebook for a list of registered templates we know nothing about.
+  $fb_app = fb_get_app(array('nid' => $fb_app_nid));
+  $fb = fb_api_init($fb_app, FB_FBU_ANY);
+  if ($fb) {
+    // This will work only with infinite session.
+    $all = $fb->api_client->feed_getRegisteredTemplateBundles();
+    //dpm($all, "fb_feed_template_page");
+    foreach ($all as $data) {
+      if (isset($registered[$data['template_bundle_id']])) {
+        $registered[$data['template_bundle_id']]->confirmed = $data;
+      }
+      else
+        $registered[$data['template_bundle_id']] = $data;
+    }
+  }
+  else {
+    drupal_set_message("Facebook API not available.  Some options will not be shown.  Possible infinite session configuration problem.", 'error');
+  }
+  
+  // Display one table of registered templates and another of unregistered.
+  if (count($unregistered))  {
+    $rows = array();
+    foreach ($unregistered as $data) {
+      $ops = array(l(t('register'), 'fb_feed/register/'.$data->nid));
+      $row = array(l($data->title, 'node/'.$data->nid),
+                   implode('&nbsp;|&nbsp;', $ops));
+      $rows[] = $row;
+    }
+    $header = array(t('Unregistered Template'), t('Operations'));
+    $output .= theme('table', $header, $rows);
+  }
+  if (count($registered))  {
+    $rows = array();
+    foreach ($registered as $data) {
+      $ops = array();
+      
+      if ($data->confirmed)
+        $ops[] = l(t('deactivate'), 'fb_feed/deactivate/'.$fb_app->nid.'/'.$data->bundle_id);
+      else if ($data->nid && $fb && is_array($all))
+        $ops = array(l(t('re-register'), 'fb_feed/register/'.$data->nid));
+      else if ($data['template_bundle_id'])
+        $ops[] = l(t('deactivate'), 'fb_feed/deactivate/'.$fb_app->nid.'/'.$data['template_bundle_id']);
+      
+      
+      
+      if ($data->nid)
+        $title = l($data->title, 'node/'.$data->nid);
+      else
+        // Use a template learned from facebook.
+        $title = $data['one_line_story_templates'][0];
+      if ($data->bundle_id)
+        $bundle_id = $data->bundle_id;
+      else
+        $bundle_id = $data['template_bundle_id'];
+      $row = array($title,
+                   $bundle_id,
+                   implode('&nbsp;|&nbsp;', $ops),
+      );
+      $rows[] = $row;
+    }
+    $header = array(t('Registered Template'), t('Bundle ID'), t('Operations'));
+    $output .= theme('table', $header, $rows);
+  }
+  
+  
+  return $output;
 }
 
 /**
@@ -89,15 +234,17 @@ function fb_feed_form(&$node, &$param) {
                          '#description' => t('Identifies the template bundle to site administrators.'),
   );
 
-  $form['body_filter']['body'] = 
-    array('#type' => 'textarea', 
-          '#title' => check_plain($type->body_label), 
-          '#default_value' => $node->body, 
-          '#required' => FALSE,
-          '#description' => 'Not sure yet how this will be used.',
-    ); 
-  $form['body_filter']['filter'] = filter_form($node->format); 
-  
+  if ($type->body_label) {
+    $form['body_filter']['body'] = 
+      array('#type' => 'textarea', 
+            '#title' => check_plain($type->body_label), 
+            '#default_value' => $node->body, 
+            '#required' => FALSE,
+            '#description' => 'Not sure yet how this will be used.',
+      ); 
+    $form['body_filter']['filter'] = filter_form($node->format); 
+  }
+
   // Now we define the form elements specific to our node type. 
   
   $options = fb_get_app_options(FALSE);
@@ -181,7 +328,7 @@ function fb_feed_form(&$node, &$param) {
   $form['fb_feed_data']['full']['template_body'] = 
     array('#type' => 'textarea',
           '#title' => t('Full template body'),
-          '#default_value' => $node->fb_feed_data['full']['template_title'],
+          '#default_value' => $node->fb_feed_data['full']['template_body'],
           '#rows' => 8,
     );
 
@@ -214,37 +361,44 @@ function fb_feed_register_template($node) {
   
   $fb_app = fb_get_app(array('nid' => $node->fb_app_nid));
   // Login to facebook as either the current user or the infinite session
-  if ($fb_app)
+  if ($fb_app) {
     $fb = fb_api_init($fb_app, FB_FBU_ANY);
-  
-  // Clean up the data before sending to facebook.  Send no empty templates.
-  $lines = array();
-  foreach ($node->fb_feed_data['line'] as $line) {
-    if ($line)
-      $lines[] = $line;
-  }
-  $shorts = array();
-  foreach ($node->fb_feed_data['short'] as $item) {
-    if ($item['template_title'])
-      $shorts[] = $item;
-  }
-  $full = array();
-  if ($node->fb_feed_data['full']['template_title'])
-    $full = $node->fb_feed_data['full'];
+    if ($fb) {
+      // Clean up the data before sending to facebook.  Send no empty templates.
+      $lines = array();
+      foreach ($node->fb_feed_data['line'] as $line) {
+        if ($line)
+          $lines[] = $line;
+      }
+      $shorts = array();
+      foreach ($node->fb_feed_data['short'] as $item) {
+        if ($item['template_title'])
+          $shorts[] = $item;
+      }
+      $full = array();
+      if ($node->fb_feed_data['full']['template_title'])
+        $full = $node->fb_feed_data['full'];
+      
+      if ($fb && $fb->get_loggedin_user()) {
+        // TODO: wrap in try-catch
+        $bundle_id = 
+          $fb->api_client->feed_registerTemplateBundle($lines, $shorts, $full);
+        
+        fb_report_errors($fb, t('Error attempting to register template bundle.'));
+        drupal_set_message(t('Registered template bundle %bundle_id with Facebook.',
+                             array('%bundle_id' => $bundle_id)));
 
-  if ($fb && $fb->get_loggedin_user()) {
-    // TODO: wrap in try-catch
-    $bundle_id = 
-      $fb->api_client->feed_registerTemplateBundle($lines, $shorts, $full);
+        if ($bundle_id && $node->nid)
+          db_query("UPDATE {fb_feed_template} fft SET bundle_id=%d WHERE nid=%d",
+                   $bundle_id, $node->nid);
 
-    fb_report_errors($fb, t('Error attempting to register template bundle.'));
-    drupal_set_message(t('Registered template bundle %bundle_id with Facebook.',
-                         array('%bundle_id' => $bundle_id)));
-    return $bundle_id;
+        return $bundle_id;
+      }
+    }
   }
-  else {
-    // TODO: report failure to connect to facebook api
-  }
+  // TODO: report failure to connect to facebook api
+  drupal_set_message(t('Failed to connect to Facebook for application %app.',
+                       array('%app' => $fb_app->title)), 'error');
 }
 
 function fb_feed_insert($node) {
@@ -273,7 +427,14 @@ function fb_feed_insert($node) {
 }
 
 function fb_feed_update($node) {
-  // TODO: deactivate the previously registered bundle
+  //dpm($node, "fb_feed_update");
+
+  // deactivate the previously registered bundle
+  if ($node->bundle_id) {
+    fb_feed_deactivate_template($node->fb_app_nid, $node->bundle_id);
+    unset($node->bundle_id);
+  }
+
   // Register the new template with facebook.
   $bundle_id = fb_feed_register_template($node);
   if (!$bundle_id)
@@ -286,7 +447,7 @@ function fb_feed_update($node) {
   // fb_app_nid, so that we can detect any inconsistencies (i.e. the apikey
   // has changed on us).
   $fb_app = fb_get_app(array('nid' => $node->fb_app_nid));
-  
+
   db_query("UPDATE {fb_feed_template} SET fb_app_nid=%d, apikey='%s', bundle_id=%d, fb_feed_data='%s' WHERE nid=%d",
            $node->fb_app_nid, $fb_app->apikey, $bundle_id, $data, $node->nid);
   
@@ -317,15 +478,19 @@ function fb_feed_view($node, $teaser=FALSE, $page=FALSE) {
   $node = node_prepare($node, $teaser);
   $fb_app = fb_get_app(array('nid' => $node->fb_app_nid));
   
+  if (!$node->bundle_id)
+    drupal_set_message(t('The template shown must be registered with Facebook before it can be used.'), 'error');
+
   $items = array(t('Application') => l($fb_app->title, 'node/'.$fb_app->nid),
-                 t('Template Bundle ID') => $node->bundle_id,
+                 t('Template Bundle ID') => $node->bundle_id ? $node->bundle_id : '<em>'.t('Template bundle not registered') . '</em>',
   );
   $items[t('One-line templates')] = implode("<br />\n", $node->fb_feed_data['line']);
   foreach ($node->fb_feed_data['short'] as $key => $template) {
-    $items[t('Short template %num', array('%num' => $key +1))] =
-      implode("<br />\n", $node->fb_feed_data['short'][$key]);
+    if (is_array($template))
+      $items[t('Short template %num', array('%num' => $key +1))] =
+        implode("<br />\n", $node->fb_feed_data['short'][$key]);
   }
-
+  
   if ($node->fb_feed_data['full']['template_title']) {
     $items[t('Full template')] =
       implode("<br />\n", $node->fb_feed_data['full']);    
@@ -401,19 +566,21 @@ function fb_feed_action_publish_submit($form_id, $values) {
   return $items;
 }
 
-function fb_feed_action_publish(&$object, $values = array()) {
+function fb_feed_action_publish(&$context, $values = array()) {
   //dpm(func_get_args(), 'fb_actions_minifeed');
   
   // Get the objects we're acting upon.
+  $objects = array();
   if ($values['hook'] == 'nodeapi') {
-    $node = $values['node'];
+    $objects['node'] = $values['node'];
   }
   else if ($values['hook'] == 'comment') {
-    $comment = $values['comment'];
-    $node = node_load($comment->nid);
+    $objects['comment'] = $values['comment'];
+    $objects['node'] = node_load($values['comment']->nid);
   }
   else if ($values['hook'] == 'user') {
     $account = $values['user'];
+    $objects['user'] = $account;
   }
   
   // Get the template
@@ -421,10 +588,10 @@ function fb_feed_action_publish(&$object, $values = array()) {
   // TODO: Sanity check that bundle has been registered with Facebook.
   // And the app
   $fb_app = fb_get_app(array('nid' => $template->fb_app_nid));
+  $objects['fb_app'] = $fb_app;
   // TODO: Sanity check that apikeys match.
-
-  $do_publish = TRUE;
-
+  
+  
   // Log into facebook as the current user.
   if ($GLOBALS['fb_app'] && ($fb_app->nid = $GLOBALS['fb_app']->nid))
     // We're in a canvas page for the desired app.  We're already logged in.
@@ -446,32 +613,37 @@ function fb_feed_action_publish(&$object, $values = array()) {
     // We need to pass a bunch of parameters to Feed.publishUserAction.
     $params = array('bundle_id' => $template->bundle_id,
                     'tokens' => array(),
-                    'target_ids' => '',
+                    'target_ids' => array(),
                     'body_general' => '',
+                    'do_publish' => TRUE,
     );
     $options = array('fb_feed_template' => $template);
     
     if ($values['token_enable']) {
       // Use tokens for every kind of object we know about
       foreach (array('node', 'comment', 'user', 'fb_app') as $type) {
-        $toks = token_get_values($type, $object, FALSE, $options);
-        //watchdog('XXX', "token_get_values returned " . dprint_r($toks, 1));
-        if (is_array($toks) && is_array($toks['tokens'])) {
-          foreach ($toks['tokens'] as $i => $key)
-            $params['tokens'][$key] = $toks['values'][$i];
-        } 
+        if ($objects[$type]) {
+          $toks = token_get_values($type, $objects[$type], FALSE, $options);
+          //watchdog('fb_feed_debug', "token_get_values($type) returned " . dprint_r($toks, 1));
+          if ($toks && is_array($toks->tokens)) {
+            foreach ($toks->tokens as $i => $key)
+              $params['tokens'][$key] = $toks->values[$i];
+          }
+        }
       }
     }
 
     // Use naming conventions to allow tokens to provide every parameter.
     if ($params['tokens']['target_ids'])
-      $params['target_ids'] = $params['tokens']['target_ids'];
+      $params['target_ids'][] = $params['tokens']['target_ids'];
     if ($params['tokens']['body_general'])
       $params['target_ids'] = $params['tokens']['body_general'];
     
     // Invoke a hook so that other modules have a chance to modify the params before we pass them to facebook.
-    fb_feed_invoke($fb_app, FB_FEED_OP_TOKEN_ALTER,
-                   $params, array('fb_feed_template' => $template));
+    $params = fb_feed_invoke($fb_app, FB_FEED_OP_TOKEN_ALTER,
+                             $params, array('fb_feed_template' => $template,
+                                            'objects' => $objects,
+                                            'context' => $context));
 
     if (fb_verbose()) {
       watchdog('fb_feed', t("Publish user action, app is %app, bundle is %bundle_id, params are !params.",
@@ -479,31 +651,43 @@ function fb_feed_action_publish(&$object, $values = array()) {
                                   '%bundle_id' => $template->bundle_id,
                                   '!params' => dprint_r($params, 1))));
     }
-    if (is_array($params['tokens'])) {
-      // TODO: try-catch
-      $fb->api_client->feed_publishUserAction($template->bundle_id,
-                                              $params['tokens'],
-                                              $params['target_ids'],
-                                              $params['body_general']);
-      fb_report_errors($fb, 'feed_publishUserAction failed.');
+    if (is_array($params['tokens']) && $params['do_publish']) {
+      if (is_array($params['target_ids']))
+        $target_ids = implode(',', $params['target_ids']);
+      else
+        $target_ids = $params['target_ids'];
+
+      try {
+        // http://wiki.developers.facebook.com/index.php/Feed.publishUserAction
+        //if (FALSE) // disabled for debugging
+        $fb->api_client->feed_publishUserAction($template->bundle_id,
+                                                json_encode($params['tokens']),
+                                                $target_ids,
+                                                $params['body_general']);
+      } catch (Exception $e) {
+        // We can get a lot of "Feed action limit reached" exceptions.  So
+        // only log if fb_verbose is true.
+        if ($e->getCode() != 341 || fb_verbose())
+          fb_log_exception($e, t('Failed to publish user action'));
+      }
     }
   }
 
 }
 
 function fb_feed_fb_feed($fb_app, $op, &$return, $data) {
-  if ($op == FB_FEED_TOKEN_ALTER) {
+  if ($op == FB_FEED_OP_TOKEN_ALTER) {
     // In this hook, we have a chance to add tokens before a user action is
     // published.
     if ($return['tokens']['nid'] && $return['tokens']['title'] &&
         $return['tokens']['fb-app-url']) {
       // Add a link to a canvas page
-      $return['tokens']['fb-app-node-link'] = l($return['tokens']['title'],
-                                                $return['tokens']['fb-app-url'].'/node/'.$return['tokens']['nid']);
+      $return['tokens']['fb-feed-node-link'] = l($return['tokens']['title'],
+                                                 $return['tokens']['fb-app-url'].'/node/'.$return['tokens']['nid']);
     }
     if ($return['tokens']['fb-app-title'] && $return['tokens']['fb-app-url']) {
-      $return['token']['fb-app-link'] = l($return['tokens']['fb-app-title'],
-                                          $return['tokens']['fb-app-url']);
+      $return['tokens']['fb-feed-app-link'] = l($return['tokens']['fb-app-title'],
+                                               $return['tokens']['fb-app-url']);
     }
   }
 }
