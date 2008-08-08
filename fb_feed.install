@@ -10,9 +10,7 @@ fb_app_nid int(11) unsigned NOT NULL,
 apikey varchar(128) NOT NULL,
 bundle_id BIGINT UNSIGNED NOT NULL,
 fb_feed_data longtext,
-PRIMARY KEY (nid),
-UNIQUE KEY (apikey, bundle_id),
-UNIQUE KEY (fb_app_nid, bundle_id)
+PRIMARY KEY (nid)
 ) /*!40100 DEFAULT CHARACTER SET UTF8 */;
 ");
   }
