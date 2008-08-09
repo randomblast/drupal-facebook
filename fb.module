@@ -90,7 +90,7 @@ function fb_init() {
       fb_invoke($fb_app, FB_OP_INITIALIZE);
     }
     else
-      watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook");
+      watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", WATCHDOG_ERROR);
     
   }
   fb_invoke($fb_app, FB_OP_POST_INIT);
