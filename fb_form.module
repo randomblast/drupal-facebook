@@ -72,7 +72,7 @@ function fb_ahah_bind_form( $form ) {
         //add in required javascript files
         $module_path = drupal_get_path('module', 'ahah_forms');
         
-        fb_add_js(drupal_get_path('module', 'fb_form') . '/fb_ahah_forms.js');
+        fb_add_js(drupal_get_path('module', 'fb_form') . '/fb_ahah_forms.js', 'module');
         
         drupal_add_js( 
                       array( 
@@ -81,7 +81,7 @@ function fb_ahah_bind_form( $form ) {
                                             'bindings' => array( $bindings ),
                             ),
                       ),
-                      'setting', 'fbjs'
+                      'setting', 'fbml'
         );
         $one_time_only = TRUE;
       }
@@ -92,7 +92,7 @@ function fb_ahah_bind_form( $form ) {
                                             'bindings' => array( $bindings ),
                             ),
                       ),
-                      'setting', 'fbjs'
+                      'setting', 'fbml'
         );
         
       }

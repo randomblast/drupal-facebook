@@ -631,7 +631,7 @@ function fb_log_exception($e, $text = '') {
  * results in the session, so calls do not always require hitting Facebook's
  * servers.
  *
- * Particularly useful when displaying user info on canvas pages, where
+ * Particularly useful when displaying user info on iframe canvas pages, where
  * <fb:user> tags are not available.
  *
  * @param $oids
@@ -679,25 +679,34 @@ function fb_users_getInfo($oids, $fb = NULL) {
  * embedded inline, rather than refer to an external URL.  So this function
  * will actually read a local file and include the contents inline.
  */
-function fb_add_js($filename) {
+function fb_add_js($filename, $type) {
   static $cache;
   if (!$cache) {
-    // Add some settings
+    $cache = array();
+
+    // Add the most basic file we need.
+    $base_file = drupal_get_path('module', 'fb') . '/fb_fbml.js';
+    $base_file .= "?v=".filemtime($base_file);
+    drupal_add_js($base_file, 'module', 'fbml');
+    
+    // Add some settings that FBJS code will often need.
     $baseUrl = url('', NULL, NULL, TRUE);
     drupal_add_js(array('fbjs' => array('baseUrlFb' => $baseUrl,
                                         'baseUrl' => fb_scrub_urls($baseUrl),
                         ),
                   ),
-                  'setting', 'fbjs'
-    );
+                  'setting', 'fbml');
     
-    $cache = array();
   }
+  
   if (!$cache[$filename]) {
-    $fh = fopen($filename, 'r');
-    $js = fread($fh, filesize($filename));
-    fclose($fh);
-    drupal_add_js($js, 'inline', 'fbjs');
+    if (file_exists($filename)) {
+      // Refresh facebook's cache when file changes
+      $filename .= "?v=".filemtime($filename);
+    }
+    // 'post_settings' is a hack to make our code come after settings. This is
+    // ugly, but we're doing it because there is no "onready" in FBJS.
+    drupal_add_js($filename, 'post_settings', 'fbml');
     $cache[$filename] = TRUE;
   }
 }

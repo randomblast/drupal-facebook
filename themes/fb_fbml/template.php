@@ -19,13 +19,36 @@ function _phptemplate_variables($hook, $vars = array()) {
 	$vars['template_file'] = 'iframe';
   }
   else if ($hook == 'page') {
-	// Include styles inline.  Facebook does not allow use to refer to
-	// them in the header.
-    $vars['styles'] = _phptemplate_callback('styles', $vars);
+	// Add our own stylesheet
+	drupal_add_css(path_to_theme() . '/styles_fbml.css', 'theme', 'fbml');
+
+	// http://wiki.developers.facebook.com/index.php/Include_files
+	// Facebook now allows external references to stylesheets, but not
+	// using the normal syntax, we don't use the normal
+	// drupal_get_css() here.
+	$css = drupal_add_css();
+	//dpm($css, '_phptemplate_variables');
+	// Only include stylesheets for FBML
+	foreach ($css['fbml'] as $type => $files) {
+	  foreach ($files as $file => $preprocess) {
+		$url = base_path() . $file;
+		if (file_exists($file)) {
+		  // Refresh Facebook's cache anytime file changes.
+		  $url .= '?v=' . filemtime($file);
+		}
+		// preprocess ignored
+		if ($type == 'module') {
+		  $module_css .= '<link rel="stylesheet" type="text/css" media="screen" href="'.$url."\" />\n";
+		}
+		else if ($type == 'theme') {
+		  $theme_css .= '<link rel="stylesheet" type="text/css" media="screen" href="'.$url."\" />\n";
+		}
+	  }
+	}
+	$vars['styles'] = $module_css . $theme_css;
 
 	// Include only Facebook aware javascript.
-	$vars['fbjs'] = drupal_get_js('fbjs');
-
+	$vars['fbjs'] = drupal_get_js('fbml');
 
     // Enforce that only admins see admin block.  This can be done (more
     // cleanly?) elsewhere.  But we're doing it here to make sure.
