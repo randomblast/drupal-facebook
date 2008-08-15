@@ -133,13 +133,14 @@ function fb_feed_template_page($fb_app_nid) {
     // This will work only with infinite session.
     $all = $fb->api_client->feed_getRegisteredTemplateBundles();
     //dpm($all, "fb_feed_template_page");
-    foreach ($all as $data) {
-      if (isset($registered[$data['template_bundle_id']])) {
-        $registered[$data['template_bundle_id']]->confirmed = $data;
+    if (is_array($all))
+      foreach ($all as $data) {
+        if (isset($registered[$data['template_bundle_id']])) {
+          $registered[$data['template_bundle_id']]->confirmed = $data;
+        }
+        else
+          $registered[$data['template_bundle_id']] = $data;
       }
-      else
-        $registered[$data['template_bundle_id']] = $data;
-    }
   }
   else {
     drupal_set_message("Facebook API not available.  Some options will not be shown.  Possible infinite session configuration problem.", 'error');
