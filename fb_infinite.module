@@ -171,31 +171,38 @@ function fb_infinite_test_page($nid) {
 
   $fb_app = fb_get_app(array('nid' => $nid));
   $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
-  $fbu = $fb->api_client->users_getLoggedInUser();
-  if ($fbu) {
-    $info = $fb->api_client->users_getInfo(array($fbu), 
-                                           array('about_me',
-                                                 'affiliations',
-                                                 'name',
-                                                 'is_app_user',
-                                                 'pic_big',
-                                                 'profile_update_time',
-                                                 'status',
-                                           ));
-    $info = $info[0];
-    $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', NULL, 'id='.$info['uid']);
-    
-    drupal_set_message(t('Infinite session key is working.'));
-    $output .= '<p>'.t('Facebook infinite session user: !user',
-                       array('!user' => $fb_link)) . '</p>';
-    $output .= '<p>'.t('This page cannot test that the session key will never expire.  If your cron jobs start to fail, return here to test the login again.').'</p>';
-    return $output;
+  if ($fb) {
+    $fbu = $fb->api_client->users_getLoggedInUser();
+    if ($fbu) {
+      $info = $fb->api_client->users_getInfo(array($fbu), 
+                                             array('about_me',
+                                                   'affiliations',
+                                                   'name',
+                                                   'is_app_user',
+                                                   'pic_big',
+                                                   'profile_update_time',
+                                                   'status',
+                                             ));
+      $info = $info[0];
+      $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', NULL, 'id='.$info['uid']);
+      
+      drupal_set_message(t('Infinite session key is working.'));
+      $output .= '<p>'.t('Facebook infinite session user: !user',
+                         array('!user' => $fb_link)) . '</p>';
+      $output .= '<p>'.t('This page cannot test that the session key will never expire.  If your cron jobs start to fail, return here to test the login again.').'</p>';
+      return $output;
+    }
+    else {
+      drupal_set_message(t('Infinite session key test failed.'), 'error');
+      // TODO: provide helpful hints of how to fix the problem.
+      $output .= '<p>'.t('Unable to log into Facebook using infinite session key.').'</p>';
+    }
   }
   else {
     drupal_set_message(t('Infinite session key test failed.'), 'error');
-    // TODO: provide helpful hints of how to fix the problem.
-    $output .= '<p>'.t('Unable to log into Facebook using infinite session key.').'</p>';
+    $output .= '<p>'.t('Unable to log initialize Facebook API.').'</p>';
   }
+    
   return $output;
 }
 
