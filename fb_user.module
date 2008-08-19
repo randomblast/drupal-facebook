@@ -75,8 +75,6 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
     // Here we ask facebook to prompt the user to login or add the app.
     if ($fb_user_data['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN)
       $fb->require_login();
-    else if ($fb_user_data['require_login'] == FB_USER_OPTION_REQUIRE_ADD)
-      $fb->require_add();
     
     // If we know the user's fbu, try to load the corresponding local account.
     $fbu = fb_facebook_user();
@@ -166,11 +164,11 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
     if (strpos($_GET['q'],'user/login') === 0) {
       // Have to check idAppAdded in case of iframe.
       if (!$fb->api_client->users_isAppAdded())
-        $fb->require_add();
+        $fb->require_login();
     }
     else if (strpos($_GET['q'],'user/register') === 0) {
       if (!$fb->api_client->users_isAppAdded())
-        $fb->require_add();
+        $fb->require_login();
     }
     // Now do I need a goto or some such???
     

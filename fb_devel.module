@@ -79,8 +79,6 @@ function fb_devel_page() {
 
   if ($_REQUEST['require_login'])
     $fb->require_login();
-  else if ($_REQUEST['require_add'])
-    $fb->require_add();
   
   if ($fb) {
     // These will work in a canvas page.
