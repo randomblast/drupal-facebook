@@ -128,12 +128,16 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
                                     '%app' => $fb_app->label,
                                     '%role' => $fb_user_data['new_user_rid'])));
       }
-      
-      if ($user->uid != $original_uid) {
-        // We've changed the user.  In order to ensure that drupal handles permissions properly, the user must make the request all over again.
-        if (function_exists('fb_canvas_is_fbml') &&
-            (fb_canvas_is_fbml() || fb_canvas_is_iframe())) {
 
+      if ($user->uid != $original_uid) {
+        // We've changed the user.  In order to ensure that drupal handles
+        // permissions properly, the user must make the request all over
+        // again.  Skip this for the profile tab, as facebook does not allow
+        // redirects (or persistent session) there.
+        if (function_exists('fb_canvas_is_fbml') &&
+            (fb_canvas_is_fbml() || fb_canvas_is_iframe()) &&
+            (!$_REQUEST['fb_sig_in_profile_tab'])) {
+          
           // Redirect to a canvas page
           $url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), NULL, NULL, TRUE), $fb_app);
           if (fb_verbose()) watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $url to ensure permissions are correct."); // debug
@@ -522,9 +526,10 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   else if ($op == 'update' && $category == 'fb_user') {
     //dpm($edit, "fb_user_user($op)");
     
-    foreach ($edit['map'] as $module => $authname) {
-      user_set_authmaps($account, array($module => $authname));
-    }
+    if (is_array($edit['map']))
+      foreach ($edit['map'] as $module => $authname) {
+        user_set_authmaps($account, array($module => $authname));
+      }
   }
 }
 
