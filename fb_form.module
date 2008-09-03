@@ -24,6 +24,11 @@ function fb_form_menu($may_cache) {
                      'access' => TRUE,
                      'type' => MENU_CALLBACK,
     );
+    $items[] = array('path' => 'fb_form_friend_selector_autocomplete',
+                     'callback' => 'fb_form_friend_selector_autocomplete',
+                     'access' => TRUE,
+                     'type' => MENU_CALLBACK,
+    );
   }
   return $items;
 }
@@ -297,11 +302,10 @@ function fb_form_elements() {
                                              // The submit callback does not work properly in <fb:request-form>
                                              '#executes_submit_callback' => TRUE,
   );
-
-  /* deprecated */
-  $items['friend_selector'] = array('#input' => TRUE,
-                                    '#tree' => TRUE,
-                                    '#process' => array('friend_selector_process' => array()),
+  
+  $items['fb_form_friend_selector'] = array('#input' => TRUE,
+                                            '#tree' => TRUE,
+                                            '#process' => array('fb_form_friend_selector_process' => array()),
   );
 
   return $items;
@@ -337,44 +341,122 @@ function fb_form_process_request_selector($orig) {
   return $element;
 }
 
-/* deprecated */
-function friend_selector_process($orig) {
-  global $fb;
+/**
+ * A selector allowing the user to choose from their friends.  This must
+ * behave differently depending on whether the form is displayed on an FBML
+ * canvas page, iframe canvas page, or regular HTML page.
+ */
+function fb_form_friend_selector_process($orig) {
+  // TODO: use fb:friend-selector on FBML pages.
+
+  // TODO: support fb_app specified in element.  Perhaps using Facebook Connect.
   if (!$fb)
-    // TODO: Handle this better.
+    $fb = $GLOBALS['fb']; // Global is set on canvas pages.
+
+  if (!$fb)
+    // TODO: Generate an error.
     return;
-    
+  
   static $options = NULL;
   if (!$options) {
     $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=".fb_facebook_user().")";
     $result = $fb->api_client->fql_query($query);
     
     // TODO: sort results by name
-    $options = array();
-    foreach ($result as $data) {
-      $options[$data['uid']] = $data['first_name'] . ' ' . $data['last_name'];
-    }
+    //$options = array();
+    //foreach ($result as $data) {
+    //  $options[$data['uid']] = $data['first_name'] . ' ' . $data['last_name'];
+    //}
+
+    // Store list of friends in SESSION, so our autocomplete function will not
+    // have to query it every time.
+    $_SESSION['fb_form_friend_selector_result'] = $result;
   }
+
   // TODO: display small picture along with name in select box.
-  $element = array();
-  foreach (array('#title', '#parents', '#description', '#default_value', '#weight', '#multiple', '#required', '#name', '#value') as $key)
+  $element = array('#validate' => array('fb_form_friend_selector_validate' => array($orig)));
+  foreach (array('#title', '#parents', '#description', '#default_value', '#weight', '#multiple', '#required', '#name', '#value', '#id') as $key)
     if (isset($orig[$key]))
       $element[$key] = $orig[$key];
-  $element['#type'] = 'select';
-  $element['#options'] = $options;
+  $element['#type'] = 'textfield';
+  $element['#autocomplete_path'] = url('fb_form_friend_selector_autocomplete', NULL, NULL, TRUE);
 
   //drupal_set_message("fb_form processed " . dpr($orig, 1) . " into " . dpr($element, 1));
   return $element;
 }
 
-function friend_selector_value(&$form) {
-  //drupal_set_message("friend_selector_value" . dpr($form, 1));
+// TODO: support comma-separated names
+function fb_form_friend_selector_autocomplete($string) {
+  $result = $_SESSION['fb_form_friend_selector_result'];
+
+  $matches = array();
+  if (count($result)) {
+    foreach ($result as $data) {
+      $name = strtolower($data['first_name'] . ' ' . $data['last_name']);
+      if (strpos($name, strtolower($string)) !== FALSE) {
+        $markup  = "<img src={$data[pic_square]} />$name";
+        $matches[$name] = $markup;
+      }
+    }
+  }
+  print drupal_to_js($matches);
+  exit();
+}
+
+/**
+ * Convert #default_value into a value for the form field
+ */
+function fb_form_friend_selector_value(&$element) {
+  drupal_set_message("friend_selector_value" . dpr($form, 1));
+  // default value passed in will be an array of ids, we need to display a comma seperated list of names.
+  $info = fb_users_getInfo($element['#default_value']);
+  $items = array();
+  foreach ($info as $data) {
+    $items[] = $data['name'];
+  }
+  if (count($items))
+    $element['#value'] = implode(', ', $items);
+}
+
+function fb_form_friend_selector_validate($element, $orig) {
+  //dpm(func_get_args(), "fb_form_friend_selector_validate");
+  if (!trim($element['#value']))
+    return;
+  $names = explode(',', $element['#value']);
+  $items = array(); // Facebook user ids
+  $result = $_SESSION['fb_form_friend_selector_result'];
+  foreach ($names as $name) {
+    $found = FALSE;
+    foreach ($result as $data) {
+      $fb_name = strtolower($data['first_name'] . ' ' . $data['last_name']);
+      if (strtolower(trim($name)) == $fb_name) {
+        if ($found) {
+          // TODO: handle name collisions more gracefully!
+          form_set_error(implode('][', $element['#parents']), 
+                         t('\'%name\' matched more than one friend.', array('%name' => $name)));
+          $found = -1;
+        }
+        else
+          $found = $data['uid'];
+      }
+    }
+    if ($found > 0) {
+      // Running list of ids
+      $items[] = $found;
+    }
+    else if ($found == 0)
+      form_set_error(implode('][', $element['#parents']), 
+                     t('Could not find a friend named \'%name\'.', array('%name' => $name)));
+  }
+  // Make the submitted value a list of ids, not a comma-seperated list of names.
+  form_set_value($element, $items);
+  _form_set_value($_POST, $element, $element['#parents'], $items);
 }
 
 // TODO: provide some alternative when NOT a facebook app.
 // deprecated!
-function theme_friend_selector($fbu = NULL) {
-  drupal_set_message ("theme_friend_selector");
+function theme_fb_form_friend_selector($fbu = NULL) {
+  drupal_set_message ("theme_fb_form_friend_selector");
   if (!$fbu)
     $fbu = fb_facebook_user();
 
