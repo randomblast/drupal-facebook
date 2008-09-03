@@ -140,7 +140,8 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
           
           // Redirect to a canvas page
           $url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), NULL, NULL, TRUE), $fb_app);
-          if (fb_verbose()) watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $url to ensure permissions are correct."); // debug
+          if (fb_verbose()) 
+            watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $url to ensure permissions are correct."); // debug
           $fb->redirect($url);
         }
       }
@@ -695,7 +696,9 @@ function fb_user_get_local_friends($fbu = NULL, $fb_app = NULL) {
     $result = db_query($query, $args);
     
     while ($data = db_fetch_object($result)) {
-      $uids[] = $data->uid;
+      if ($data->uid) {
+        $uids[] = $data->uid;
+      }
     }
   }
   return $uids;
