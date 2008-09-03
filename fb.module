@@ -637,19 +637,19 @@ function fb_log_exception($e, $text = '') {
  * @param $oids
  * Array of facebook object IDs.  In this case they should each be a user id.
  */
-function fb_users_getInfo($oids, $fb = NULL) {
+function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
   if (!$fb) {
     $fb = $GLOBALS['fb'];
   }
   $infos = array();
-
+  
   if ($fb) {
     // First try cache
-    foreach ($oids as $oid) {
-      if ($info = $_SESSION['fb'][$fb->api_key]['userinfo'][$oid])
-        $infos[] = $info;
-      // else break
-    }
+    if (!$refresh_cache)
+      foreach ($oids as $oid) {
+        if ($info = $_SESSION['fb'][$fb->api_key]['userinfo'][$oid])
+          $infos[] = $info;
+      }
     if (count($infos) != count($oids)) {
       // Session cache did not include all users, update the cache.
       $infos = $fb->api_client->users_getInfo($oids,
@@ -657,7 +657,9 @@ function fb_users_getInfo($oids, $fb = NULL) {
                                                     'affiliations',
                                                     'name',
                                                     'is_app_user',
+                                                    'pic',
                                                     'pic_big',
+                                                    'pic_square',
                                                     'profile_update_time',
                                                     'status',
                                                     ));
