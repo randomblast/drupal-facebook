@@ -52,7 +52,17 @@ function fb_devel_fb($fb, $fb_app, $op, &$return, $data) {
                          // This link should work with clean URLs
                          // disabled.
                          '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>'));
-      
+      drupal_set_message($message, 'error');
+      watchdog('fb_devel', $message);
+    }
+
+    // path replacement sanity check
+    global $base_path;
+    if ($base_path == "/{$fb_app->canvas}/") {
+      $message = t('Facebook canvas page matches Drupal base_path (%base_path).  This is currently not supported.',
+                   array('%base_path' => $base_path));
+      drupal_set_message($message, 'error');
+      watchdog('fb_devel', $message);
     }
   }
   

@@ -391,8 +391,10 @@ function fb_canvas_process($output, $add_target = TRUE) {
 	  // Change paths to files to fully qualified URLs. This matches relative
       // URLs that do not include the canvas (that is, not matched by previous
       // patterns).
-	  $patterns[] = '|="'.$base_path."(?!{$fb_app->canvas})|";
-	  $replacements[] = '="'.$base_url.'/';
+      if ($base_path != "/{$fb_app->canvas}/") {
+        $patterns[] = '|="'.$base_path."(?!{$fb_app->canvas})|";
+        $replacements[] = '="'.$base_url.'/';
+      }
 
       // Experimental!  Change 1234@facebook to an <fb:name> tag.  This is our
       // default user name convention when creating new users.  Ideally, this
