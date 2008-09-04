@@ -514,6 +514,19 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
         
       }
     }
+
+    // Add buttons for boxes and info
+    $sections = array('profile', 'info');
+    foreach ($sections as $section) {
+      if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
+        $form[$section] =
+          array('#type' => 'markup',
+                '#value' => '<fb:add-section-button section="'.$section.'" />',
+          );
+      }
+      // No way to add these to a non-canvas page at the moment
+    }
+
     $form['description'] =
       array('#type' => 'markup',
             '#value' => l(t('All settings for %application (and other Facebook Applications).', array('%application' => $fb_app->title)),
@@ -659,6 +672,8 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
  * Given an app and facebook user id, return the corresponding local user.
  */
 function fb_user_get_local_user($fbu, $fb_app) {
+  // TODO: this function should probably use user_external_load, rather than query the database directly.  See deprecated fb_user_load for example.
+
   // TODO: this query probably needs to search for one authname or the other, not both.
   // Alternately, use the fb_user_app table rather than authmap to look up this information.
   $result = db_query("SELECT am.* FROM authmap am WHERE am.authname='%s' OR am.authname='%s' ORDER BY am.authname",
