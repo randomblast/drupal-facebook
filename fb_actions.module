@@ -157,9 +157,9 @@ function fb_actions_profile_fbml(&$object, $values) {
     }
     
     if (variable_get('fb_actions_verbose', FALSE))
-      watchdog('fb_actions', t('Setting Facebook profile markup for !user to %body',
+      watchdog('fb_actions', t('Setting Facebook profile markup for !user to !body',
                                array('!user' => theme('username', $user),
-                                     '%body' => htmlentities($body))));
+                                     '!body' => htmlentities($body))));
     try {
       // http://wiki.developers.facebook.com/index.php/Profile.setFBML
       $fb->api_client->profile_setFBML(NULL, $fbu, $body, NULL, $mobile_profile, $profile_main);
