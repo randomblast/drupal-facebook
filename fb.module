@@ -643,6 +643,9 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
   }
   $infos = array();
   
+  if (!is_array($oids))
+    $oids = array();
+
   if ($fb) {
     // First try cache
     if (!$refresh_cache)

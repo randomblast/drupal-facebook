@@ -385,17 +385,27 @@ function fb_form_friend_selector_process($orig) {
   return $element;
 }
 
-// TODO: support comma-separated names
+/**
+ * Autocomplete friend names
+ */
 function fb_form_friend_selector_autocomplete($string) {
+  // Regexp copied from taxonomy_autocomplete
+  $regexp = '%(?:^|,\ *)("(?>[^"]*)(?>""[^"]* )*"|(?: [^",]*))%x';
+  preg_match_all($regexp, $string, $matches);
+  $array = $matches[1];
+  $last_string = trim(array_pop($array));
+  $prefix = count($array) ? implode(', ', $array) .', ' : '';
+  
+  // Get list of friends from session
   $result = $_SESSION['fb_form_friend_selector_result'];
-
+  
   $matches = array();
-  if (count($result)) {
+  if (count($result) && $last_string) {
     foreach ($result as $data) {
       $name = strtolower($data['first_name'] . ' ' . $data['last_name']);
-      if (strpos($name, strtolower($string)) !== FALSE) {
+      if (strpos($name, strtolower($last_string)) !== FALSE) {
         $markup  = "<img src={$data[pic_square]} />$name";
-        $matches[$name] = $markup;
+        $matches[$prefix . $name] = $markup;
       }
     }
   }
@@ -407,7 +417,7 @@ function fb_form_friend_selector_autocomplete($string) {
  * Convert #default_value into a value for the form field
  */
 function fb_form_friend_selector_value(&$element) {
-  drupal_set_message("friend_selector_value" . dpr($form, 1));
+  //drupal_set_message("friend_selector_value" . dpr($form, 1));
   // default value passed in will be an array of ids, we need to display a comma seperated list of names.
   $info = fb_users_getInfo($element['#default_value']);
   $items = array();
