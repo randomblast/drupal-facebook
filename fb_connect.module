@@ -1,0 +1,53 @@
+<?php
+/**
+ * @file
+ * Support for Facebook Connect features
+ * 
+ * Note that Facebook connect will work properly only with themes that are
+ * Facebook Connect aware.
+ */
+
+/**
+ * Allows other modules to specify which Facebook Connect features are
+ * required.  This will affect how the FB_RequireFeatures javascript method is
+ * called.
+ */
+function fb_connect_require_feature($feature = NULL) {
+  static $features;
+  if (!$features)
+    $features = array();
+  if ($feature)
+    $features[] = $feature;
+  return $features;
+}
+
+/**
+ * Include facebook javascript in the footer of the current page.
+ */
+function fb_connect_footer($is_front) {
+  // Do nothing on FBML pages
+  if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml())
+    return;
+
+  global $fb_app; // Ok to use global here?
+  global $base_path;
+  $features = fb_connect_require_feature();
+  if (count($features) && $fb_app) {
+    // drupal_add_js cannot add external javascript, so we use hook_footer instead.
+    $output = '<script src="http://static.ak.connect.facebook.com/js/api_lib/v0.4/FeatureLoader.js.php" type="text/javascript"></script>';
+    $output .= "\n";
+    $feature_list = '["' . implode('","', $features) . '"]';
+    $receiver = $base_path . drupal_get_path('module', 'fb_connect') . "/fb_connect_receiver.html";
+    $output .= "
+<script type=\"text/javascript\">
+  $(document).ready(function() {
+    FB_RequireFeatures({$feature_list}, function () {
+      FB.Facebook.init(\"{$fb_app->apikey}\", \"{$receiver}\");
+    });
+  });
+</script>\n";
+    return $output;
+  }
+}
+
+?>
