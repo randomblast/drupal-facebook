@@ -302,7 +302,9 @@ function fb_actions_cron_per_user($obj, $values) {
     $fb_app = fb_get_app(array('nid' => $nid));
     // Set paths as if on a canvas page.
 
-    // perform per-user actions
+    // perform per-user actions by manipulating the global user variable.
+    $save_session = session_save_session();
+    session_save_session(FALSE);
     // Save current settings
     $before_fb = $GLOBALS['fb'];
     $before_fb_app = $GLOBALS['fb_app'];
@@ -345,7 +347,11 @@ function fb_actions_cron_per_user($obj, $values) {
           $GLOBALS['fb_app'] = $fb_app;
           
           // Invoke any actions that we've been configured to invoke.
-          actions_do($values['actions'], $fb_app);
+          try {
+            actions_do($values['actions'], $fb_app);
+          } catch (Exception $e) {
+            watchdog('fb cron', "Action per user failed. " . $e->getMessage(), WATCHDOG_ERROR);
+          }
           
         } // end if able to log into facebook
       } // end if local user found.
@@ -362,6 +368,7 @@ function fb_actions_cron_per_user($obj, $values) {
     $GLOBALS['user'] = $before_user;
     $GLOBALS['fb'] = $before_fb;
     $GLOBALS['fb_app'] = $before_fb_app;
+    session_save_session($save_session);
     
   }
 }
