@@ -70,7 +70,7 @@ function fb_ahah_bind_form( $form ) {
   if ($fb && $fb->api_client->added && function_exists('ahah_forms_scan_form_children')) {
     $bindings = array();	
     ahah_forms_scan_form_children( $form, $form['#id'],  $bindings );
-    //	drupal_set_message( "After Scan: Wrapper Bindings = " . dprint_r( $bindings, TRUE ) ); 
+    //drupal_set_message( "After Scan: Wrapper Bindings = " . dprint_r( $bindings, TRUE ) ); 
     
     if( count( $bindings ) > 0 ) {
       if (!$one_time_only) {
@@ -359,7 +359,7 @@ function fb_form_friend_selector_process($orig) {
   
   static $options = NULL;
   if (!$options) {
-    $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=".fb_facebook_user().")";
+    $query = "SELECT name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=".fb_facebook_user().")";
     $result = $fb->api_client->fql_query($query);
     
     // TODO: sort results by name
@@ -373,15 +373,18 @@ function fb_form_friend_selector_process($orig) {
     $_SESSION['fb_form_friend_selector_result'] = $result;
   }
 
-  // TODO: display small picture along with name in select box.
   $element = array('#validate' => array('fb_form_friend_selector_validate' => array($orig)));
-  foreach (array('#title', '#parents', '#description', '#default_value', '#weight', '#multiple', '#required', '#name', '#value', '#id') as $key)
+  foreach (array('#title', '#parents', '#description', '#default_value', '#weight', '#multiple', '#required', '#name', '#value', '#id', '#size', '#rows', '#validate') as $key)
     if (isset($orig[$key]))
       $element[$key] = $orig[$key];
-  $element['#type'] = 'textfield';
-  $element['#autocomplete_path'] = url('fb_form_friend_selector_autocomplete', NULL, NULL, TRUE);
 
-  //drupal_set_message("fb_form processed " . dpr($orig, 1) . " into " . dpr($element, 1));
+  // Allow use of textarea instead of textfield, autocomplete will not work.
+  if (isset($orig['#rows']) && $orig['#rows'] > 0)
+    $element['#type'] = 'textarea';
+  else
+    $element['#type'] = 'textfield';
+
+  $element['#autocomplete_path'] = url('fb_form_friend_selector_autocomplete', NULL, NULL, TRUE);
   return $element;
 }
 
@@ -391,25 +394,29 @@ function fb_form_friend_selector_process($orig) {
 function fb_form_friend_selector_autocomplete($string) {
   // Regexp copied from taxonomy_autocomplete
   $regexp = '%(?:^|,\ *)("(?>[^"]*)(?>""[^"]* )*"|(?: [^",]*))%x';
-  preg_match_all($regexp, $string, $matches);
-  $array = $matches[1];
-  $last_string = trim(array_pop($array));
-  $prefix = count($array) ? implode(', ', $array) .', ' : '';
+  preg_match_all($regexp, $string, $preg_matches);
+  $typed_names = $preg_matches[1];
+  $last_string = trim(array_pop($typed_names));
+  $prefix = count($typed_names) ? implode(', ', $typed_names) .', ' : '';
   
   // Get list of friends from session
   $result = $_SESSION['fb_form_friend_selector_result'];
-  
+
   $matches = array();
   if (count($result) && $last_string) {
     foreach ($result as $data) {
-      $name = strtolower($data['first_name'] . ' ' . $data['last_name']);
-      if (strpos($name, strtolower($last_string)) !== FALSE) {
-        $markup  = "<img src={$data[pic_square]} />$name";
-        $matches[$prefix . $name] = $markup;
+      $name = strtolower($data['name']);
+      if (strpos($name, strtolower($last_string)) !== FALSE &&
+          !in_array($data['name'], $typed_names)) {
+        $markup  = "<img src={$data[pic_square]} />{$data[name]}";
+        $matches[$prefix . $data['name']] = $markup;
       }
     }
   }
-  print drupal_to_js($matches);
+
+  if (count($matches))
+    print drupal_to_js($matches);
+   
   exit();
 }
 
@@ -428,7 +435,7 @@ function fb_form_friend_selector_value(&$element) {
     $element['#value'] = implode(', ', $items);
 }
 
-function fb_form_friend_selector_validate($element, $orig) {
+function fb_form_friend_selector_validate($element, $set_errors = TRUE) {
   //dpm(func_get_args(), "fb_form_friend_selector_validate");
   if (!trim($element['#value']))
     return;
@@ -438,12 +445,13 @@ function fb_form_friend_selector_validate($element, $orig) {
   foreach ($names as $name) {
     $found = FALSE;
     foreach ($result as $data) {
-      $fb_name = strtolower($data['first_name'] . ' ' . $data['last_name']);
+      $fb_name = strtolower($data['name']);
       if (strtolower(trim($name)) == $fb_name) {
         if ($found) {
           // TODO: handle name collisions more gracefully!
-          form_set_error(implode('][', $element['#parents']), 
-                         t('\'%name\' matched more than one friend.', array('%name' => $name)));
+          if ($set_errors)
+            form_set_error(implode('][', $element['#parents']), 
+                           t('\'%name\' matched more than one friend.', array('%name' => $name)));
           $found = -1;
         }
         else
@@ -455,8 +463,9 @@ function fb_form_friend_selector_validate($element, $orig) {
       $items[] = $found;
     }
     else if ($found == 0)
-      form_set_error(implode('][', $element['#parents']), 
-                     t('Could not find a friend named \'%name\'.', array('%name' => $name)));
+      if ($set_errors)
+        form_set_error(implode('][', $element['#parents']), 
+                       t('Could not find a friend named \'%name\'.', array('%name' => $name)));
   }
   // Make the submitted value a list of ids, not a comma-seperated list of names.
   form_set_value($element, $items);
