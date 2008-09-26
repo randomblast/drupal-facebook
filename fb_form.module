@@ -170,8 +170,8 @@ function fb_form_multi_add_invite_form() {
   $content = $node->teaser;
   
   // Do we need to append &next=[someURL] to the url here?
-  $content .= "<fb:req-choice url=\"http://www.facebook.com/add.php?api_key={$fb_app->api_key}\" label=\"" . t('Add !title application.',
-                                                                                                               array('!title' => $fb_app->title)) . " />";
+  $content .= "<fb:req-choice url=\"http://www.facebook.com/add.php?api_key={$fb_app->apikey}\" label=\"" . t('Add !title application.',
+                                                                                                              array('!title' => $fb_app->title)) . "\" />";
   
   // form type fb:request-form
   $form = array('#fb_form_type_hack' => 'fb_form_request', /* becomes #type during form_alter */
