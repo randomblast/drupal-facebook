@@ -282,6 +282,22 @@ function _fb_canvas_make_form_action_local($action) {
 }
 
 /**
+ * Uses $fb->redirect on canvas pages, otherwise drupal_goto.
+ */
+function fb_canvas_goto($path) {
+  global $fb, $fb_app;
+  if ($fb && (fb_canvas_is_fbml() || fb_canvas_is_iframe())) {
+    $url = fb_canvas_fix_url(url($path, NULL, NULL, TRUE), $fb_app);
+    dpm($url, "fb_canvas_goto($path)");
+    $fb->redirect($url);
+  }
+  else
+    drupal_goto($path);
+  exit;
+}
+
+
+/**
  * Convert a local fully qualified path to a facebook app path.  This needs to
  * be used internally, to fix drupal_gotos upon form submission.  Third party
  * modules should not need to call this, I believe.
