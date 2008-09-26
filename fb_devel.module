@@ -98,6 +98,7 @@ function fb_devel_page() {
     
     drupal_set_message("base_url: " . $GLOBALS['base_url']);
     drupal_set_message("base_path: " . $GLOBALS['base_path']);
+    drupal_set_message("url() returns: " . url());
     drupal_set_message("session_key is " . $fb->api_client->session_key);
   }
 
