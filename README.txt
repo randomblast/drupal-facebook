@@ -46,7 +46,7 @@ To install or upgrade from an earlier version of Drupal for Facebook:
   on your install) to include fb_settings.inc (in this directory).  For
   example, add this at the very end of your settings.php:
 
-require_once "sites/all/modules/fb/fb_settings.inc";
+  require_once "sites/all/modules/fb/fb_settings.inc";
 
   (Or whatever path is appropriate, could be
   "profiles/custom/modules/fb/fb_settings.inc")
@@ -77,6 +77,7 @@ require_once "sites/all/modules/fb/fb_settings.inc";
   management.  You'll have to submit your changes in order for your
   application to work properly with the new Facebook API.
 
+- This patch is required for Drupal 5.x: http://drupal.org/node/241878
 
 Troubleshooting:
 ---------------
