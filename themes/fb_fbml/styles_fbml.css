@@ -215,9 +215,11 @@
   border-top: 1px solid #cccccc;
 }
 .with-sidebar-right #content-main {width: 436px;}
+.with-sidebar-right.in-new-facebook #content-main { width: 550px; }
 /* prevent form fields from being too wide. */
 .with-sidebar-right #content-main input,
 .with-sidebar-right #content-main textarea { max-width: 390px; }
+.with-sidebar-right.in-new-facebook #content-main textarea { max-width: 504px; }
 
 #sidebar-right {
   float: right;
