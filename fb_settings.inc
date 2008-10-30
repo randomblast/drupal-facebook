@@ -92,25 +92,25 @@ function fb_settings_url_rewrite($type, $path, $original){
     } 
   }
   else if ($type == 'alias') {
-	if (function_exists('fb_canvas_is_fbml')) {
-	  $pre = '';
-	  if (fb_canvas_is_iframe()) {
-		// Rewrite for iframes
-		foreach ($prefixes as $prefix)
-		  if ($value = fb_settings($prefix))
-			$pre .= $prefix . '/'. fb_settings($prefix) . '/';
-		$path  = $pre . $path;
-	  }
-	  else if (fb_canvas_is_fbml()) {
-		// Rewrite for FBML
-		//$path = $fb_app->canvas . '/' . $path; // old way
-		// For now, same as for iframes, but may be different one day
-		foreach ($prefixes as $prefix)
-		  if ($value = fb_settings($prefix))
-			$pre .= $prefix . '/'. fb_settings($prefix) . '/';
-		$path  = $pre . $path;
-	  }
-	}
+    if (function_exists('fb_canvas_is_fbml')) {
+      $pre = '';
+      if (fb_canvas_is_iframe()) {
+	// Rewrite for iframes
+	foreach ($prefixes as $prefix)
+	  if ($value = fb_settings($prefix))
+	    $pre .= $prefix . '/'. fb_settings($prefix) . '/';
+	$path  = $pre . $path;
+      }
+      else if (fb_canvas_is_fbml()) {
+	// Rewrite for FBML
+	//$path = $fb_app->canvas . '/' . $path; // old way
+	// For now, same as for iframes, but may be different one day
+	foreach ($prefixes as $prefix)
+	  if ($value = fb_settings($prefix))
+	    $pre .= $prefix . '/'. fb_settings($prefix) . '/';
+	$path  = $pre . $path;
+      }
+    }
   }
   return $path;  
 }
