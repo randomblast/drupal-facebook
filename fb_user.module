@@ -66,93 +66,25 @@ function _fb_user_track($fb, $fb_app, $user) {
 /**
  * Implementation of hook_fb.
  */
-function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
-  if ($op == FB_OP_INITIALIZE) {
-    global $user;
-    $fb_app_data = fb_app_get_data($fb_app);
-    $fb_user_data = $fb_app_data['fb_user']; // our configuration
+function fb_user_fb($op, $data, &$return) {
+  $fb_app = $data['fb_app'];
+  $fb = $data['fb'];
+
+  global $user;
+  $CANVAS_fb_app_data = fb_app_get_data($fb_app);
+  $fb_user_data = $fb_app_data['fb_user']; // our configuration
+  
+  if ($op == FB_OP_CANVAS_INITIALIZE) {
     
     // Here we ask facebook to prompt the user to login or add the app.
     if ($fb_user_data['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN)
       $fb->require_login();
-    
-    // If we know the user's fbu, try to load the corresponding local account.
-    $fbu = fb_facebook_user();
-    if ($fbu) {
-      // Remember the original uid (probably 0 for anonymous)
-      $original_uid = $user->uid;
-      
-      if ($user->fbu != $fbu) {
-        // Try the application-specific account.
-        $account = user_external_load("$fbu-$fb_app->apikey@facebook.com");
-        if (!$account)
-          // Try the cross-application account.
-          $account = user_external_load("$fbu@facebook.com");
-        if ($account) {
-          $account->fbu = $fbu;
-          $user = $account; // change the global user
-        }
-      }
-      // Later, if we do not create an account, we'll load the default user
-      // specified in the app config.
-      
-      
-      // Check if we need to create a local account for this user.
-      if (($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_ADD &&
-           $fb->api_client->users_isAppAdded()) ||
-          ($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_LOGIN)) {
-        
-        // Check if the local account is already made.
-        if ($user->fbu != fb_facebook_user() && (!_fb_user_special_page())) {
-          // We need to make a local account for this facebook user.
-          $user = fb_user_create_local_user($fb, $fb_app, fb_facebook_user(), 
-                                            array('app_specific' => $fb_user_data['unique_account'],
-                                                  'roles' => array($fb_user_data['new_user_rid'] => TRUE),
-                                            ));
-          watchdog('fb_user', t("Created new user !username for application %app",
-                                array('!username' => theme('username', $user),
-                                      '%app' => $fb_app->label)));
-          
-        }
-      }
-      
-      // It's possible the user was already created by another app.
-      // In this case we need to add our role.
-      if ($user->fbu == fb_facebook_user() &&
-          $fb_user_data['new_user_rid'] && !$user->roles[$fb_user_data['new_user_rid']]) {
-        // there should be an API for this...
-        db_query('INSERT INTO {users_roles} (uid, rid) VALUES (%d, %d)', 
-                 $user->uid, $fb_user_data['new_user_rid']);
-        watchdog('fb_user', t("Added role %role to existing user !username for application %app",
-                              array('!username' => theme('username', $user),
-                                    '%app' => $fb_app->label,
-                                    '%role' => $fb_user_data['new_user_rid'])));
-      }
 
-      if ($user->uid != $original_uid) {
-        // We've changed the user.  In order to ensure that drupal handles
-        // permissions properly, the user must make the request all over
-        // again.  Skip this for the profile tab, as facebook does not allow
-        // redirects (or persistent session) there.
-        if (function_exists('fb_canvas_is_fbml') &&
-            (fb_canvas_is_fbml() || fb_canvas_is_iframe()) &&
-            (!$_REQUEST['fb_sig_in_profile_tab'])) {
-          
-          // Redirect to a canvas page
-          $url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), NULL, NULL, TRUE), $fb_app);
-          if (fb_verbose()) 
-            watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $url to ensure permissions are correct."); // debug
-          $fb->redirect($url);
-        }
-      }
-      
-      // Keep a record of when user accesses app, and whether they have added it.
-      _fb_user_track($fb, $fb_app, $user);
-    }
-    
-    // Don't mess with the user info if the user is visiting the login pages or submitting a form (i.e. the login form).
+  }
+  else if ($op == FB_OP_CANVAS_POST_INIT) {
+    // Observe special rules for canvas page users without local accounts
     if (!$user->uid && !_fb_user_special_page() && !$_REQUEST['form_id']) {
-      if ($fbu = fb_facebook_user()) {
+      if ($fbu = fb_facebook_user($fb)) {
         $uid = $fb_app_data['fb_user']['logged_in_uid'];
       }
       else {
@@ -162,10 +94,111 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
         $user = user_load(array('uid' => $uid));
       }
     }
+    // TODO: is it now necessary to redirect the user back to current page?
+  }
+  else if ($op == FB_OP_APP_IS_AUTHORIZED) {
+    // We reach this point if the user has authorized the app.
+    // Could be they visited a canvas page,
+    // or could be they clicked a fbConnect link.
+
+    $fbu = $data['fbu']; // The user id on facebook.
     
+    // Remember the original uid
+    $original_uid = $user->uid;
+    
+    if ($user->fbu != $fbu) {
+      // Try the application-specific account.
+      $account = user_external_load("$fbu-$fb_app->apikey@facebook.com");
+      if (!$account)
+	// Try the cross-application account.
+	$account = user_external_load("$fbu@facebook.com");
+      if ($account) {
+	$account->fbu = $fbu;
+	if ($user->uid == 0)
+	  $user = $account; // change the global user
+	else {
+	  watchdog('fb_user', t('fb_user encountered something it cannot handle.  The current user, !user1 is logged in.  But the facebook user id %fbu is associated with another user, !user2',
+				array('!user1' => theme('username', $user),
+				      '!user2' => theme('username', $account),
+				      '%fbu' => $fbu)),
+		   WATCHDOG_ERROR);
+	}
+      }
+      else {
+	// There is no account associated with the facebook id.
+	// If the user is not anonymous, we can make an association now.
+	if ($user->uid != 0 &&
+	    $user->uid != $fb_app_data['fb_user']['logged_in_uid']) {
+	  if ($fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS) {
+	    list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
+	    user_set_authmaps($account, array($module => $authname));  // is this right?
+	    $user->fbu = $fbu;
+	    dpm("setting up authmap to associate " . theme('username', $user) . " with fbu $fbu");
+	    watchdog('fb_user', t('Using authmap to associate user !user with facebook user id %fbu.',
+				  array('!user' => theme('username', $user),
+					'%fbu' => $fbu)));
+	  }
+	  
+	}
+      }
+    }
+
+    // Check if we need to create a local account for this user.
+    if (($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_ADD &&
+	 $fb->api_client->users_isAppAdded()) ||
+	($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_LOGIN)) {
+      
+      // Check if the local account is already made.
+      if ($user->fbu != fb_facebook_user($fb) && (!_fb_user_special_page())) {
+	// We need to make a local account for this facebook user.
+	$user = fb_user_create_local_user($fb, $fb_app, fb_facebook_user($fb), 
+					  array('app_specific' => $fb_user_data['unique_account'],
+						'roles' => array($fb_user_data['new_user_rid'] => TRUE),
+						));
+	watchdog('fb_user', t("Created new user !username for application %app",
+			      array('!username' => theme('username', $user),
+				    '%app' => $fb_app->label)));
+	
+      }
+    }
+      
+    // It's possible the user was already created by another app.
+    // In this case we need to add our role.
+    if ($user->fbu == fb_facebook_user() &&
+	$fb_user_data['new_user_rid'] && !$user->roles[$fb_user_data['new_user_rid']]) {
+      // there should be an API for this...
+      db_query('INSERT INTO {users_roles} (uid, rid) VALUES (%d, %d)', 
+	       $user->uid, $fb_user_data['new_user_rid']);
+      watchdog('fb_user', t("Added role %role to existing user !username for application %app",
+			    array('!username' => theme('username', $user),
+				  '%app' => $fb_app->label,
+				  '%role' => $fb_user_data['new_user_rid'])));
+    }
+    
+    if ($user->uid != $original_uid) {
+      // We've changed the user.  In order to ensure that drupal handles
+      // permissions properly, the user must make the request all over
+      // again.  Skip this for the profile tab, as facebook does not allow
+      // redirects (or persistent session) there.
+      if (function_exists('fb_canvas_is_fbml') &&
+	  (fb_canvas_is_fbml() || fb_canvas_is_iframe()) &&
+	  (!$_REQUEST['fb_sig_in_profile_tab'])) {
+	
+	// Redirect to a canvas page
+	$url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), NULL, NULL, TRUE), $fb_app);
+	if (fb_verbose()) 
+	  watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $url to ensure permissions are correct."); // debug
+	$fb->redirect($url);
+      }
+    }
+    
+    // Keep a record of when user accesses app, and whether they have added it.
+    _fb_user_track($fb, $fb_app, $user);
+      
     // We don't want user's who are not logged in (in the facebook sense) to
     // login locally.  So let's make sure they've added the app before doing
     // anything related to Drupal accounts.
+    /** I _think_ the new api no longer requires this.  TODO: confirm.
     if (strpos($_GET['q'],'user/login') === 0) {
       // Have to check idAppAdded in case of iframe.
       if (!$fb->api_client->users_isAppAdded())
@@ -175,13 +208,14 @@ function fb_user_fb($fb, $fb_app, $op, &$return, $data) {
       if (!$fb->api_client->users_isAppAdded())
         $fb->require_login();
     }
+    */
     // Now do I need a goto or some such???
     
     // debug
     /*
-    drupal_set_message("To Drupal, you are " . theme('username', $user));
-    drupal_set_message("Facebook user id is " . fb_facebook_user());
-    drupal_set_message("Facebook logged in is " . $fb->get_loggedin_user());
+      drupal_set_message("To Drupal, you are " . theme('username', $user));
+      drupal_set_message("Facebook user id is " . fb_facebook_user());
+      drupal_set_message("Facebook logged in is " . $fb->get_loggedin_user());
     */
   }
   else if ($op == FB_OP_GET_FBU) {
@@ -612,8 +646,10 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
     
     // Allow third-party module to adjust any of our settings before we create
     // the user.
-    $config = fb_invoke($fb_app, FB_OP_PRE_USER, 
-                        $config, array('fbu' => $fbu));
+    $config = fb_invoke(FB_OP_PRE_USER, array('fbu' => $fbu,
+					      'fb' => $GLOBALS['fb'],
+					      'fb_app' => $fb_app),
+			$config);
     
     // TODO: double-check that username is not taken.
     $user_default = array('name' => $config['username'],
@@ -638,8 +674,10 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
     watchdog('fb_user', t('New user: %name %email.', array('%name' => $name, '%email' => '<'. $mail .'>')), WATCHDOG_NOTICE, l(t('edit'), 'user/'. $account->uid .'/edit'));
 
     // Allow third-party modules to act after account creation.
-    $config = fb_invoke($fb_app, FB_OP_POST_USER, 
-                        NULL, array('account' => $account));
+    //$config = fb_invoke($fb_app, FB_OP_POST_USER, NULL, array('account' => $account));
+    fb_invoke(FB_OP_POST_USER, array('account' => $account,
+				     'fb_app' => $fb_app,
+				     'fb' => $fb));
 
     // TODO: move this to fb_action.  Temporarily disabled.
     if (FALSE) {

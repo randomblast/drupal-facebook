@@ -9,7 +9,10 @@
   /**
    * hook_fb.
    */
-function fb_infinite_fb($fb, $fb_app, $op, &$return) {
+function fb_infinite_fb($op, $data, &$return) {
+  $fb = $data['fb'];
+  $fb_app = $data['fb_app'];
+
   if ($op == FB_OP_GET_INFINITE_SESSION) {
     // The fb module is asking for infinite session login information.
     // This module knows it, so we provide it.

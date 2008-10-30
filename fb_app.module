@@ -15,13 +15,13 @@ define('FB_APP_OP_EVENT', 'fb_app_event');
 /**
  * hook_fb
  */
-function fb_app_fb($fb, $fb_app, $op, &$return, $data) {
+function fb_app_fb($op, $data, &$return) {
+  $fb = $data['fb'];
+  $fb_app = $data['fb_app'];
   
-  //drupal_set_message("fb_app_fb($fb_app->label, $op)" . dpr($fb_app, 1));
-  
-  if ($op == FB_OP_GET_APP) {
-    // This operation determines which app the request is for.  Theoretically,
-    // the allows fb_app and other app-defining modules to co-exist.  We need
+  if ($op == FB_OP_CANVAS_GET_APP) {
+    // This operation determines which app the canvas callback is for.  Theoretically,
+    // this allows fb_app and other app-defining modules to co-exist.  We need
     // to determine if the app is one of ours and if so, return the app
     // details.
     
@@ -32,6 +32,10 @@ function fb_app_fb($fb, $fb_app, $op, &$return, $data) {
     else if ($data['apikey']) {
       $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE apikey='%s' and status=1",
                                          $data['apikey']));
+    }
+    else if ($data['label']) {
+      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE label='%s' and status=1",
+                                         $data['label']));
     }
     else if ($apikey = $_REQUEST[FB_APP_REQ_API_KEY]) {
       // If facebook has passed the app key, let's use that.
@@ -61,22 +65,11 @@ function fb_app_fb($fb, $fb_app, $op, &$return, $data) {
       $return[] = $app;
     }
   }
-  else if ($op == FB_OP_INITIALIZE) {
-    // User init has been moved to fb_user.module.
-    // For now, nothing to do here.
-  }
-  else if ($op == FB_OP_POST_INIT) {
-    /* TODO: move this feature to an explicit setting.  For now, we just use site homepage
-    // Here we override the front_page settings
-    if ($_REQUEST['q'] == '' && $fb_app->nid) {
-      menu_set_active_item('node/'.$fb_app->nid);
-      // Note, menu_set_active_item only works as intended if fb.module
-      // is weighted lighter than node.module!
-    }
-      */
-  }
 }
 
+/**
+ * hook_menu
+ */
 function fb_app_menu($may_cache) {
   $items = array();
   if ($may_cache) {
@@ -97,8 +90,9 @@ function fb_app_menu($may_cache) {
  * hook_fb.  Other modules are thus notified of the event and can take action.
  */
 function fb_app_event_cb($event_type) {
-  global $fb_app;
-  fb_invoke($fb_app, FB_APP_OP_EVENT, NULL, array('event_type' => $event_type));
+  fb_invoke(FB_APP_OP_EVENT, array('event_type' => $event_type,
+				   'fb_app' => $GLOBALS['fb_app'],
+				   'fb' => $GLOBALS['fb']));
   // This page is called by facebook, not a user's browser.
   print('Thanks Facebook, for your fancy API!');
   exit();
@@ -344,15 +338,19 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app, FB_FBU_ANY);
         if (fb_facebook_user($fb)) {
-          $info = $fb->api_client->users_getInfo(array($fbu), 
-                                                 array('about_me',
-                                                       'affiliations',
-                                                       'name',
-                                                       'is_app_user',
-                                                       'pic_big',
-                                                       'profile_update_time',
-                                                       'status',
-                                                       ));
+	  try {
+	    $info = $fb->api_client->users_getInfo(array($fbu), 
+						   array('about_me',
+							 'affiliations',
+							 'name',
+							 'is_app_user',
+							 'pic_big',
+							 'profile_update_time',
+							 'status',
+							 ));
+	  } catch (Exception $e) {
+	    fb_log_exception($e, "Failed to get Facebook user info for account $fbu");
+	  }
         }
         if (count($info)) {
           $output = theme('fb_app_user_info', $fb_app, $info[0]);

@@ -10,8 +10,11 @@
 /**
  * Implementation of hook_fb.
  */
-function fb_canvas_fb($fb, $fb_app, $op, &$return) {
-  if ($op == FB_OP_INITIALIZE) {
+function fb_canvas_fb($op, $data, &$return) {
+  $fb = $data['fb'];
+  $fb_app = $data['fb_app'];
+
+  if ($op == FB_OP_CANVAS_INITIALIZE) {
     // Get our configuration settings.
     $fb_app_data = fb_app_get_data($fb_app);
     $fb_canvas_data = $fb_app_data['fb_canvas'];
@@ -47,7 +50,7 @@ function fb_canvas_fb($fb, $fb_app, $op, &$return) {
         menu_set_active_item(drupal_get_normal_path($front));
     }
   }
-  else if ($op == FB_OP_EXIT) {
+  else if ($op == FB_OP_CANVAS_EXIT) {
     $destination = $return;
     if (fb_canvas_handling_form() && $fb_app) {
       $output = ob_get_contents();

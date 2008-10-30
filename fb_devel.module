@@ -16,11 +16,14 @@ function fb_devel_menu($may_cache) {
     );
   }
   return $items;
-  }
+}
 
 
-function fb_devel_fb($fb, $fb_app, $op, &$return, $data) {
-  if ($op == FB_OP_INITIALIZE) {
+function fb_devel_fb($op, $data, &$return) {
+  $fb_app = $data['fb_app'];
+  $fb = $data['fb'];
+  
+  if ($op == FB_OP_CANVAS_INITIALIZE) {
     // Sanity check.
     $nid = fb_settings(FB_SETTINGS_APP_NID);
     if ($nid != $fb_app->nid) {
@@ -191,7 +194,7 @@ function fb_devel_canvas_info() {
     $info['fb_facebook_user'] = fb_facebook_user();
   }
   else {
-    $info['Page Status'] = t('Appears not to be a canvas page.');
+    $info['Page Status'] = t('Not a canvas page.');
   }
   $info['local user'] = theme('username', $user);
   $info['fb_get_fbu'] = fb_get_fbu($user->uid);
@@ -204,7 +207,7 @@ function fb_devel_canvas_info() {
   $info['request'] = $_REQUEST;
   $info['fb_app'] = $fb_app;
   $info['session'] = $_SESSION;
-
+  $info['cookies'] = $_COOKIE;
   $form = array();
   foreach ($info as $key => $val) {
     if (is_string($val) || is_numeric($val) || !$val) {
@@ -220,7 +223,10 @@ function fb_devel_canvas_info() {
                       '#collapsible' => TRUE,
                       '#collapsed' => TRUE,
                       '#weight' => count($form),
-                      'value' => array('#value' => dprint_r($val, 1)),
+                      'value' => array('#prefix' => '<pre>',
+				       '#suffix' => '</pre>',
+				       '#type' => 'markup',
+				       '#value' => dprint_r($val, 1)),
       );
     }
   }

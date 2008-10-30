@@ -1,18 +1,20 @@
 <?php
-  // $Id$
+// $Id$
 
-  // hook_fb
+// hook_fb
 define('FB_HOOK', 'fb');
 
 // Ops for hook_fb.
-define('FB_OP_INITIALIZE', 'init'); // Start a FB callback
-define('FB_OP_POST_INIT', 'post init'); // Another chance to start FB callback
-define('FB_OP_EXIT', 'exit'); // End an FB callback
+define('FB_OP_CANVAS_GET_APP', 'get_app'); // Query which app a FB callback addresses
+define('FB_OP_CANVAS_INITIALIZE', 'init'); // Start a FB callback
+define('FB_OP_CANVAS_POST_INIT', 'post init'); // Another chance to start FB callback
+define('FB_OP_CANVAS_EXIT', 'exit'); // End an FB callback
 define('FB_OP_GET_FBU', 'get_fbu'); // Query the local user's FB account
-define('FB_OP_GET_APP', 'get_app'); // Query which app a FB callback addresses
-define('FB_OP_GET_INFINITE_SESSION', 'get_inf_sess'); // Query infinite session data
+define('FB_OP_GET_INFINITE_SESSION', 'get_inf_sess'); // Query infinite session data XXX deprecated
+
 define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
 define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
+define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has authorized an app.  Triggers creation of user accounts or authmap entries
 
 // node_access realms (belongs here?)
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
@@ -74,7 +76,7 @@ function fb_init() {
   
   
   // Ask other modules for app detail
-  $fb_app = fb_invoke(NULL, FB_OP_GET_APP);
+  $fb_app = fb_invoke(FB_OP_CANVAS_GET_APP);
   
   if ($fb_app) {
     // we are in a callback
@@ -87,13 +89,24 @@ function fb_init() {
         fb_init_path($fb_app);
       
       // Give other modules a chance to initialize, require login, etc...
-      fb_invoke($fb_app, FB_OP_INITIALIZE);
+      //fb_invoke($fb_app, FB_OP_CANVAS_INITIALIZE);
+      fb_invoke(FB_OP_CANVAS_INITIALIZE, array('fb_app' => $fb_app,
+					       'fb' => $fb));
+
+      // See if the facebook user id is known
+      if ($fbu = $fb->get_loggedin_user()) {
+	fb_invoke(FB_OP_APP_IS_AUTHORIZED, array('fb_app' => $fb_app,
+						 'fb' => $fb,
+						 'fbu' => $fbu));
+      }
     }
     else
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", WATCHDOG_ERROR);
     
   }
-  fb_invoke($fb_app, FB_OP_POST_INIT);
+  //fb_invoke($fb_app, FB_OP_CANVAS_POST_INIT);
+  fb_invoke(FB_OP_CANVAS_POST_INIT, array('fb_app' => $fb_app,
+					  'fb' => $fb));
 }
 
 
@@ -169,7 +182,10 @@ function fb_api_init($fb_app, $fbu) {
   }
   else if ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
     // Learn the infinite session id and key
-    $data = fb_invoke($fb_app, FB_OP_GET_INFINITE_SESSION, array());
+    // Infinite session is deprecated!!! XXX
+    $data = fb_invoke(FB_OP_GET_INFINITE_SESSION, array('fb_app' => $fb_app,
+							'fb' => $GLOBALS['fb']),
+		      array());
     $fbu = $data[0];
     $session = $data[1];
   }
@@ -200,7 +216,11 @@ function fb_api_init($fb_app, $fbu) {
     else {
       // FB user id passed in.  If we happen to have valid session info for
       // them, we can log in as them.
-      $data = fb_invoke($fb_app, FB_OP_GET_USER_SESSION, array(), array('fbu' => $fbu));
+      $data = fb_invoke(FB_OP_GET_USER_SESSION,
+			array('fb_app' => $fb_app,
+			      'fb' => $fb,
+			      'fbu' => $fbu),
+			array());
       
       if (count($data) && $data[0] && $data[1]) {
         $fb->set_user($data[0], $data[1]);
@@ -208,7 +228,7 @@ function fb_api_init($fb_app, $fbu) {
       }
       
     }
-
+    
     // Cache the result, in case we're called again.
     $cache[$fb_app->apikey][$fbu] = $fb;
     
@@ -288,9 +308,21 @@ function fb_get_fbu($uid, $fb_app = NULL) {
     $uid = $uid->uid;
 
   // User management is handled by another module.  Use our hook to ask for mapping.
-  $fbu = fb_invoke($fb_app, FB_OP_GET_FBU, NULL, array('uid' => $uid));
+  $fbu = fb_invoke(FB_OP_GET_FBU, array('fb_app' => $fb_app,
+					'uid' => $uid,
+					'fb' => $GLOBALS['fb']));
   
   return $fbu;
+}
+
+/**
+ * Convenience method to get an apps callback URL.
+ *
+ * TODO: This code will probably not handle every case and may need some work.
+ */
+function fb_get_callback_url($fb_app) {
+  $url = url('', NULL, NULL, TRUE) . FB_SETTINGS_APP_NID . '/'. $fb_app->nid . '/';
+  return $url;
 }
 
 /**
@@ -301,7 +333,7 @@ function fb_get_app($search_data) {
   if (!is_array($search_data))
     $search_data = array('apikey' => $search_data);
   
-  $fb_app = fb_invoke(NULL, FB_OP_GET_APP, NULL, $search_data);
+  $fb_app = fb_invoke(FB_OP_CANVAS_GET_APP, $search_data);
   return $fb_app;
 }
 
@@ -324,7 +356,7 @@ function fb_get_app_options($include_current) {
  * Convenience method to return array of all know fb_apps.
  */
 function fb_get_all_apps() {
-  $apps = fb_invoke(NULL, FB_OP_GET_ALL_APPS, array());
+  $apps = fb_invoke(FB_OP_GET_ALL_APPS, NULL, array());
   return $apps;
 }
 
@@ -469,7 +501,10 @@ function fb_menu($may_cache) {
  */
 function fb_exit($destination = NULL) {
   global $fb_app, $fb;
-  fb_invoke($fb_app, FB_OP_EXIT, $destination);
+  //fb_invoke($fb_app, FB_OP_CANVAS_EXIT, $destination);
+  fb_invoke(FB_OP_CANVAS_EXIT, array('fb_app' => $fb_app,
+				     'fb' => $GLOBALS['fb']),
+	    $destination);
 }
 
 function _fb_form_cache_cb($cid) {
@@ -521,11 +556,18 @@ function fb_session_key_form() {
 /**
  * Invoke hook_fb.
  */
-function fb_invoke($fb_app, $op, $return = NULL, $data = NULL) {
-  global $fb;
+//function fb_invoke($fb_app, $op, $return = NULL, $data = NULL) { old sig XXX
+function fb_invoke($op, $data = NULL, $return = NULL) {
   foreach (module_implements(FB_HOOK) as $name) {
     $function = $name . '_' . FB_HOOK;
-    $function($fb, $fb_app, $op, $return, $data);
+    try {
+      $function($op, $data, $return);
+    }
+    catch (Exception $e) {
+      fb_log_exception($e, t('Exception calling %function(%op)',
+			     array('%function' => $function,
+				   '%op' => $op)));
+    }
   }
   return $return;
 }

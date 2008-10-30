@@ -10,9 +10,6 @@
    * being around for long!
    */
 
-function fb_cron_fb($fb, $fb_app, $op, &$return) {
-}
-
 /**
  * Implementation of hook_form_alter.
  */
