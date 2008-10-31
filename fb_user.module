@@ -71,7 +71,7 @@ function fb_user_fb($op, $data, &$return) {
   $fb = $data['fb'];
 
   global $user;
-  $CANVAS_fb_app_data = fb_app_get_data($fb_app);
+  $fb_app_data = fb_app_get_data($fb_app);
   $fb_user_data = $fb_app_data['fb_user']; // our configuration
   
   if ($op == FB_OP_CANVAS_INITIALIZE) {
