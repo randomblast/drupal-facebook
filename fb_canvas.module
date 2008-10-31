@@ -291,7 +291,6 @@ function fb_canvas_goto($path) {
   global $fb, $fb_app;
   if ($fb && (fb_canvas_is_fbml() || fb_canvas_is_iframe())) {
     $url = fb_canvas_fix_url(url($path, NULL, NULL, TRUE), $fb_app);
-    dpm($url, "fb_canvas_goto($path)");
     $fb->redirect($url);
   }
   else
