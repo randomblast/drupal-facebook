@@ -11,6 +11,7 @@ define('FB_OP_CANVAS_POST_INIT', 'post init'); // Another chance to start FB cal
 define('FB_OP_CANVAS_EXIT', 'exit'); // End an FB callback
 define('FB_OP_GET_FBU', 'get_fbu'); // Query the local user's FB account
 define('FB_OP_GET_INFINITE_SESSION', 'get_inf_sess'); // Query infinite session data XXX deprecated
+define('FB_OP_GET_USER_SESSION', 'get_user_sess');
 
 define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
 define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
@@ -41,29 +42,30 @@ define('FB_APP_CURRENT', '000_app_current'); // Canvas pages only.  000 makes it
 function fb_init() {
   global $fb, $fb_app, $fb_app_node; // Set by this function.
   
-  // Session sanity check.  This is relevant on iframe pages when user once
-  // had the app added, but has since removed it.  This is a bit of a hack
-  // because we rely on the fb_... params passed by facebook.
-  if ($_SESSION['fb_frame_params'] &&
-      $_REQUEST['fb_sig']) {
-    if ($_REQUEST['fb_sig_session_key'] != $_SESSION['fb_frame_params']['session_key']) {
-      // The session key from facebook has changed.  Treat this as a new session.
-      $req = array();
-      foreach ($_REQUEST as $key => $val) {
-        if (strpos($key, 'fb_') === 0)
-          $req[] = $key . '=' . $val;
+  if (arg(0) != 'admin')
+    // Session sanity check.  This is relevant on iframe pages when user once
+    // had the app added, but has since removed it.  This is a bit of a hack
+    // because we rely on the fb_... params passed by facebook.
+    if ($_SESSION['fb_frame_params'] &&
+	$_REQUEST['fb_sig']) {
+      if ($_REQUEST['fb_sig_session_key'] != $_SESSION['fb_frame_params']['session_key']) {
+	// The session key from facebook has changed.  Treat this as a new session.
+	$req = array();
+	foreach ($_REQUEST as $key => $val) {
+	  if (strpos($key, 'fb_') === 0)
+	    $req[] = $key . '=' . $val;
+	}
+	$url = url($_REQUEST['q'], implode('&', $req), NULL, TRUE);
+	if (fb_verbose())
+	  watchdog('fb_debug', t('Facebook session key was %old, now %new.  Destroying session and sending user to %url.',
+				 array('%old' => $_SESSION['fb_frame_params']['session_key'],
+				       '%new' => $_REQUEST['fb_sig_session_key'],
+				       '%url' => $url)));
+	
+	session_destroy();
+	drupal_goto($url);
       }
-      $url = url($_REQUEST['q'], implode('&', $req), NULL, TRUE);
-      if (fb_verbose())
-        watchdog('fb_debug', t('Facebook session key was %old, now %new.  Destroying session and sending user to %url.',
-                               array('%old' => $_SESSION['fb_frame_params']['session_key'],
-                                     '%new' => $_REQUEST['fb_sig_session_key'],
-                                     '%url' => $url)));
-      
-      session_destroy();
-      drupal_goto($url);
     }
-  }
   
   // Perform sanity check, help users who skip the README.
   if (!variable_get('fb_settings_check', FALSE) && user_access('access administration pages')) {
@@ -73,7 +75,6 @@ function fb_init() {
                                // disabled.
                                '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>')), 'error');
   }
-  
   
   // Ask other modules for app detail
   $fb_app = fb_invoke(FB_OP_CANVAS_GET_APP);
@@ -85,9 +86,6 @@ function fb_init() {
     $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
     
     if ($fb) {
-      if ($fb->in_fb_canvas() && FALSE) // XXX deprecated
-        fb_init_path($fb_app);
-      
       // Give other modules a chance to initialize, require login, etc...
       //fb_invoke($fb_app, FB_OP_CANVAS_INITIALIZE);
       fb_invoke(FB_OP_CANVAS_INITIALIZE, array('fb_app' => $fb_app,
