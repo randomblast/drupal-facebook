@@ -228,7 +228,7 @@ function fb_user_fb($op, $data, &$return) {
     // to provide it, depending on whether the user has logged in, and whether
     // the session has expired.
     $fbu = $data['fbu'];
-    $result = db_query("SELECT * FROM {fb_user_app} WHERE apikey = '%s' and fbu = %d", $fb_app->apikey, $fbu);
+    $result = db_query("SELECT * FROM {fb_user_app} WHERE apikey = '%s' and fbu = %d AND session_key_expires > %d", $fb_app->apikey, $fbu, time());
     $data = db_fetch_object($result);
     if ($data && $data->session_key)
       // Return array with FB id and apikey.
