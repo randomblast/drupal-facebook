@@ -121,11 +121,13 @@ function fb_actions_profile_fbml(&$object, $values) {
     $fb_app = $GLOBALS['fb_app'];
   }
   
-  // Login to facebook as either the current user or the infinite session
-  if ($fb_app)
+  // Use already configured $fb if its passed in (cron jobs)
+  $fb = $values['fb'];
+  if (!$fb && $fb_app)
+    // Otherwise, login to facebook as either the current user or the infinite session
     $fb = fb_api_init($fb_app, FB_FBU_ANY);
   
-  if ($fb && $fb->get_loggedin_user()) {
+  if ($fb) {
     global $user;
     $fbu = fb_get_fbu($user->uid, $fb_app);
     // Replace fb_app related tokens
@@ -164,7 +166,7 @@ function fb_actions_profile_fbml(&$object, $values) {
       // http://wiki.developers.facebook.com/index.php/Profile.setFBML
       $fb->api_client->profile_setFBML(NULL, $fbu, $body, NULL, $mobile_profile, $profile_main);
     } catch (Exception $e) {
-      fb_log_exception($e, t('Failed to set profile FBML'));
+      fb_log_exception($e, t('Failed to set profile FBML'), $fb);
     }
   }
 }
@@ -185,7 +187,7 @@ function fb_actions_ref_fbml_form($values) {
           '#options' => $options,
           '#description' => t('Log into Facebook as which application?  %current is OK when invoked from canvas pages or cron jobs.',
                               array('%current' => $options[FB_APP_CURRENT])),
-    );
+	  );
   $form['handle'] = array('#type' => 'textfield',
                           '#title' => t('Handle'),
                           '#default_value' => $values['handle'],
@@ -294,6 +296,12 @@ function fb_actions_cron_per_user_submit($form_id, $values) {
                'throttle' => $values['throttle'],
   );
 }
+
+/**
+ * Trigger an action several times, emulating a different user each
+ * time.  Useful for cron jobs in which we update each users profile
+ * box, for example.
+ */
 function fb_actions_cron_per_user($obj, $values) {
   //$args = func_get_args();
   //watchdog('fb_action_debug', "fb_actions_cron_per_user" . dpr($args, 1), WATCHDOG_ERROR);
@@ -315,7 +323,7 @@ function fb_actions_cron_per_user($obj, $values) {
                        $fb_app->apikey,
                        $values['throttle']);
     while ($data = db_fetch_object($result)) {
-      // Log into facebook as the user from the database
+      // Find a local account for the application user
       $account = fb_user_get_local_user($data->fbu, $fb_app);
       if (variable_get('fb_actions_verbose', FALSE))
         watchdog('fb_action_debug', "fb_actions_cron_per_user fbu is $data->fbu, local user is " . theme('username', $account), WATCHDOG_ERROR);
@@ -329,18 +337,10 @@ function fb_actions_cron_per_user($obj, $values) {
       }
       else {
         // If here, local user has been found.
-        
-        $fb = fb_api_init($fb_app, $data->fbu);
-        if (!$fb || !$fb->api_client->users_getLoggedInUser())
-          // Failed to log in as the current user, fallback to infinite session.
-          $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
-        if (!$fb || !$fb->api_client->users_getLoggedInUser()) {
-          watchdog('fb cron', t('Failed to log into %app during cron.  Try testing infinite session key.',
-                                array('%app' => $fb_app->title)));
-        }
-        else {
-          // if here, we're logged into facebook.
-          
+        // The older facebook API required us to log in as the current user.
+	// In the new API we should not need a user account to perform tasks appropriate for cron jobs.
+        $fb = fb_api_init($fb_app, FB_FBU_NO_SESSION);
+	if ($fb) {
           // Set things up as if this were a canvas page.
           $GLOBALS['user'] = $account;
           $GLOBALS['fb'] = $fb;
@@ -348,11 +348,13 @@ function fb_actions_cron_per_user($obj, $values) {
           
           // Invoke any actions that we've been configured to invoke.
           try {
-            actions_do($values['actions'], $fb_app);
+            actions_do($values['actions'], $fb_app, 
+		       array('fb' => $fb,
+			     'fb_app' => $fb_app));
           } catch (Exception $e) {
             watchdog('fb cron', "Action per user failed. " . $e->getMessage(), WATCHDOG_ERROR);
           }
-          
+
         } // end if able to log into facebook
       } // end if local user found.
       
@@ -362,7 +364,7 @@ function fb_actions_cron_per_user($obj, $values) {
       db_query("UPDATE {fb_user_app} SET time_cron=%d WHERE apikey='%s' AND fbu=%d",
                time(), $fb_app->apikey, $data->fbu);
       
-    }
+    } // end loop per user
     
     // Restore global variables
     $GLOBALS['user'] = $before_user;

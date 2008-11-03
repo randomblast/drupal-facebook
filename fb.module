@@ -22,7 +22,8 @@ define('FB_GRANT_REALM_FRIEND', 'fb_friend');
 define('FB_GRANT_REALM_GROUP', 'fb_group');
 
 // When initializing Facebook API, which user to log in as:
-define('FB_FBU_INFINITE_SESSION', 'fbu_infinite');
+define('FB_FBU_INFINITE_SESSION', 'fbu_infinite'); // XXX deprecated, use no session
+define('FB_FBU_NO_SESSION', 'fbu_no_session'); // http://wiki.developers.facebook.com/index.php/Category:Sessionless_API
 define('FB_FBU_CURRENT', 'fbu_current'); // Canvas pages only
 define('FB_FBU_ANY', 'fbu_any'); // Use current user on canvas page, fall back to infinite session otherwise.
 
@@ -135,16 +136,16 @@ function fb_api_init($fb_app, $fbu) {
   //dpm(func_get_args(), "fb_api_init");
   //$trace = debug_backtrace();
   //dpm($trace, "fb_api_init call stack");
-
+  
   static $cache = array();
-
+  
   // This helps with uncaught exceptions.  However, it should be configurable
   // or at least not overwrite previously declared handler.
   set_exception_handler('fb_handle_exception');
   
   if (!count($cache)) {
     $filename = variable_get('fb_api_file', 'facebook-platform/client/facebook.php');
-
+    
     if (!file_exists($filename)) {
       // Print an error directly to the canvas page.
       //print("Failed to open Facebook API file $filename.  Either fix this problem or disable Facebook modules.");
@@ -187,10 +188,21 @@ function fb_api_init($fb_app, $fbu) {
     $fbu = $data[0];
     $session = $data[1];
   }
-  else {
-    // FB user id passed in.
+  else if ($fbu != FB_FBU_NO_SESSION) {
+    // FB user id passed in.  If we happen to have valid session info for
+    // them, we can log in as them.
+    $data = fb_invoke(FB_OP_GET_USER_SESSION,
+		      array('fb_app' => $fb_app,
+			    'fb' => $fb,
+			    'fbu' => $fbu),
+		      array());
+    
+    if (count($data) && $data[0] && $data[1]) {
+      $fbu = $data[0];
+      $session = $data[1];
+    }
   }
-
+  
   if (!$cache[$fb_app->apikey][$fbu]) {
     // We don't have a cached resource for this app/user combo, so we're going to create one.
     $fb = new Facebook($fb_app->apikey, $fb_app->secret);
@@ -211,29 +223,17 @@ function fb_api_init($fb_app, $fbu) {
       // Canvas page, current user is logged in already.
       // Nothing to do here.
     }
-    else {
-      // FB user id passed in.  If we happen to have valid session info for
-      // them, we can log in as them.
-      $data = fb_invoke(FB_OP_GET_USER_SESSION,
-			array('fb_app' => $fb_app,
-			      'fb' => $fb,
-			      'fbu' => $fbu),
-			array());
-      
-      if (count($data) && $data[0] && $data[1]) {
-        $fb->set_user($data[0], $data[1]);
-        $fbu = $data[0];
-      }
-      
+    else if ($fbu == FB_FBU_NO_SESSION) {
+      $fb->set_user(NULL, NULL);
     }
-    
+
     // Cache the result, in case we're called again.
     $cache[$fb_app->apikey][$fbu] = $fb;
     
     // Note that facebook api has not actually logged into facebook yet.
     // We won't really know if our session is valid until later.
     // get_loggedin_user does not really test it.
-    if ($fbu_orig != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
+    if ($fbu_orig != FB_FBU_NO_SESSION && !$fb->get_loggedin_user()) {
       // An FBU other than CURRENT was specified, but we failed to log in.
       watchdog('fb', t('Failed to log into facebook app %app as user %user',
                        array('%app' => $fb_app->title,
@@ -554,7 +554,6 @@ function fb_session_key_form() {
 /**
  * Invoke hook_fb.
  */
-//function fb_invoke($fb_app, $op, $return = NULL, $data = NULL) { old sig XXX
 function fb_invoke($op, $data = NULL, $return = NULL) {
   foreach (module_implements(FB_HOOK) as $name) {
     $function = $name . '_' . FB_HOOK;
@@ -632,13 +631,16 @@ function fb_report_errors($fb = FB_APP_CURRENT, $message = NULL) {
   }
 }
 
-function fb_log_exception($e, $text = '') {
+function fb_log_exception($e, $text = '', $fb = NULL) {
   if ($text)
     $message = $text .': '. $e->getMessage();
   else
     $message = $e->getMessage();
   $message .= ' ' . $e->getCode();
   
+  if ($fb) {
+    $message .= '. (' . t('logged into facebook as %fbu', array('%fbu' => $fb->get_loggedin_user())) . ')';
+  }
   watchdog('fb', $message, WATCHDOG_ERROR);
   if (user_access('administer fb apps')) {
     drupal_set_message($message, 'error');    
