@@ -1,6 +1,8 @@
   .page-wrap {
   position: relative;
   }
+  .page-wrap.in-new-facebook { width: 760px; }
+
   div.error {
   padding: 10px;
   border: solid 1px #dd3c10;
@@ -311,8 +313,8 @@ th {padding: 0 2px;}
 /* pager */
 .pager {
   width: 100%;
- padding: 10px 0;
- }
+  padding: 10px 0;
+}
 
 .pager a, .pager-list strong {margin-right: 1em;}
 
@@ -320,6 +322,16 @@ th {padding: 0 2px;}
   border: solid 1px #e2c822;
   background: #fff9d7;
   margin: 10px 0;
- padding: 5px;
+  padding: 5px;
  }
 
+#block-fb_canvas-0 {
+    display: block;
+    height: 0px;
+    width: 0px;
+}
+
+/* Facebook's captcha FBML */
+.captcha {
+    margin: 10px 0 5px 0;
+}
