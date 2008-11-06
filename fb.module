@@ -67,7 +67,12 @@ function fb_init() {
 	drupal_goto($url);
       }
     }
-  
+  // Purge out-of-date session info 
+  if ($_SESSION['fb_frame_params'] && 
+      $_SESSION['fb_frame_params']['expires'] < time()) {
+    unset($_SESSION['fb_frame_params']);
+  }
+
   // Perform sanity check, help users who skip the README.
   if (!variable_get('fb_settings_check', FALSE) && user_access('access administration pages')) {
     drupal_set_message(t('!drupal_for_facebook has been enabled, but not properly installed.  Please read the !readme.',
@@ -233,7 +238,8 @@ function fb_api_init($fb_app, $fbu) {
     // Note that facebook api has not actually logged into facebook yet.
     // We won't really know if our session is valid until later.
     // get_loggedin_user does not really test it.
-    if ($fbu_orig != FB_FBU_NO_SESSION && !$fb->get_loggedin_user()) {
+    if ($fbu_orig != FB_FBU_NO_SESSION &&
+	$fbu_orig != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
       // An FBU other than CURRENT was specified, but we failed to log in.
       watchdog('fb', t('Failed to log into facebook app %app as user %user',
                        array('%app' => $fb_app->title,
