@@ -128,7 +128,7 @@ function fb_infinite_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
       // http://forum.developers.facebook.com/viewtopic.php?pid=76361#p76361
       if ($code = $fb_infinite_data['code']) {
         drupal_set_message("code is $code");
-        $fb = fb_api_init($fb_app, FB_FBU_CURRENT); // Does not set user.
+        $fb = fb_api_init($node->fb_app, FB_FBU_CURRENT); // Does not set user.
         
         $session = $fb->api_client->auth_getSession($code);
         //dpm($session, "auth_getSession returned");
