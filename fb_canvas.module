@@ -7,6 +7,50 @@
  * 
  */
 
+function fb_canvas_menu($may_cache) {
+  $items = array();
+  if ($may_cache) {
+    $items[] = array('path' => 'fb/canvas/session',
+		     'callback' => 'fb_canvas_session_cb',
+		     'type' => MENU_CALLBACK,
+		     'access' => TRUE);
+  }
+  return $items;
+}
+
+/**
+ * implementation of hook_block
+ *
+ * Block 0 is a session helper block.  It is useful on FBML canvas
+ * pages.  In includes an iframe, so the user's browser makes a
+ * request directly to the server, rather than via facebook.  This
+ * will set a cookie on the browser, so that subsequent requests to
+ * the local server will share the same session as the canvas pages.
+ */
+function fb_canvas_block($op = 'list', $delta = 0, $edit = array()) {
+  if ($op == 'list') {
+    $items[0]['info'] = t('Facebook Canvas Session Helper');
+    return $items;
+  }
+  else if ($op == 'view') {
+    // This block only makes sense in FBML pages.
+    if (!fb_canvas_is_fbml()) {
+      return;
+    }
+    // Try to avoid including the iframe on every page, but use it if the currenly known session will expire soon.
+    if ($_SESSION['fb_canvas_session'] &&
+	$_SESSION['fb_frame_params'] &&
+	$_SESSION['fb_frame_params']['expires'] > time() + (60 * 60)) {
+      return;
+    }
+    $_SESSION['fb_canvas_session'] = TRUE;
+
+    $url = url('fb/canvas/session', NULL, NULL, TRUE);
+    return array('subject' => NULL,
+		 'content' => "<fb:iframe width=0 height=0 frameborder=0 src=$url></fb:iframe>");
+  }
+}
+
 /**
  * Implementation of hook_fb.
  */
@@ -97,7 +141,7 @@ function fb_canvas_fb($op, $data, &$return) {
       }
     }
   }
-  }
+}
 
 
 /**
@@ -135,7 +179,7 @@ function fb_canvas_form_alter($form_id, &$form) {
             '#title' => t('Front page when user is logged in, but has not added the app.'),
             '#description' => t('Leave blank to use the site-wide front page.'),
             '#default_value' => $fb_canvas_data['front_loggedin'],
-      );
+	    );
     $form['fb_app_data']['fb_canvas']['front_added'] =
       array('#type' => 'textfield',
             '#title' => t('Front page when user has added this application.'),
@@ -158,7 +202,7 @@ function fb_canvas_form_alter($form_id, &$form) {
             '#description' => t('Your application can have primary links different from those used elsewhere on your site.'),
             '#default_value' => $fb_canvas_data['primary_links'],
             '#options' => $primary_options,
-      );
+	    );
     $form['fb_app_data']['fb_canvas']['secondary_links'] = 
       array('#type' => 'select',
             '#title' => t('Menu containing secondary links'),
@@ -198,23 +242,43 @@ function fb_canvas_form_alter($form_id, &$form) {
   // We will send all form submission directly to us, not via
   // apps.facebook.com/whatever.
   if (fb_canvas_is_fbml()) {
+    //dpm($form, "fb_canvas_form_alter($form_id)"); // debug
+    
     // We're in a facebook callback
     
-    // Can't use 'fb_handling_form' because facebook strips it.
-    $form['_fb_handling_form'] = array('#value' => TRUE,
-                                       '#type' => 'hidden');
-    
-    // We need to make sure the action goes to our domain and not apps.facebook.com
-    if ($form['#action'] == '') {
-      $form['#action'] = $_GET['q'];
+    if (!isset($form['fb_canvas_form_handler'])) {
+      $form['fb_canvas_form_handler'] = array();
+      
+      // This variable tells us to handle the form on submit.
+      // Can't use 'fb_handling_form' because facebook strips it.
+      $form['fb_canvas_form_handler']['_fb_handling_form'] = array('#value' => TRUE,
+								   '#type' => 'hidden');
+      
+      // We need to make sure the action goes to our domain and not apps.facebook.com, so here we tweak the form action.
+      $form['fb_canvas_form_handler']['#action_old'] = $form['action'];
+      if ($form['#action'] == '') {
+	$form['#action'] = $_GET['q'];
+      }
+      $form['#action'] = _fb_canvas_make_form_action_local($form['#action']);
+      $form['fb_canvas_form_handler']['#action_new'] = $form['#action'];
+      // We've stored #action_old and #action_new so custom modules have the option to change it back.
     }
-    $form['#action'] = _fb_canvas_make_form_action_local($form['#action']);
-    // Let's hope no subsequent hook_form_alters mess with #action.
 
   }
   else if (fb_canvas_is_iframe()) {
     //dpm($form, 'fb_canvas_form_alter');
   }
+}
+
+/**
+ * Call this from your form_alter hook to prevent changes to the
+ * form's default action.
+ */
+function fb_canvas_form_action_via_facebook(&$form) {
+  if ($form['fb_canvas_form_handler']) {
+    $form['#action'] = $form['fb_canvas_form_handler']['#action_old'];
+  }
+  $form['fb_canvas_form_handler'] = array();
 }
 
 function fb_canvas_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
@@ -385,28 +449,28 @@ function fb_canvas_process($output, $add_target = TRUE) {
   $replacements = array();
   
   if ($fb) {
-	$page_type = fb_settings(FB_SETTINGS_PAGE_TYPE);
-	$nid = $fb_app->nid;
+    $page_type = fb_settings(FB_SETTINGS_PAGE_TYPE);
+    $nid = $fb_app->nid;
     $base = url();  // short URL with rewrite applied.
-	if (fb_canvas_is_fbml()) {
+    if (fb_canvas_is_fbml()) {
       //dpm($output, "before fb_canvas_process");
       // We're producing FBML for a canvas page
       
-	  // Change links to use canvas on Facebook
+      // Change links to use canvas on Facebook
       // Links ending in #something:
-	  $patterns[] = "|=\"{$base}([^\"]*#)|";
-	  $replacements[] = "=\"/{$fb_app->canvas}/$1app{$fb_app->id}_";
+      $patterns[] = "|=\"{$base}([^\"]*#)|";
+      $replacements[] = "=\"/{$fb_app->canvas}/$1app{$fb_app->id}_";
       // Other links
-	  $patterns[] = "|=\"{$base}|";
-	  $replacements[] = "=\"/{$fb_app->canvas}/";
-	  
-	  // Workaround Drupal does not let us rewrite the frontpage url
+      $patterns[] = "|=\"{$base}|";
+      $replacements[] = "=\"/{$fb_app->canvas}/";
+      
+      // Workaround Drupal does not let us rewrite the frontpage url
       /* Not needed thanks to: http://drupal.org/node/241878
-	  $patterns[] = "|=\"{$base_path}\"|";
-	  $replacements[] = "=\"/{$fb_app->canvas}/\"";
-	  */
-
-	  // Change paths to files to fully qualified URLs. This matches relative
+	 $patterns[] = "|=\"{$base_path}\"|";
+	 $replacements[] = "=\"/{$fb_app->canvas}/\"";
+      */
+      
+      // Change paths to files to fully qualified URLs. This matches relative
       // URLs that do not include the canvas (that is, not matched by previous
       // patterns).
       if ($base_path != "/{$fb_app->canvas}/") {
@@ -419,7 +483,7 @@ function fb_canvas_process($output, $add_target = TRUE) {
       // would be accomplished with something like:
       // http://drupal.org/node/102679.  In the meantime, this may help for
       // canvas pages only.
-
+      
       // Regexp avoids "1234@facebook" (surrounded by quotes) because that can
       // appear in some forms.  Also avoids 1234@facebook.com, which can also
       // appear in forms because it is used in authmaps.  TODO: investigate
@@ -427,9 +491,9 @@ function fb_canvas_process($output, $add_target = TRUE) {
       $patterns[] = '|(?<!["\d])([\d]*)@facebook(?!\.com)|';
       $replacements[] = '<fb:name uid=$1 linked=false ifcantsee="$1@facebook" useyou=false />';
       
-	}
-	else {
-	  // In iframe
+    }
+    else {
+      // In iframe
       // Add target=_top so that entire pages do not appear within an iframe.
       // TODO: make these pattern replacements more sophisticated, detect whether target is already set.
       if ($add_target) {
@@ -439,7 +503,7 @@ function fb_canvas_process($output, $add_target = TRUE) {
         // Do not change local forms, but do change external ones
         $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
         $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
-
+	
         // Make internal links point to canvas pages
         $patterns[] = "|<a([^>]*)href=\"{$base}|";
         $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$fb_app->canvas}/";
@@ -452,21 +516,21 @@ function fb_canvas_process($output, $add_target = TRUE) {
         $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
       }
       
-	  // Workaround Drupal does not let us rewrite the frontpage url
-	  //$patterns[] = "|=\"{$base_path}\"|";
-	  //$replacements[] = "=\"{$base_path}fb_canvas/{$page_type}/{$nid}/\"";	 // XXX
-	}
+      // Workaround Drupal does not let us rewrite the frontpage url
+      //$patterns[] = "|=\"{$base_path}\"|";
+      //$replacements[] = "=\"{$base_path}fb_canvas/{$page_type}/{$nid}/\"";	 // XXX
+    }
   }
   if (count($patterns)) {
-	$return = preg_replace($patterns,
-						   $replacements,
-						   $output);
-	return $return;
+    $return = preg_replace($patterns,
+			   $replacements,
+			   $output);
+    return $return;
   }
   else
-	return $output;
+    return $output;
 }
- 
+
 //This API needs testing and may need to be improved...
 /**
  * Similar to fb_canvas_process, this also uses regular expressions to alter
