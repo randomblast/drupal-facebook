@@ -41,9 +41,15 @@ define('FB_APP_CURRENT', '000_app_current'); // Canvas pages only.  000 makes it
  * 
  */
 function fb_init() {
-  global $fb, $fb_app, $fb_app_node; // Set by this function.
+  global $fb, $fb_app; // Set by this function.
+
+  // http://drupal.org/node/329810
+  if (!function_exists('arg')) {
+    // Ensure arg function is defined.
+    drupal_bootstrap(DRUPAL_BOOTSTRAP_PATH);
+  }
   
-  if (arg(0) != 'admin')
+  if (arg(0) != 'admin') {
     // Session sanity check.  This is relevant on iframe pages when user once
     // had the app added, but has since removed it.  This is a bit of a hack
     // because we rely on the fb_... params passed by facebook.
@@ -67,6 +73,8 @@ function fb_init() {
 	drupal_goto($url);
       }
     }
+  }
+
   // Purge out-of-date session info 
   if ($_SESSION['fb_frame_params'] && 
       $_SESSION['fb_frame_params']['expires'] < time()) {
@@ -96,7 +104,7 @@ function fb_init() {
       //fb_invoke($fb_app, FB_OP_CANVAS_INITIALIZE);
       fb_invoke(FB_OP_CANVAS_INITIALIZE, array('fb_app' => $fb_app,
 					       'fb' => $fb));
-
+      
       // See if the facebook user id is known
       if ($fbu = $fb->get_loggedin_user()) {
 	fb_invoke(FB_OP_APP_IS_AUTHORIZED, array('fb_app' => $fb_app,
@@ -108,7 +116,7 @@ function fb_init() {
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", WATCHDOG_ERROR);
     
   }
-  //fb_invoke($fb_app, FB_OP_CANVAS_POST_INIT);
+
   fb_invoke(FB_OP_CANVAS_POST_INIT, array('fb_app' => $fb_app,
 					  'fb' => $fb));
 }
