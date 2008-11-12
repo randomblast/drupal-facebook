@@ -77,6 +77,7 @@ function fb_init() {
 
   // Purge out-of-date session info 
   if ($_SESSION['fb_frame_params'] && 
+      $_SESSION['fb_frame_params']['expires'] &&
       $_SESSION['fb_frame_params']['expires'] < time()) {
     unset($_SESSION['fb_frame_params']);
   }
