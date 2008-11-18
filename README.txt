@@ -9,11 +9,6 @@ Version: HEAD (version 2.x for Drupal 5.x)
 Please read http://drupal.org/node/288721#version and confirm that
 you are using the correct version.
 
-IMPORTANT: THIS VERSION IS ONLY PARTIALLY CONVERTED FOR THE NEW API.
-USE THIS VERSION ONLY IF YOU ARE CAPABLE OF FIXING ISSUES AS YOU
-ENCOUNTER THEM AND SUBMITTING PATCHES TO THE ISSUE QUEUE.  OTHERWISE,
-FOR THE TIME-BEING, USE VERSION 1.x.
-
 Installation and setup documentation now available online
 http://drupal.org/node/195035.  (Read this document first, as it
 contains the most up-to-date information.  Then consult the online
@@ -31,16 +26,16 @@ To install or upgrade from an earlier version of Drupal for Facebook:
   directory where this file is located.  Then, add 
   $conf['fb_api_file'] = 'redesign-changes/facebook.php';
   near the end of your settings.php file.
-  You will get a cryptic error message until you done this correctly.
+  You will get a cryptic error message until you have done this correctly.
 
-- Install a Facebook-aware theme into one of Drupal's themes
-  directories.  One example theme is provided in the 'themes'
-  directory of this module, but Drupal will not find it there.  So,
-  you must copy the entire theme directory to sites/all/themes, or
-  another of Drupal's themes directories.  Use a symbolic link, rather
-  than copy, if you intend to make no changes and you want updates to
-  be easier.  Visit Site Building >> Themes so that Drupal will detect
-  the new theme.
+- If you intend to support canvas pages, install a Facebook-aware
+  theme into one of Drupal's themes directories.  One example theme is
+  provided in the 'themes' directory of this module, but Drupal will
+  not find it there.  So, you must copy the entire theme directory to
+  sites/all/themes, or another of Drupal's themes directories.  Use a
+  symbolic link, rather than copy, if you intend to make no changes
+  and you want updates to be easier.  Visit Site Building >> Themes so
+  that Drupal will detect the new theme.
 
 - Edit your settings.php file (sites/default/settings.php, depending
   on your install) to include fb_settings.inc (in this directory).  For
@@ -54,7 +49,7 @@ To install or upgrade from an earlier version of Drupal for Facebook:
 - Enable the Facebook modules via the drupal admin pages, as usual.
   You must enable at least fb.module and fb_app.module.  You will
   probably want to enable fb_user and more of the modules as your App
-  needs them.
+  needs them.  Enable fb_canvas if you support canvas pages.
 
 - You must enable clean URLs.  If you don't, some links that drupal
   creates will not work properly on canvas pages.
@@ -114,3 +109,30 @@ Here's an idea: check the issue queue before you submit
 If you do submit an issue, start the description with "I read the
 README.txt from start to finish," and you will get a faster, more
 thoughtful response.
+
+Here is one way to set up your settings.php.  Add the PHP shown below
+to the very end of your settings.php, and modify the paths accordingly
+(i.e. where I use "profiles/custom/modules/fb", you might use
+"sites/all/modules/fb").
+
+<?php
+
+/**
+ * Common settings for DFF 
+ */
+
+if (!is_array($conf))
+  $conf = array();
+
+$conf['fb_verbose'] = TRUE;
+$conf['fb_actions_verbose'] = TRUE;
+//$conf['fb_debug'] = TRUE; // Output from facebook's API.
+$conf['fb_api_file'] = 'profiles/custom/modules/fb/redesign-changes/facebook.php';
+
+/**
+ * Enable Drupal for Facebook
+ */
+include "profiles/custom/modules/fb/fb_settings.inc";
+
+
+?>
