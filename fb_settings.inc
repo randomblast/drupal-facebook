@@ -3,6 +3,7 @@
   // In the future, there may be additional parameters, like spoofing a session for anonymous visitors.
 define('FB_SETTINGS_APP_NID', 'fb_cb');
 define('FB_SETTINGS_PAGE_TYPE', 'fb_cb_type');
+define('FB_SETTINGS_SESSION_KEY', 'fb_sess');
 
 if (!is_array($conf))
   $conf = array();
@@ -10,7 +11,7 @@ if (!is_array($conf))
 // This allows us to test whether this file has been included
 $conf['fb_settings_check'] = TRUE;
 
-if ($nid = _fb_settings_parse_nid())
+if ($nid = _fb_settings_parse(FB_SETTINGS_APP_NID))
   // Ensure unique session for facebook app.
   $conf['session_inc'] = dirname(__FILE__) . '/fb_session.inc';
 										   
@@ -69,7 +70,7 @@ if(!function_exists('custom_url_rewrite')) {
 function fb_settings_url_rewrite($type, $path, $original){
   //dpm(func_get_args(), 'fb_canvas_url_rewrite');
   //print("fb_canvas_url_rewrite($type, $path, $original)");
-  $prefixes = array(FB_SETTINGS_APP_NID, FB_SETTINGS_PAGE_TYPE);
+  $prefixes = array(FB_SETTINGS_APP_NID, FB_SETTINGS_PAGE_TYPE, FB_SETTINGS_SESSION_KEY);
   if ($type == 'source') {
     // See if this is a request for us.
     if (strpos($path, FB_SETTINGS_APP_NID . '/') === 0) {
@@ -92,48 +93,47 @@ function fb_settings_url_rewrite($type, $path, $original){
     } 
   }
   else if ($type == 'alias') {
-    if (function_exists('fb_canvas_is_fbml')) {
-      $pre = '';
-      if (fb_canvas_is_iframe()) {
-	// Rewrite for iframes
-	foreach ($prefixes as $prefix)
-	  if ($value = fb_settings($prefix))
-	    $pre .= $prefix . '/'. fb_settings($prefix) . '/';
-	$path  = $pre . $path;
-      }
-      else if (fb_canvas_is_fbml()) {
-	// Rewrite for FBML
-	//$path = $fb_app->canvas . '/' . $path; // old way
-	// For now, same as for iframes, but may be different one day
-	foreach ($prefixes as $prefix)
-	  if ($value = fb_settings($prefix))
-	    $pre .= $prefix . '/'. fb_settings($prefix) . '/';
-	$path  = $pre . $path;
-      }
+    $pre = '';
+    
+    // Prefix each known value to the URL
+    foreach ($prefixes as $prefix) {
+      if ($value = fb_settings($prefix))
+	$pre .= $prefix . '/'. $value . '/';
     }
+    $path  = $pre . $path;
   }
+  
   return $path;  
 }
 
 function fb_settings($key, $value = NULL) {
   static $cache = array();
-  if (isset($value))
+  if (isset($value)) {
     $cache[$key] = $value;
+  }
   return $cache[$key];
 }
 
 /**
- * Parse the application nid from the URL.  This may be called before
+ * Parse a setting from the URL.  This may be called before
  * custom_url_rewrite, so we can't count on fb_settings() to return the value.
+ * For internal use only (see fb_session.inc).
  */
-function _fb_settings_parse_nid() {
+function _fb_settings_parse($key) {
   if (isset($_GET['q'])) {
-	$path = $_GET['q'];
-	if (strpos($path, FB_SETTINGS_APP_NID . '/') === 0) {
-	  // Too soon for arg() function.
-	  $args = explode('/', $path);
-	  return $args[1];
-	}
+    $path = $_GET['q'];
+    $pos = strpos($path, $key . '/');
+    if ($pos !== FALSE) {
+      // Too soon for arg() function.
+      $args = explode('/', $path);
+      $i = 0;
+      while (isset($args[$i]) && isset($args[$i+1])) {
+	if ($args[$i] == $key)
+	  // Found the value we're interested in
+	  return $args[$i+1];
+	$i = $i + 2;
+      }
+    }
   }
 }
 

@@ -26,6 +26,12 @@ function fb_canvas_menu($may_cache) {
  * request directly to the server, rather than via facebook.  This
  * will set a cookie on the browser, so that subsequent requests to
  * the local server will share the same session as the canvas pages.
+ *
+ * Note that some browsers (safari) simply refuse to accept cookies
+ * from an iframe unless the user takes some action in that frame.  In
+ * such a case this block will have no effect.  If you encounter this,
+ * consider setting $conf['fb_session_cookieless_iframe'] = TRUE in
+ * your settings.php.
  */
 function fb_canvas_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {
@@ -357,8 +363,9 @@ function fb_canvas_goto($path) {
     $url = fb_canvas_fix_url(url($path, NULL, NULL, TRUE), $fb_app);
     $fb->redirect($url);
   }
-  else
+  else {
     drupal_goto($path);
+  }
   exit;
 }
 
