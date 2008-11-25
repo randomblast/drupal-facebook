@@ -76,10 +76,10 @@ function fb_user_fb($op, $data, &$return) {
   
   if ($op == FB_OP_CANVAS_INITIALIZE) {
     
-    // Here we ask facebook to prompt the user to login or add the app.
-    if ($fb_user_data['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN)
+    // Here we ask facebook to prompt the user to authorize the app.
+    if (fb_user_authentication_is_required($fb_app)) {
       $fb->require_login();
-
+    }
   }
   else if ($op == FB_OP_CANVAS_POST_INIT) {
     // Observe special rules for canvas page users without local accounts
@@ -255,6 +255,34 @@ function fb_user_fb($op, $data, &$return) {
       // of the user here, but why bother?  We just flag them as having
       // uninstalled the app (in _fb_user_track()).
     }
+  }
+}
+
+/**
+ * Determines whether authentication is required to serve the current
+ * page.  This will return true if the application has been configured
+ * to require login for all canvas pages.  Except in special cases,
+ * such as profile tabs.
+ *
+ * @return TRUE only for canvas pages if authentication is required to
+ * use the application and the page is not a special exception to the
+ * rule.
+ */
+function fb_user_authentication_is_required($fb_app) {
+  $fb_app_data = fb_app_get_data($fb_app);
+  $fb_user_data = $fb_app_data['fb_user']; // our configuration
+  
+  if ($fb_user_data['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN) {
+    // The application is configured to require login on all canvas pages.
+    // However, there are exceptions.
+    if (isset($_REQUEST['fb_sig_in_profile_tab']) && $_REQUEST['fb_sig_in_profile_tab']) {
+      // Redirects are not allowed for the profile tab.
+      return FALSE;
+    }
+    // There may be other exceptions, for example some ajax callbacks.  Potential todo item.
+    
+    // No exceptions apply, authentication is required.
+    return TRUE;
   }
 }
 
