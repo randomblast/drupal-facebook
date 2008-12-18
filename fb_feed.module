@@ -22,13 +22,13 @@ function fb_feed_menu($may_cache) {
     $items[] = array('path' => 'fb_feed/register',
                      'title' => t('Register template'),
                      'type' => MENU_CALLBACK,
-                     'access' => user_access('adminster fb apps'),
+                     'access' => user_access('administer fb apps'),
                      'callback' => 'fb_feed_register_cb',
     );
     $items[] = array('path' => 'fb_feed/deactivate',
                      'title' => t('Deactivate template'),
                      'type' => MENU_CALLBACK,
-                     'access' => user_access('adminster fb apps'),
+                     'access' => user_access('administer fb apps'),
                      'callback' => 'drupal_get_form',
                      'callback arguments' => array('fb_feed_deactivate_confirm'),
     );
@@ -130,7 +130,7 @@ function fb_feed_template_page($fb_app_nid) {
   $fb_app = fb_get_app(array('nid' => $fb_app_nid));
   $fb = fb_api_init($fb_app, FB_FBU_ANY);
   if ($fb) {
-    // This will work only with infinite session.
+    // This will work only with infinite session. - still true???
     $all = $fb->api_client->feed_getRegisteredTemplateBundles();
     //dpm($all, "fb_feed_template_page");
     if (is_array($all))
@@ -254,7 +254,7 @@ function fb_feed_form(&$node, &$param) {
           '#title' => t('Application'),
           '#default_value' => $values['fb_app_nid'],
           '#options' => $options,
-          '#description' => t('Which application will use these templates?<br />Make sure the infinite session is properly configured for the application (or submit this form via a canvas page).'),
+          '#description' => t('Which application will use these templates?<br />'),
           '#weight' => -5,
           '#required' => TRUE,
     );
@@ -380,7 +380,7 @@ function fb_feed_register_template($node) {
       if ($node->fb_feed_data['full']['template_title'])
         $full = $node->fb_feed_data['full'];
       
-      if ($fb && $fb->get_loggedin_user()) {
+      if ($fb) {
         // TODO: wrap in try-catch
         $bundle_id = 
           $fb->api_client->feed_registerTemplateBundle($lines, $shorts, $full);
