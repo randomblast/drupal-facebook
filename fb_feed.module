@@ -130,9 +130,8 @@ function fb_feed_template_page($fb_app_nid) {
   $fb_app = fb_get_app(array('nid' => $fb_app_nid));
   $fb = fb_api_init($fb_app, FB_FBU_ANY);
   if ($fb) {
-    // This will work only with infinite session. - still true???
     $all = $fb->api_client->feed_getRegisteredTemplateBundles();
-    //dpm($all, "fb_feed_template_page");
+
     if (is_array($all))
       foreach ($all as $data) {
         if (isset($registered[$data['template_bundle_id']])) {
@@ -504,15 +503,17 @@ function fb_feed_view($node, $teaser=FALSE, $page=FALSE) {
 //// Feed Actions
 function fb_feed_action_info() {
   $items = array();
-  $items['fb_feed_action_publish'] =
-    array('type' => 'fb_feed_action',
-          'description' => t('Facebook Feed: publishUserAction'),
-          'configurable' => TRUE,
-          'hooks' => array('nodeapi' => array('delete', 'insert', 'update', 'view'),
-                           'comment' => array('delete', 'insert', 'update', 'view'),
-                           'user' => array('insert', 'update', 'delete', 'login', 'logout'),                                      
-          ),
-    );
+  $items['fb_feed_action_publish'] = array(
+    'type' => 'fb_feed_action',
+    'description' => t('Facebook Feed: publishUserAction'),
+    'configurable' => TRUE,
+    // Include 'custom' so third-party modules can define their own triggers.
+    'hooks' => array(
+      'nodeapi' => array('delete', 'insert', 'update', 'view', 'custom'),
+      'comment' => array('delete', 'insert', 'update', 'view', 'custom'),
+      'user' => array('insert', 'update', 'delete', 'login', 'logout', 'custom'),                                      
+    ),
+  );
   
   return $items;
 }
