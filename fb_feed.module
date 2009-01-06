@@ -658,7 +658,7 @@ function fb_feed_action_publish(&$context, $values = array()) {
         $target_ids = implode(',', $params['target_ids']);
       else
         $target_ids = $params['target_ids'];
-
+      
       try {
         // http://wiki.developers.facebook.com/index.php/Feed.publishUserAction
         //if (FALSE) // disabled for debugging
@@ -684,12 +684,14 @@ function fb_feed_fb_feed($fb_app, $op, &$return, $data) {
     if ($return['tokens']['nid'] && $return['tokens']['title'] &&
         $return['tokens']['fb-app-url']) {
       // Add a link to a canvas page
-      $return['tokens']['fb-feed-node-link'] = l($return['tokens']['title'],
-                                                 $return['tokens']['fb-app-url'].'/node/'.$return['tokens']['nid']);
+      $return['tokens']['fb-feed-node-link'] = l($return['tokens']['title-raw'],
+                                                 $return['tokens']['fb-app-url'].'/node/'.$return['tokens']['nid'], 
+                                                 array(), NULL, NULL, NULL, TRUE);
     }
     if ($return['tokens']['fb-app-title'] && $return['tokens']['fb-app-url']) {
       $return['tokens']['fb-feed-app-link'] = l($return['tokens']['fb-app-title'],
-                                               $return['tokens']['fb-app-url']);
+                                                $return['tokens']['fb-app-url'],
+                                                array(), NULL, NULL, NULL, TRUE);
     }
   }
 }
