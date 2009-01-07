@@ -639,7 +639,7 @@ function fb_feed_action_publish(&$context, $values = array()) {
     if ($params['tokens']['target_ids'])
       $params['target_ids'][] = $params['tokens']['target_ids'];
     if ($params['tokens']['body_general'])
-      $params['target_ids'] = $params['tokens']['body_general'];
+      $params['body_general'] = $params['tokens']['body_general'];
     
     // Invoke a hook so that other modules have a chance to modify the params before we pass them to facebook.
     $params = fb_feed_invoke($fb_app, FB_FEED_OP_TOKEN_ALTER,
