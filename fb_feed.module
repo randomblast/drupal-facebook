@@ -53,7 +53,7 @@ function fb_feed_menu($may_cache) {
 }
 
 function fb_feed_deactivate_confirm($fb_app_nid, $bundle_id) {
-  $result = db_query("SELECT n.nid, n.title FROM {node} n LEFT JOIN {fb_feed_template} fft ON fft.nid = n.nid WHERE fft.fb_app_nid = %d AND fft.bundle_id = %d",
+  $result = db_query("SELECT n.nid, n.title FROM {node} n LEFT JOIN {fb_feed_template} fft ON fft.nid = n.nid WHERE fft.fb_app_nid = %d AND fft.bundle_id = %f",
                      $fb_app_nid, $bundle_id);
   $data = db_fetch_object($result);
   if ($data->nid) {
@@ -389,7 +389,7 @@ function fb_feed_register_template($node) {
                              array('%bundle_id' => $bundle_id)));
 
         if ($bundle_id && $node->nid)
-          db_query("UPDATE {fb_feed_template} fft SET bundle_id=%d WHERE nid=%d",
+          db_query("UPDATE {fb_feed_template} fft SET bundle_id=%f WHERE nid=%d",
                    $bundle_id, $node->nid);
 
         return $bundle_id;
@@ -416,7 +416,7 @@ function fb_feed_insert($node) {
   // has changed on us).
   $fb_app = fb_get_app(array('nid' => $node->fb_app_nid));
   
-  db_query("INSERT INTO {fb_feed_template} (nid, fb_app_nid, apikey, bundle_id, fb_feed_data) VALUES (%d, %d, '%s', %d, '%s')",
+  db_query("INSERT INTO {fb_feed_template} (nid, fb_app_nid, apikey, bundle_id, fb_feed_data) VALUES (%d, %d, '%s', %f, '%s')",
            $node->nid, $node->fb_app_nid, $fb_app->apikey, $bundle_id, $data);
   
   if ($bundle_id)
@@ -448,7 +448,7 @@ function fb_feed_update($node) {
   // has changed on us).
   $fb_app = fb_get_app(array('nid' => $node->fb_app_nid));
 
-  db_query("UPDATE {fb_feed_template} SET fb_app_nid=%d, apikey='%s', bundle_id=%d, fb_feed_data='%s' WHERE nid=%d",
+  db_query("UPDATE {fb_feed_template} SET fb_app_nid=%d, apikey='%s', bundle_id=%f, fb_feed_data='%s' WHERE nid=%d",
            $node->fb_app_nid, $fb_app->apikey, $bundle_id, $data, $node->nid);
   
   if ($bundle_id)
