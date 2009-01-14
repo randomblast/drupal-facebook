@@ -16,17 +16,20 @@ documentation for more detailed instructions.)
 
 To install or upgrade from an earlier version of Drupal for Facebook:
    
-- This version requires a newer version of the Facebook API.  As of
-  this writing, you can get this via Subversion at
-  http://svn.facebook.com/svnroot/platform/clients/php/branches/redesign-changes
+- Make sure you have an up-to-date PHP client from facebook.  You may
+  download a tarball,
+  http://svn.facebook.com/svnroot/platform/clients/packages/facebook-platform.tar.gz,
+  or do this with subversion: 
+  svn co http://svn.facebook.com/svnroot/platform/clients/php/trunk
 
-- Once you have the new API client, place it somewhere where it can be
-  loaded, and set a drupal variable, 'fb_api_file', to the location of
-  facebook.php.  For example, first checkout redesign-changes in the
-  directory where this file is located.  Then, add 
-  $conf['fb_api_file'] = 'redesign-changes/facebook.php';
-  near the end of your settings.php file.
-  You will get a cryptic error message until you have done this correctly.
+- If you extract facebook-platform.tar.gz into your modules/fb
+  directory, it should be found automatically.  If this is not the
+  case, set a drupal variable, 'fb_api_file', to the location of
+  facebook.php.  For example, if you checked the libs out of
+  subversion, add 
+  $conf['fb_api_file'] = 'sites/all/modules/fb/facebook-platform/facebook.php'; 
+  near the end of your settings.php
+  Customize the path above as needed for your installation.
 
 - If you intend to support canvas pages, install a Facebook-aware
   theme into one of Drupal's themes directories.  One example theme is

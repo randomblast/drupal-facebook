@@ -45,7 +45,7 @@ function _fb_user_track($fb, $fb_app, $user) {
   if (!$user->uid || $user->uid == $fb_user_data['not_logged_in_uid'] || $user->uid == $fb_user_data['logged_in_uid']) {
     $result =db_query("REPLACE INTO {fb_user_app} (apikey, fbu, added, time_access, session_key, session_key_expires) VALUES ('%s', %d, %d, %d, '%s', %d)",
                       $fb_app->apikey, fb_facebook_user(),
-                      $fb->api_client->users_isAppAdded(), time(),
+                      $fb->api_client->users_isAppUser(), time(),
                       $fb->api_client->session_key, $_REQUEST['fb_sig_expires']
     );
   }
@@ -54,7 +54,7 @@ function _fb_user_track($fb, $fb_app, $user) {
     $result =db_query("REPLACE INTO {fb_user_app} (apikey, fbu, uid, added, time_access, session_key, session_key_expires) VALUES ('%s', %d, %d, %d, %d, '%s', %d)",
                       $fb_app->apikey, fb_facebook_user(),
                       $user->uid,
-                      $fb->api_client->users_isAppAdded(), time(),
+                      $fb->api_client->users_isAppUser(), time(),
                       $fb->api_client->session_key, $_REQUEST['fb_sig_expires']
     );
   }
@@ -145,7 +145,7 @@ function fb_user_fb($op, $data, &$return) {
 
     // Check if we need to create a local account for this user.
     if (($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_ADD &&
-	 $fb->api_client->users_isAppAdded()) ||
+	 $fb->api_client->users_isAppUser()) ||
 	($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_LOGIN)) {
       
       // Check if the local account is already made.
@@ -200,12 +200,12 @@ function fb_user_fb($op, $data, &$return) {
     // anything related to Drupal accounts.
     /** I _think_ the new api no longer requires this.  TODO: confirm.
     if (strpos($_GET['q'],'user/login') === 0) {
-      // Have to check idAppAdded in case of iframe.
-      if (!$fb->api_client->users_isAppAdded())
+      // Have to check idAppUser in case of iframe.
+      if (!$fb->api_client->users_isAppUser())
         $fb->require_login();
     }
     else if (strpos($_GET['q'],'user/register') === 0) {
-      if (!$fb->api_client->users_isAppAdded())
+      if (!$fb->api_client->users_isAppUser())
         $fb->require_login();
     }
     */

@@ -158,7 +158,7 @@ function fb_api_init($fb_app, $fbu) {
   set_exception_handler('fb_handle_exception');
   
   if (!count($cache)) {
-    $filename = variable_get('fb_api_file', 'facebook-platform/client/facebook.php');
+    $filename = variable_get('fb_api_file', 'facebook-platform/php/facebook.php');
     
     if (!file_exists($filename)) {
       // Print an error directly to the canvas page.
