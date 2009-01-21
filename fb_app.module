@@ -112,6 +112,7 @@ function fb_app_node_info() {
 }
 
 function fb_app_access($op, $node) {
+  global $user;
   if (user_access('administer fb apps'))
     return TRUE;
   if ($op == 'create' && user_access('create fb apps'))
