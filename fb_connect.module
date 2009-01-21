@@ -49,9 +49,8 @@ function fb_connect_receiver() {
 }
 
 /**
- * First attempt to get rid of Facebook's nasty cookies.  Not working
- * as desired, but hopefully Facebook will eventually make their API
- * more reasonable.  yeah, right.
+ * First attempt to get rid of Facebook's cookies.  Not working
+ * as desired, so this is deprecated.  Instead we redirect user on logout.
  */
 function fb_connect_expire($apikey) {
   $fb_app = fb_get_app(array('apikey' => $apikey));
@@ -118,8 +117,7 @@ function fb_connect_fb($op, $data, &$return) {
  * Implementation of hook_user
  *
  * On logout, redirect the user so facebook can expire their session.
- * Should be a facebook API to do this, but Facebook's API is just not
- * good.
+ * Should be a facebook API to do this, but there's none I know of.
  */
 function fb_connect_user($op, &$edit, &$account, $category = NULL) {
 
@@ -185,7 +183,7 @@ function fb_connect_footer($is_front) {
       $output = '<script src="http://static.ak.connect.facebook.com/js/api_lib/v0.4/FeatureLoader.js.php" type="text/javascript"></script>';
       $output .= "\n";
       $feature_list = '["' . implode('","', $features) . '"]';
-      // Put together the URL for the receiver.  The prefix must be identical to the apps callback URL or else Facebook whines.
+      // Put together the URL for the receiver.  The prefix must be identical to the apps callback URL.
       $receiver = fb_get_callback_url($fb_app) . "fb/connect/receiver";
       $output .= "
 <script type=\"text/javascript\">
