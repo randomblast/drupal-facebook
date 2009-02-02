@@ -32,7 +32,7 @@ function fb_infinite_menu($may_cache) {
   if ($may_cache) {
     $items[] = array('path' => 'fb/infinite/display',
                      'title' => t('Facebook session information'),
-                     'access' => user_access('administer fb apps'), // perm defined in fb_app.module
+                     'access' => TRUE,
                      'callback' => 'fb_infinite_display_page',
                      'type' => MENU_CALLBACK,
     );
@@ -152,13 +152,17 @@ function fb_infinite_display_page() {
   }
   
   $fbu = $fb->require_login();
-  
-  $output .= '<p>'.t('Facebook user id: %fbu',
-                     array('%fbu' => $fb->api_client->users_getLoggedInUser())). '</p>';
-  $output .= '<p>'.t('Facebook session key: %session',
-                     array('%session' => $fb->api_client->session_key)). '</p>';
-  $output .= '<p>'.t('Use the values above when configuring the infinite session of your Facebook App.').'</p>';
-  
+  if ($fb->api_client->users_hasAppPermission('offline_access')) {
+    $output .= '<p>'.t('Facebook user id: %fbu',
+                       array('%fbu' => $fb->api_client->users_getLoggedInUser())). '</p>';
+    $output .= '<p>'.t('Facebook session key: %session',
+                       array('%session' => $fb->api_client->session_key)). '</p>';
+    $output .= '<p>'.t('Use the values above when configuring the infinite session of your Facebook App.').'</p>';
+  }
+  else {
+    $output .= '<p><fb:prompt-permission perms="offline_access">' . t('Click here for a session that will not expire.') . '</fb:prompt-permission></p>';
+    $output .= '<p>' . t('Refresh your browser after clicking the above link.') . '</p>';
+  }
   return $output;
 }
 
