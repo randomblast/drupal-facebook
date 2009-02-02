@@ -161,6 +161,7 @@ function fb_app_form(&$node, &$param) {
   
   $form['fb_app'] = array('#tree' => TRUE,
                           '#weight' => -4,
+                          '#validate' => array('fb_app_validate_fb_app' => array()),
   );
   $form['fb_app']['label'] = array('#type' => 'textfield',
                                    '#title' => t('Label'),
@@ -180,22 +181,14 @@ function fb_app_form(&$node, &$param) {
                                     '#default_value' => $node->fb_app->secret,
                                     '#description' => t('Facebook will generate this value when you create the application.'),
   );
-
-  // Arguably, this belongs in fb_canvas.  It's here for historical reasons.
-  $form['fb_app']['canvas'] = array('#type' => 'textfield',
-                                    '#title' => t('Canvas Page Url Suffix'),
-                                    '#required' => FALSE,
-                                    '#default_value' => $node->fb_app->canvas,
-                                    '#description' => t('Type only the part that comes after "http://apps.facebook.com/"'),
-  );
-
+  
   $form['fb_app']['id'] = array('#type' => 'textfield',
                                 '#title' => t('Facebook App ID'),
                                 '#required' => FALSE,
                                 '#default_value' => $node->fb_app->id,
                                 '#description' => t('To learn this number, visit your app\'s About Page (or other links from Facebook\'s Developer App).  The URL will end in ?id=1234...  Enter the number that follows "?id=" here.'),
   );
-
+  
   // fb_app_data is a placeholder to make it easier for other module to attach
   // various settings to the node.
   $form['fb_app_data'] = array('#tree' => TRUE);  
@@ -206,7 +199,16 @@ function fb_app_form(&$node, &$param) {
 function fb_app_validate($node) {
   // TODO: check label is unique, and role name will be unique.
   // check apikey is unique, canvas page is unique
-  // check no menu items start with $fb_app->canvas, because we will rewrite those URLs
+  
+  $fb_app = (object) $node->fb_app;
+  fb_app_get_app_properties($fb_app);
+  if (!$fb_app->application_name) {
+    form_set_error('fb_app][apikey', t('Unable to get application properties.  Confirm both apikey and secret.'));
+  }
+}
+
+function fb_app_validate_fb_app() {
+  //dpm(func_get_args(), 'fb_app_validate_fb_app');
 }
 
 function fb_app_load($node) {
@@ -220,10 +222,11 @@ function fb_app_load($node) {
 
 function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
   $node = node_prepare($node, $teaser);
+  $fb_app = (object) $node->fb_app; // cast in case of preview
   // Perhaps this info should be hidden, unless user can edit node.
   if (user_access('administer fb apps')) {
     $node->content['fb_app'] = 
-      array('#value' => theme('fb_app', $node->fb_app),
+      array('#value' => theme('fb_app', $fb_app),
             '#weight' => 1);
     
   }
@@ -263,10 +266,46 @@ function theme_dl($items) {
   }
 }
 
+/**
+ * Get properties from Facebook.  Fills in the data that we need to
+ * know by querying facebook.
+ */
+function fb_app_get_app_properties(&$fb_app) {
+  static $cache;
+  static $props_map;
+  if (!isset($cache)) {
+    $cache = array();
+    $props_map = array(
+      'canvas_name'=> 'canvas',
+      'application_name' => 'application_name', // always set if app exists
+    );
+  }
+  
+  if (!isset($cache[$fb_app->apikey])) {
+    try {
+      $fb = fb_api_init($fb_app, FB_FBU_ANY);
+      $props = $fb->api_client->admin_getAppProperties(array_keys($props_map));
+    } catch (Exception $e) {
+      fb_log_exception($e, t('Failed to get application properties from Facebook'));
+    }
+    $cache[$fb_app->apikey] = $props;
+  }
+  else {
+    $props = $cache[$fb_app->apikey];
+  }
+  
+  // Update $fb_app with the values we got from facebook api.
+  foreach ($props_map as $fb_key => $key) {
+    if ($props->$fb_key) {
+      $fb_app->$key = $props->$fb_key;
+    }
+  }
+}
+
 function fb_app_insert($node) {
   //drupal_set_message("fb_app_insert" . dpr($node,1));
   $fb_app = (object) $node->fb_app;
-
+  fb_app_get_app_properties($fb_app); // Get canvas and possible other props
   $data = serialize($node->fb_app_data);
   
   db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, require_login, create_account, unique_account, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, %d, %d, '%s')",
@@ -286,6 +325,7 @@ function fb_app_insert($node) {
 
 function fb_app_update($node) {
   $fb_app = (object) $node->fb_app;
+  fb_app_get_app_properties($fb_app); // Get canvas and possible other props
   $data = serialize($node->fb_app_data);
 
   db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', id='%s', canvas='%s', require_login=%d, create_account=%d, unique_account=%d, data='%s' WHERE nid=%d",
