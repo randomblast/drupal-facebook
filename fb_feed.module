@@ -130,16 +130,22 @@ function fb_feed_template_page($fb_app_nid) {
   $fb_app = fb_get_app(array('nid' => $fb_app_nid));
   $fb = fb_api_init($fb_app, FB_FBU_ANY);
   if ($fb) {
-    $all = $fb->api_client->feed_getRegisteredTemplateBundles();
-
-    if (is_array($all))
-      foreach ($all as $data) {
-        if (isset($registered[$data['template_bundle_id']])) {
-          $registered[$data['template_bundle_id']]->confirmed = $data;
+    try {
+      $all = $fb->api_client->feed_getRegisteredTemplateBundles();
+      
+      if (is_array($all))
+        foreach ($all as $data) {
+          if (isset($registered[$data['template_bundle_id']])) {
+            $registered[$data['template_bundle_id']]->confirmed = $data;
+          }
+          else
+            $registered[$data['template_bundle_id']] = $data;
         }
-        else
-          $registered[$data['template_bundle_id']] = $data;
-      }
+    } 
+    catch (Exception $e) {
+      fb_log_exception($e, t('Failed to get template bundles.'));
+      drupal_set_message(t('This page may show more information if you configure an infinite session or Facebook Connect.'));
+    }
   }
   else {
     drupal_set_message("Facebook API not available.  Some options will not be shown.  Possible infinite session configuration problem.", 'error');
@@ -166,7 +172,7 @@ function fb_feed_template_page($fb_app_nid) {
         $ops[] = l(t('deactivate'), 'fb_feed/deactivate/'.$fb_app->nid.'/'.$data->bundle_id);
       else if ($data->nid && $fb && is_array($all))
         $ops = array(l(t('re-register'), 'fb_feed/register/'.$data->nid));
-      else if ($data['template_bundle_id'])
+      else if ($data->template_bundle_id)
         $ops[] = l(t('deactivate'), 'fb_feed/deactivate/'.$fb_app->nid.'/'.$data['template_bundle_id']);
       
       
@@ -380,13 +386,18 @@ function fb_feed_register_template($node) {
         $full = $node->fb_feed_data['full'];
       
       if ($fb) {
-        // TODO: wrap in try-catch
-        $bundle_id = 
-          $fb->api_client->feed_registerTemplateBundle($lines, $shorts, $full);
-        
-        fb_report_errors($fb, t('Error attempting to register template bundle.'));
-        drupal_set_message(t('Registered template bundle %bundle_id with Facebook.',
-                             array('%bundle_id' => $bundle_id)));
+        try {
+          $bundle_id = 
+            $fb->api_client->feed_registerTemplateBundle($lines, $shorts, $full);
+        }
+        catch (Exception $e) {
+          fb_log_exception($e, t('Error attempting to register template bundle.'), $fb);
+        }
+        if ($bundle_id)
+          drupal_set_message(t('Registered template bundle %bundle_id with Facebook.',
+                               array('%bundle_id' => $bundle_id)));
+        else
+          drupal_set_message(t('Failed to register the template.'), 'error');
 
         if ($bundle_id && $node->nid)
           db_query("UPDATE {fb_feed_template} fft SET bundle_id=%f WHERE nid=%d",
@@ -499,6 +510,56 @@ function fb_feed_view($node, $teaser=FALSE, $page=FALSE) {
   return $node;
 }
 
+
+/**
+ * Publish a feed message via the Feed Dialog.  This will prompt the
+ * user before writing to the feed, and this is Facebook's recommended
+ * technique.  The other option is publishUserAction.
+ *
+ * Our approach here is like drupal_set_message.  We save the data to
+ * the session, and show the user the dialog on the next page request.
+ */
+function fb_feed_show_dialog($fb_feed_nid, $tokens, $options) {
+  if (!isset($_SESSION['fb_feed_dialogs']))
+    $_SESSION['fb_feed_dialogs'] = array();
+  
+  $node = node_load($fb_feed_nid);
+  // TODO: validate node
+  
+  if (!isset($_SESSION['fb_feed_dialogs'][$node->apikey])) {
+    $_SESSION['fb_feed_dialogs'][$node->apikey] = array();
+  }
+  
+  $_SESSION['fb_feed_dialogs'][$node->apikey][] = array(
+    'fb_feed_nid' => $node->nid,
+    'apikey' => $node->apikey,
+    'bundle_id' => $node->bundle_id,
+    'tokens' => $tokens,
+    'options' => $options,
+  );
+}
+
+function fb_feed_fb($op, $data, &$return) {
+  if ($op == FB_OP_CONNECT_JS_INIT) {
+    //$return[] = "alert('fb_feed_fb!');";
+    
+    if (isset($_SESSION['fb_feed_dialogs']) && 
+        isset($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey])) {
+      // Use javascript to publish feed messages
+      foreach ($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey] as $d) {
+        // http://wiki.developers.facebook.com/index.php/JS_API_M_FB.Connect.ShowFeedDialog
+        $template_data = json_encode($d['tokens']);
+        $target_ids = json_encode($d['options']['target_ids']);
+        $body_general = json_encode($d['options']['body_general']);
+        // TODO, other options
+$return[] = "FB.Connect.showFeedDialog({$d[bundle_id]}, {$template_data});";
+      // remove displayed items from session        //$return[] = "FB.Connect.showFeedDialog({$d[bundle_id]}, {$template_data}, {$target_ids}, '{$body_general}');";
+      }
+      // remove displayed items from session
+      unset($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey]);
+    }
+  }
+}
 
 //// Feed Actions
 function fb_feed_action_info() {
@@ -677,6 +738,9 @@ function fb_feed_action_publish(&$context, $values = array()) {
 
 }
 
+/**
+ * Implementation of hook_fb_feed
+ */
 function fb_feed_fb_feed($fb_app, $op, &$return, $data) {
   if ($op == FB_FEED_OP_TOKEN_ALTER) {
     // In this hook, we have a chance to add tokens before a user action is
@@ -697,7 +761,7 @@ function fb_feed_fb_feed($fb_app, $op, &$return, $data) {
 }
 
 /**
- * Invoke hook_fb.
+ * Invoke hook_fb_feed.
  */
 function fb_feed_invoke($fb_app, $op, $return = NULL, $data = NULL) {
   foreach (module_implements(FB_FEED_HOOK) as $name) {
