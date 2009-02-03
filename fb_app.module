@@ -282,13 +282,14 @@ function fb_app_get_app_properties(&$fb_app) {
   }
   
   if (!isset($cache[$fb_app->apikey])) {
-    try {
-      $fb = fb_api_init($fb_app, FB_FBU_ANY);
-      $props = $fb->api_client->admin_getAppProperties(array_keys($props_map));
-    } catch (Exception $e) {
-      fb_log_exception($e, t('Failed to get application properties from Facebook'));
+    if ($fb = fb_api_init($fb_app, FB_FBU_ANY)) {
+      try {
+        $props = $fb->api_client->admin_getAppProperties(array_keys($props_map));
+      } catch (Exception $e) {
+        fb_log_exception($e, t('Failed to get application properties from Facebook'));
+      }
+      $cache[$fb_app->apikey] = $props;
     }
-    $cache[$fb_app->apikey] = $props;
   }
   else {
     $props = $cache[$fb_app->apikey];
