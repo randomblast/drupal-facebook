@@ -161,14 +161,17 @@ function fb_api_init($fb_app, $fbu) {
   
   if (!count($cache)) {
     $filename = variable_get('fb_api_file', 'facebook-platform/php/facebook.php');
-    
-    if (!file_exists($filename)) {
-      // Print an error directly to the canvas page.
-      //print("Failed to open Facebook API file $filename.  Either fix this problem or disable Facebook modules.");
+    if (!include($filename)) {
+      $message = t('Failed to find the Facebook client libraries at %filename.  Read the !readme and follow the instructions carefully.',
+                   array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
+                         // This link should work with clean URLs disabled.
+                         '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>',
+                         '%filename' => $filename,
+                   ));
+      drupal_set_message($message, 'error');
+      watchdog('fb', $message);
       return NULL;
     }
-    else
-      require_once($filename);
   }
   
   global $facebook_config;

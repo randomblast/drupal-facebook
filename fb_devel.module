@@ -48,17 +48,6 @@ function fb_devel_fb($op, $data, &$return) {
       watchdog('fb_devel', $message);      
     }
 
-    // New facebook API sanity check
-    if (!variable_get('fb_api_file', FALSE)) {
-      $message = t('It looks like you have upgraded from version 1.x to 2.x of !drupal_for_facebook without changing all the necessary settings.  Read the !readme and follow the instructions carefully.',
-                   array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
-                         // This link should work with clean URLs
-                         // disabled.
-                         '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>'));
-      drupal_set_message($message, 'error');
-      watchdog('fb_devel', $message);
-    }
-
     // path replacement sanity check
     global $base_path;
     if ($base_path == "/{$fb_app->canvas}/") {
