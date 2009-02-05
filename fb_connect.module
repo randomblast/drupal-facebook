@@ -72,23 +72,24 @@ function fb_connect_expire($apikey) {
  * total hissy-fit if you tried.
  */
 function fb_connect_app_init($fb_app) {
-  $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
-  $fbu = $fb->get_loggedin_user();
-  // TODO: sometimes this method indicates we are logged in when we really are not.  Find a way to verify.
-  if ($fbu) {
-    // The user has authorized the app and we now know something about them.  Use a hook to trigger the actions of other modules.
-    fb_invoke(FB_OP_APP_IS_AUTHORIZED, array('fbu' => $fbu,
-                                             'fb_app' => $fb_app,
-                                             'fb' => $fb));
+  if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
+    $fbu = $fb->get_loggedin_user();
+    // TODO: sometimes this method indicates we are logged in when we really are not.  Find a way to verify.
+    if ($fbu) {
+      // The user has authorized the app and we now know something about them.  Use a hook to trigger the actions of other modules.
+      fb_invoke(FB_OP_APP_IS_AUTHORIZED, array('fbu' => $fbu,
+                                               'fb_app' => $fb_app,
+                                               'fb' => $fb));
+    }
+    
+    // Store state in session
+    if (!$_SESSION['fb_connect']) {
+      $_SESSION['fb_connect'] = array();
+    }
+    $_SESSION['fb_connect'][$fb_app->apikey] = $fbu;
+    
+    return $fb;
   }
-
-  // Store state in session
-  if (!$_SESSION['fb_connect']) {
-    $_SESSION['fb_connect'] = array();
-  }
-  $_SESSION['fb_connect'][$fb_app->apikey] = $fbu;
-
-  return $fb;
 }
 
 /**
