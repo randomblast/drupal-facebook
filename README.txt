@@ -28,7 +28,9 @@ To install or upgrade from an earlier version of Drupal for Facebook:
   facebook.php.  For example, if you checked the libs out of
   subversion, add 
   $conf['fb_api_file'] = 'sites/all/modules/fb/facebook-platform/facebook.php'; 
-  near the end of your settings.php
+  near the end of your settings.php.
+  If you downloaded the bundle, this might work:
+  $conf['fb_api_file'] = 'sites/all/modules/fb/facebook-platform/php/facebook.php'; 
   Customize the path above as needed for your installation.
 
 - If you intend to support canvas pages, install a Facebook-aware
@@ -41,13 +43,16 @@ To install or upgrade from an earlier version of Drupal for Facebook:
   that Drupal will detect the new theme.
 
 - Edit your settings.php file (sites/default/settings.php, depending
-  on your install) to include fb_settings.inc (in this directory).  For
-  example, add this at the very end of your settings.php:
+  on your install) to include fb_settings.inc (in this directory).
+  For example, add this at the very end of your settings.php:
 
   require_once "sites/all/modules/fb/fb_settings.inc";
 
   (Or whatever path is appropriate, could be
   "profiles/custom/modules/fb/fb_settings.inc")
+
+  See the end of this file for other configuration you may add to
+  settings.php.
 
 - Enable the Facebook modules via the drupal admin pages, as usual.
   You must enable at least fb.module and fb_app.module.  You will
@@ -64,10 +69,9 @@ To install or upgrade from an earlier version of Drupal for Facebook:
 - Go to Create Content >> Facebook Application.  Use the apikey and
   secret that Facebook has shown you.  If you have any trouble with
   the other fields, use Facebook's documentation to figure it out.
-  Once you submit your changes, you'll be shown important information,
-  like a callback URL and so on.  Return to the application settings
-  form on Facebook, and fill in all the values Drupal for Facebook has
-  shown you.
+  When you submit your changes, Drupal for Facebook will automatically
+  set the callback URL and some other properties which help it work
+  properly.
 
 - If upgrading from an earlier Drupal for Facebook, revisit all of the
   Facebook Application nodes.  Edit each one, look over all the
@@ -111,7 +115,7 @@ Here's an idea: check the issue queue before you submit
 
 If you do submit an issue, start the description with "I read the
 README.txt from start to finish," and you will get a faster, more
-thoughtful response.
+thoughtful response.  Seriously, prove that you read this far.
 
 Here is one way to set up your settings.php.  Add the PHP shown below
 to the very end of your settings.php, and modify the paths accordingly
@@ -127,13 +131,14 @@ to the very end of your settings.php, and modify the paths accordingly
 if (!is_array($conf))
   $conf = array();
 
-$conf['fb_verbose'] = TRUE;
-$conf['fb_actions_verbose'] = TRUE;
+$conf['fb_verbose'] = TRUE; // debug output
+$conf['fb_actions_verbose'] = TRUE; // more debug output
 //$conf['fb_debug'] = TRUE; // Output from facebook's API.
-$conf['fb_api_file'] = 'profiles/custom/modules/fb/redesign-changes/facebook.php';
+//$conf['fb_api_file'] = 'facebook-platform/php/facebook.php'; // default is 'facebook-platform/php/facebook.php'
 
 /**
- * Enable Drupal for Facebook
+ * Enable Drupal for Facebook.  Sets up custom_url_rewrite and session
+ * handling required for canvas pages and callbacks from facebook servers.
  */
 include "profiles/custom/modules/fb/fb_settings.inc";
 

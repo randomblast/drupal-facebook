@@ -17,6 +17,9 @@ define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
 define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
 define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has authorized an app.  Triggers creation of user accounts or authmap entries
 
+define('FB_OP_SET_PROPERTIES', 'set_props'); // build props for admin.setAppProperties
+define('FB_OP_LIST_PROPERTIES', 'list_props'); // list of known properties for admin.getAppProperties
+
 define ('FB_CONNECT_OP_JS_INIT', 'fb_connect_js_init'); // A chance to customize fbConnect javascript
 
 // node_access realms (belongs here?)

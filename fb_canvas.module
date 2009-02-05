@@ -63,7 +63,7 @@ function fb_canvas_block($op = 'list', $delta = 0, $edit = array()) {
 function fb_canvas_fb($op, $data, &$return) {
   $fb = $data['fb'];
   $fb_app = $data['fb_app'];
-
+  
   if ($op == FB_OP_CANVAS_INITIALIZE) {
     // Get our configuration settings.
     $fb_app_data = fb_app_get_data($fb_app);
@@ -89,10 +89,12 @@ function fb_canvas_fb($op, $data, &$return) {
 
     //drupal_set_message("fb_canvas_fb" . dpr($_GET, 1) . 'arg(0) = ' . dpr(arg(0), 1) . 'arg(1) = ' . dpr(arg(1), 1) . 'frontpage ' . dpr(variable_get('site_frontpage', 'node'), 1));
     if ($_GET['q'] == drupal_get_normal_path(variable_get('site_frontpage', 'node'))) {
-      if ($fb->api_client->users_isAppUser())
-        $front = $fb_canvas_data['front_added'];
-      else if ($fb->get_loggedin_user())
-        $front = $fb_canvas_data['front_loggedin'];
+      if ($fb->get_loggedin_user()) {
+        if ($fb->api_client->users_isAppUser())
+          $front = $fb_canvas_data['front_added'];
+        else
+          $front = $fb_canvas_data['front_loggedin'];
+      }
       else
         $front = $fb_canvas_data['front_anonymous'];
       
@@ -146,6 +148,15 @@ function fb_canvas_fb($op, $data, &$return) {
         drupal_goto($dest, implode('&', $query), NULL, 303); // appears to work
       }
     }
+  }
+  else if ($op == FB_OP_SET_PROPERTIES) {
+    // Compute properties which we can set automatically.
+    $callback_url = url('', NULL, NULL, TRUE) . FB_SETTINGS_APP_NID . '/' . $fb_app->nid . '/';
+    $return['callback_url'] = $callback_url;
+  }
+  else if ($op == FB_OP_LIST_PROPERTIES) {
+    $return[t('Callback URL')] = 'callback_url';
+    $return[t('Canvas Page Suffix')] = 'canvas_name';
   }
 }
 
@@ -290,16 +301,10 @@ function fb_canvas_form_action_via_facebook(&$form) {
 
 function fb_canvas_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   if ($op == 'view' && $node->type == 'fb_app') {
-    //dpm(func_get_args(), 'fb_canvas_nodeapi');
     if (user_access('administer fb apps')) {
       $fb_app = $node->fb_app;
       $output = theme('dl', 
-                      array(t('Canvas page') => "http://apps.facebook.com/$fb_app->canvas",
-                            t('Callback URL') => t("%clean_url<br /> (or %advanced_url only if your theme is designed to support PAGE_TYPE.)<br/>Make sure you have enabled clean URLs, and include the trailing '/'.",
-                                                   array("%clean_url" => url('', NULL, NULL, TRUE) . FB_SETTINGS_APP_NID . '/' . $node->nid .'/',
-                                                         "%advanced_url" => url('', NULL, NULL, TRUE) . FB_SETTINGS_APP_NID . '/' . $node->nid . '/' . FB_SETTINGS_PAGE_TYPE . '/PAGE_TYPE/',
-                                                   )
-                            ),
+                      array(t('Canvas URL') => "http://apps.facebook.com/$fb_app->canvas",
                       ));
 
       $node->content['fb_canvas'] = 

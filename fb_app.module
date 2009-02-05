@@ -65,6 +65,17 @@ function fb_app_fb($op, $data, &$return) {
       $return[] = $app;
     }
   }
+  else if ($op == FB_OP_SET_PROPERTIES) {
+    $url = url(FB_SETTINGS_APP_NID . '/' . $fb_app->nid . '/' . FB_APP_PATH_EVENT, NULL, NULL, TRUE) . '/';
+    $return['uninstall_url'] = $url . FB_APP_EVENT_POST_REMOVE;
+    $return['post_install_url'] = $url . FB_APP_EVENT_POST_AUTHORIZE;
+  }
+  else if ($op == FB_OP_LIST_PROPERTIES) {
+    $return[t('Application Name')] = 'application_name';
+    $return[t('About URL')] = 'about_url';
+    $return[t('Post-Authorize Callback URL')] = 'post_install_url';
+    $return[t('Post-Remove Callback URL')] = 'uninstall_url';
+  }
 }
 
 /**
@@ -193,6 +204,19 @@ function fb_app_form(&$node, &$param) {
   // various settings to the node.
   $form['fb_app_data'] = array('#tree' => TRUE);  
 
+  // Add our own fields to fb_app_data.  Other modules use hook_form_alter to do this.
+  $fb_app_data = fb_app_get_data($node->fb_app);
+  $data = $fb_app_data['fb_app'];
+  if (!$data)
+    $data = array('set_app_props' => TRUE); // defaults
+
+  $form['fb_app_data']['fb_app']['set_app_props'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Set Application Properties Automatically'),
+    '#description' => t('Automatically update Facebook settings for this application.  Disable to prevent customized settings from being overwritten.'),
+    '#default_value' => $data['set_app_props'],
+  );
+
   return $form;
 }
 
@@ -222,9 +246,18 @@ function fb_app_load($node) {
 
 function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
   $node = node_prepare($node, $teaser);
+  
   $fb_app = (object) $node->fb_app; // cast in case of preview
+  fb_app_get_app_properties($fb_app);
   // Perhaps this info should be hidden, unless user can edit node.
   if (user_access('administer fb apps')) {
+    if($fb_app->edit_url) {
+      $node->content['edit_link'] = array(
+        '#value' => '<p>' . t('<a href="!url">Edit this application</a> on Facebook.', array('!url' => $fb_app->edit_url)) . '</p>',
+        '#type' => 'markup',
+      );
+    }
+
     $node->content['fb_app'] = 
       array('#value' => theme('fb_app', $fb_app),
             '#weight' => 1);
@@ -238,19 +271,20 @@ function fb_app_get_about_url($fb_app) {
     return url("http://www.facebook.com/apps/application.php", "id=$fb_app->id");
 }
 
-function theme_fb_app($data) {
+function theme_fb_app($fb_app) {
+  // Get known properties
+  $props_map = fb_invoke(FB_OP_LIST_PROPERTIES, array('fb_app' => $fb_app), array());
+  $data = array(
+    t('Label') => $fb_app->label,
+    t('API Key') => $fb_app->apikey,
+    t('Secret') => $fb_app->secret,
+  );
+  foreach ($props_map as $name => $key) {
+    if ($fb_app->$key)
+      $data[$name] = $fb_app->$key;
+  }
   $about_url = fb_app_get_about_url($data);
-  $output .= theme('dl', array(t('Label') => $data->label,
-                               t('API Key') => $data->apikey,
-                               t('Secret') => $data->secret,
-                               t('About page') => $about_url ? $about_url : t('N/A'),
-                               
-                               // TODO: edit and logout URLs
-                   ));
-  $url = url(FB_SETTINGS_APP_NID . '/' . $data->nid . '/' . FB_APP_PATH_EVENT, NULL, NULL, TRUE) . '/';
-  $output .= theme('dl', array(t('Post-Remove URL') => $url . FB_APP_EVENT_POST_REMOVE,
-                               t('Post-Authorize URL') => $url . FB_APP_EVENT_POST_AUTHORIZE,
-                   ));
+  $output .= theme('dl', $data);
   return $output;
 }
 
@@ -275,16 +309,19 @@ function fb_app_get_app_properties(&$fb_app) {
   static $props_map;
   if (!isset($cache)) {
     $cache = array();
+    // http://wiki.developers.facebook.com/index.php/ApplicationProperties
     $props_map = array(
-      'canvas_name'=> 'canvas',
-      'application_name' => 'application_name', // always set if app exists
+      t('About URL') => 'about_url',
+      t('Application Name') => 'application_name',
+      t('Edit URL') => 'edit_url',
     );
+    $props_map = fb_invoke(FB_OP_LIST_PROPERTIES, array('fb_app' => $fb_app), $props_map);
   }
   
   if (!isset($cache[$fb_app->apikey])) {
-    if ($fb = fb_api_init($fb_app, FB_FBU_ANY)) {
+    if ($fb = fb_api_init($fb_app, FB_FBU_NO_SESSION)) {
       try {
-        $props = $fb->api_client->admin_getAppProperties(array_keys($props_map));
+        $props = $fb->api_client->admin_getAppProperties(array_values($props_map));
       } catch (Exception $e) {
         fb_log_exception($e, t('Failed to get application properties from Facebook'));
       }
@@ -296,9 +333,25 @@ function fb_app_get_app_properties(&$fb_app) {
   }
   
   // Update $fb_app with the values we got from facebook api.
-  foreach ($props_map as $fb_key => $key) {
-    if ($props->$fb_key) {
-      $fb_app->$key = $props->$fb_key;
+  foreach ($props_map as $key) {
+    if ($props->$key) {
+      $fb_app->$key = $props->$key;
+    }
+  }
+}
+
+function fb_app_set_app_properties($fb_app) {
+  $fb_app_data = fb_app_get_data($fb_app);
+  if ($fb_app_data['fb_app']['set_app_props']) {
+    $props = fb_invoke(FB_OP_SET_PROPERTIES, array('fb_app' => $fb_app), array());
+    if (count($props)) {
+      if ($fb = fb_api_init($fb_app, FB_FBU_NO_SESSION)) {
+        try {
+          $fb->api_client->admin_setAppProperties($props);
+        } catch (Exception $e) {
+          fb_log_exception($e, t('Failed to set application properties on Facebook'));
+        }
+      }
     }
   }
 }
@@ -307,13 +360,14 @@ function fb_app_insert($node) {
   //drupal_set_message("fb_app_insert" . dpr($node,1));
   $fb_app = (object) $node->fb_app;
   fb_app_get_app_properties($fb_app); // Get canvas and possible other props
-  $data = serialize($node->fb_app_data);
+  $fb_app->data = serialize($node->fb_app_data);
+  $fb_app->nid = $node->nid;
   
   db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, require_login, create_account, unique_account, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, %d, %d, '%s')",
            $node->nid, $fb_app->label, $fb_app->apikey, $fb_app->secret,
            $fb_app->id,
-           $fb_app->canvas, $fb_app->require_login, $fb_app->create_account, 
-           $fb_app->unique_account, $data
+           $fb_app->canvas_name, $fb_app->require_login, $fb_app->create_account, 
+           $fb_app->unique_account, $fb_app->data
   );
 
   watchdog('fb_app', t('Created Facebook Application %label.',
@@ -322,24 +376,29 @@ function fb_app_insert($node) {
            WATCHDOG_NOTICE,
            l($node->title, 'node/'.$node->nid));
   
+  fb_app_set_app_properties($fb_app); // Set callback URL, etc.
 }
 
 function fb_app_update($node) {
   $fb_app = (object) $node->fb_app;
   fb_app_get_app_properties($fb_app); // Get canvas and possible other props
-  $data = serialize($node->fb_app_data);
-
+  $fb_app->data = serialize($node->fb_app_data);
+  $fb_app->nid = $node->nid;
+  
   db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', id='%s', canvas='%s', require_login=%d, create_account=%d, unique_account=%d, data='%s' WHERE nid=%d",
            $fb_app->label, $fb_app->apikey, $fb_app->secret,
            $fb_app->id,
-           $fb_app->canvas, $fb_app->require_login, $fb_app->create_account,
-           $fb_app->unique_account, $data,
+           $fb_app->canvas_name, $fb_app->require_login, $fb_app->create_account,
+           $fb_app->unique_account, $fb_app->data,
            $node->nid);
+  
+  fb_app_set_app_properties($fb_app); // Set callback URL, etc.
 }
 
 function fb_app_delete($node) {
   db_query('DELETE FROM {fb_app} WHERE nid=%d',
            $node->nid);
+  // Should we unset properties on facebook?
 }
 
 
