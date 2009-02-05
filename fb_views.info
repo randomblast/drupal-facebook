@@ -1,4 +1,4 @@
-name=Facebook Views
-description=Provides features specific to Views module for Facebook Apps
-package=Facebook
-dependencies=views
+name = DFF Views
+description = Provides features specific to Views module for Facebook Apps.
+package= Drupal for Facebook
+dependencies = fb views

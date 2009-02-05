@@ -1,5 +1,5 @@
-name=Facebook Infinite Session
-description=Configure an infinite session that allows use of the Facebook API from non-canvas pages.  For example, to access Facebook API from a cron job.
-package = Facebook
-dependencies = fb
+name = DFF Infinite Session
+description = Some app administration requires a session.  Use this module, or Facebook Connect, with the Feeds module.
+package = Drupal for Facebook
+dependencies = fb fb_app
 

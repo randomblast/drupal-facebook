@@ -1,5 +1,5 @@
-name = Facebook Application
-description = Create one or more facebook applications.
-package = Facebook
+name = DFF Applications
+description = Allows Drupal to host Facebook Applications
+package = Drupal for Facebook
 dependencies = fb
 

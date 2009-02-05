@@ -1,4 +1,4 @@
-name=Drupal for Facebook Actions
+name= DFF Actions
 description = Provides actions for tasks such as updating a Facebook Profile or writing to a Mini-Feed.
-package = Facebook
+package = Drupal for Facebook
 dependencies = actions token fb

@@ -1,3 +1,4 @@
-name = Facebook Connect
-description = Use fbConnect, and Facebook Javascript, on fbConnect aware themes.
-package = Facebook
+name = DFF Connect
+description = Login to Drupal with Facebook username and password, and other fbConnect features.  You will need a fbConnect-aware theme.
+package = Drupal for Facebook
+dependencies = fb fb_app

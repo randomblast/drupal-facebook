@@ -1,3 +1,3 @@
-name = Facebook API
+name = DFF Facebook API
 description = Imports and uses the Facebook API.
-package = Facebook
+package = Drupal for Facebook

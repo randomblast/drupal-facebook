@@ -1,6 +1,6 @@
-name=Drupal for Facebook Development and Debugging
-description=Blocks and messages that help when developing Apps.
-package = Facebook
+name = DFF Devel
+description = Blocks and messages that help when developing and debugging Apps.
+package = Drupal for Facebook
 dependencies = fb devel
 
 

@@ -1,5 +1,5 @@
-name=Facebook Cron Jobs
-description=Configure Facebook-specific cron actions.
-package = Facebook
+name = DFF Cron Jobs (DEPRECATED)
+description = Configure Facebook-specific cron actions.
+package = Drupal for Facebook
 dependencies = fb fb_user actions
 

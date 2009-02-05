@@ -1,4 +1,4 @@
-name=Drupal for Facebook Feeds
-description = Post stories to Facebook feeds
-package = Facebook
+name = DFF Feeds
+description = Manage Facebook feed templates and post to feeds.
+package = Drupal for Facebook
 dependencies = fb

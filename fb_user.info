@@ -1,5 +1,5 @@
-name=Facebook User Management
-description=User handling code.
-package = Facebook
+name= DFF User Management
+description = Create local accounts for users of Facebook Apps.
+package = Drupal for Facebook
 dependencies = fb fb_app
 
