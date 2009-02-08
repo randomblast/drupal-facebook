@@ -334,8 +334,8 @@ function fb_app_get_app_properties(&$fb_app) {
   
   // Update $fb_app with the values we got from facebook api.
   foreach ($props_map as $key) {
-    if ($props->$key) {
-      $fb_app->$key = $props->$key;
+    if ($props[$key]) {
+      $fb_app->$key = $props[$key];
     }
   }
 }
