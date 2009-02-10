@@ -11,10 +11,12 @@ if (!is_array($conf))
 // This allows us to test whether this file has been included
 $conf['fb_settings_check'] = TRUE;
 
+// Ensure unique session for facebook app.
+$conf['session_inc'] = dirname(__FILE__) . '/fb_session.inc';
+
 if ($nid = _fb_settings_parse(FB_SETTINGS_APP_NID))
-  // Ensure unique session for facebook app.
-  $conf['session_inc'] = dirname(__FILE__) . '/fb_session.inc';
-										   
+  // We're providing a canvas page.
+
   if (isset($_REQUEST['fb_sig']) && isset($_REQUEST['fb_sig_in_canvas'])) {
   // It's a facebook callback to an FBML page.
   

@@ -8,9 +8,11 @@
 // session.inc.  At the end of this file, we include that original file.
 
 if ($nid = _fb_settings_parse(FB_SETTINGS_APP_NID)) {
+  // Here, we are in canvas page, either fbml or iframe.
+  
   // Session name taking into account the fb_app.  This is intended to
-  // support links in iframes without the target parameter.  This
-  // needs testing and possibly will not work.
+  // support links in iframes without the target parameter.  
+  // (That needs testing.)
   $sess = session_name();
   session_name("fb{$nid}{$sess}");
   
@@ -45,11 +47,34 @@ if ($nid = _fb_settings_parse(FB_SETTINGS_APP_NID)) {
   }
 }
 else {
-  // Leave default session_name
+  // Here, we are in a normal page request, possibly using Facebook Connect
+  // If fbConnect, we want to use another session id, so that if the
+  // user logs out of facebook, they are also logged out of drupal.
+  
+  $apikey = NULL;
+  // Discover APIKEY by inspecting cookies.
+  foreach ($_COOKIE as $key => $value) {
+    if (strpos($key, 'fbsetting_') === 0) {
+      $apikey = substr($key, 10); // strlen('fbsetting');
+    }
+  }
+
+  if ($apikey && isset($_COOKIE[$apikey . '_session_key'])) {
+    // We're logged into Facebook Connect.
+
+    // Use globals to remember some values, for fb_connect.module to use.
+    $GLOBALS['fb_connect_apikey'] = $apikey;
+    $GLOBALS['fb_connect_old_session_name'] = session_name();
+    $GLOBALS['fb_connect_old_session_id'] = session_id();
+
+    // Now rename the session id, so the Facebook Connect session is distinct from the original drupal session.
+    $sess = session_name();
+    session_name("fb_connect_{$sess}");
+    session_id('fb_connect_' . $_COOKIE[$apikey . '_session_key']);
+  }
 }
 
-// Important: edit the path where includes/session.inc is included so
-// that it works for your system.
+// Finally, include the logic of Drupal's session.inc
 require_once('includes/session.inc');
 
 ?>

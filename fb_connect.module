@@ -12,15 +12,12 @@ function fb_connect_menu($may_cache) {
   $items = array();
   
   if ($may_cache) {
-    $items[] = array('path' => 'fb/connect/receiver',
-                     'callback' => 'fb_connect_receiver',
-                     'type' => MENU_CALLBACK,
-                     'access' => TRUE,
-		     );
-    $items[] = array('path' => 'fb/connect/expire',
-		     'callback' => 'fb_connect_expire',
-		     'type' => MENU_CALLBACK,
-		     'access' => TRUE);
+    $items[] = array(
+      'path' => 'fb/connect/receiver',
+      'callback' => 'fb_connect_receiver',
+      'type' => MENU_CALLBACK,
+      'access' => TRUE,
+    );
   }
   return $items;
 }
@@ -46,22 +43,6 @@ function fb_connect_receiver() {
   print $output;
   exit();
   die();
-}
-
-/**
- * First attempt to get rid of Facebook's cookies.  Not working
- * as desired, so this is deprecated.  Instead we redirect user on logout.
- */
-function fb_connect_expire($apikey) {
-  $fb_app = fb_get_app(array('apikey' => $apikey));
-  $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
-  //$result = $fb->expire_session();
-
-  // http://forum.developers.facebook.com/viewtopic.php?id=21879
-  // Use next parameter to return to our logout.
-  //drupal_goto("http://www.facebook.com/logout.php?app_key={$fb_app->apikey}&session_key={$session_key}&next=" . url('logout', NULL, NULL, TRUE));
-  drupal_goto('logout');
-  
 }
 
 /**
@@ -135,7 +116,7 @@ function fb_connect_user($op, &$edit, &$account, $category = NULL) {
 	  $session_key = $fb->api_client->session_key;
 	  // http://forum.developers.facebook.com/viewtopic.php?id=21879
 	  // Use next parameter to expire session.
-	  drupal_goto("http://www.facebook.com/logout.php?app_key={$fb_app->apikey}&session_key={$session_key}&next=" . url("fb/connect/expire/{$fb_app->apikey}", NULL, NULL, TRUE));
+	  drupal_goto("http://www.facebook.com/logout.php?app_key={$fb_app->apikey}&session_key={$session_key}&next=" . url('<front>', NULL, NULL, TRUE));
 	}
       } catch (Exception $e) {
 	fb_log_exception($e, t('Failed to log out of fbConnect session'));
@@ -169,6 +150,27 @@ function fb_connect_require_feature($feature = NULL, $fb_app = NULL) {
 }
 
 /**
+ * Add an option when initializing facebook's javascript api.
+ */
+function fb_connect_init_option($option = NULL, $value = NULL, $fb_app = NULL) {
+  if ($option && !isset($fb_app))
+    $fb_app = $GLOBALS['fb_app'];
+  if ($option && !$fb_app)
+    return;
+  
+  static $options;
+  if (!$options)
+    $options = array();
+  if ($fb_app && !$options[$fb_app->apikey]) {
+    $options[$fb_app->apikey] = array();
+  }
+  
+  if ($option)
+    $options[$fb_app->apikey][$option] = $value;
+  return $options;
+}
+
+/**
  * Include facebook javascript in the footer of the current page.
  */
 function fb_connect_footer($is_front) {
@@ -178,6 +180,8 @@ function fb_connect_footer($is_front) {
   
   global $base_path;
   $feature_data = fb_connect_require_feature();
+  $option_data = fb_connect_init_option();
+  
   if (count($feature_data)) {
     foreach ($feature_data as $data) {
       // Give other modules a chance to add javascript which executes after init.
@@ -186,6 +190,7 @@ function fb_connect_footer($is_front) {
       
       $fb_app = $data['fb_app'];
       $features = $data['features'];
+      $options = json_encode($option_data[$fb_app->apikey]);
       // drupal_add_js cannot add external javascript, so we use hook_footer instead.
       $output = '<script src="http://static.ak.connect.facebook.com/js/api_lib/v0.4/FeatureLoader.js.php" type="text/javascript"></script>';
       $output .= "\n";
@@ -200,8 +205,11 @@ function fb_connect_footer($is_front) {
       //FB.FBDebug.logLevel = 4;
       //FB.FBDebug.isEnabled = true;
 
-      FB.Facebook.init(\"{$fb_app->apikey}\", \"{$receiver}\");
-      {$extra_js}
+      FB.Facebook.init(\"{$fb_app->apikey}\", \"{$receiver}\", {$options});
+      FB.Facebook.get_sessionState().waitUntilReady(function()
+      {
+        {$extra_js}
+      });
     });
   });
 </script>\n";
@@ -216,7 +224,9 @@ function fb_connect_footer($is_front) {
 
 }
 
-
+/**
+ * Implementation of hook_block.
+ */
 function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {
     $items = array();
@@ -243,11 +253,13 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       $fb = fb_connect_app_init($fb_app);
       $fbu = fb_connect_already_loggedin($fb_app);
       fb_connect_require_feature('XFBML', $fb_app);
-      
+      fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
+
       $base = drupal_get_path('module', 'fb_connect');
       drupal_add_js(array('fb_connect' => array(
-                            'fbu' => $fbu ? $fbu : 0,
-                            'logout_url' => url('logout'),
+                            'fbu' => $fbu ? $fbu : 0, // XXX
+                            'logout_url' => url('logout'), // XXX
+                            'front_url' => url('<front>'),
                             'enable_login' => TRUE,
                           ),
                     ), 'setting');

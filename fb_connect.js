@@ -20,7 +20,7 @@ function fb_connect_logout_onclick() {
             FB.Facebook.apiClient.get_session().uid :
             0;
 	
-	FB.Connect.logoutAndRedirect(Drupal.settings.fb_connect.logout_url);
+	FB.Connect.logoutAndRedirect(Drupal.settings.fb_connect.front_url);
     });
     FB.Connect.requireSession();
 }
@@ -33,18 +33,11 @@ function fb_connect_onready() {
             FB.Facebook.apiClient.get_session().uid :
             0;
 	
-        //alert('waitUntilReady callback, is_now_logged_in is ' + is_loggedin + ' and fbu is ' + fbu);
-	
-	if (is_loggedin && (!Drupal.settings.fb_connect.fbu)) {
-	    //alert('fb_connect.fbu is ' + Drupal.settings.fb_connect.fbu + ' fbu is ' + fbu);
-            window.location.reload();
-	}
-	else if (!is_loggedin && (Drupal.settings.fb_connect.fbu > 0)) {
-            //window.location='$logout_url';
-            FB.Connect.logoutAndRedirect(Drupal.settings.fb_connect.logout_url);
+	// Sanity check
+	if (fbu != Drupal.settings.fb_connect.fbu) {
+	    // alert('fb_connect_ready... fbu is ' + fbu + ', fb_connect.fbu is ' + Drupal.settings.fb_connect.fbu + ' is_loggedin is ' + is_loggedin);
 	}
     });
-    
 }
 
 function fb_connect_init() {
