@@ -53,13 +53,13 @@ else {
   
   $apikey = NULL;
   // Discover APIKEY by inspecting cookies.
-  foreach ($_COOKIE as $key => $value) {
-    if (strpos($key, 'fbsetting_') === 0) {
-      $apikey = substr($key, 10); // strlen('fbsetting');
+ foreach ($_COOKIE as $key => $value) {
+    if ($pos = strpos($key, '_session_key')) {
+      $apikey = substr($key, 0, $pos);
     }
   }
-
-  if ($apikey && isset($_COOKIE[$apikey . '_session_key'])) {
+  
+  if ($apikey && isset($_COOKIE[$apikey . '_ss'])) {
     // We're logged into Facebook Connect.
 
     // Use globals to remember some values, for fb_connect.module to use.
