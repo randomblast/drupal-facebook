@@ -68,12 +68,12 @@ function fb_app_fb($op, $data, &$return) {
   else if ($op == FB_OP_SET_PROPERTIES) {
     $url = url(FB_SETTINGS_APP_NID . '/' . $fb_app->nid . '/' . FB_APP_PATH_EVENT, NULL, NULL, TRUE) . '/';
     $return['uninstall_url'] = $url . FB_APP_EVENT_POST_REMOVE;
-    $return['post_install_url'] = $url . FB_APP_EVENT_POST_AUTHORIZE;
+    $return['authorize_url'] = $url . FB_APP_EVENT_POST_AUTHORIZE;
   }
   else if ($op == FB_OP_LIST_PROPERTIES) {
     $return[t('Application Name')] = 'application_name';
     $return[t('About URL')] = 'about_url';
-    $return[t('Post-Authorize Callback URL')] = 'post_install_url';
+    $return[t('Post-Authorize Callback URL')] = 'authorize_url';
     $return[t('Post-Remove Callback URL')] = 'uninstall_url';
   }
 }
@@ -283,7 +283,7 @@ function theme_fb_app($fb_app) {
     if ($fb_app->$key)
       $data[$name] = $fb_app->$key;
   }
-  $about_url = fb_app_get_about_url($data);
+
   $output .= theme('dl', $data);
   return $output;
 }
