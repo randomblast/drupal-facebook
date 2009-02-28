@@ -524,15 +524,16 @@ function fb_feed_show_dialog($fb_feed_nid, $tokens, $options) {
     $_SESSION['fb_feed_dialogs'] = array();
   
   $node = node_load($fb_feed_nid);
-  // TODO: validate node
+  // TODO: validate node is actually a template bundle
+  $fb_app = fb_get_app(array('nid' => $node->fb_app_nid));
   
-  if (!isset($_SESSION['fb_feed_dialogs'][$node->apikey])) {
-    $_SESSION['fb_feed_dialogs'][$node->apikey] = array();
+  if (!isset($_SESSION['fb_feed_dialogs'][$fb_app->apikey])) {
+    $_SESSION['fb_feed_dialogs'][$fb_app->apikey] = array();
   }
   
-  $_SESSION['fb_feed_dialogs'][$node->apikey][] = array(
+  $_SESSION['fb_feed_dialogs'][$fb_app->apikey][] = array(
     'fb_feed_nid' => $node->nid,
-    'apikey' => $node->apikey,
+    'apikey' => $fb_app->apikey,
     'bundle_id' => $node->bundle_id,
     'tokens' => $tokens,
     'options' => $options,
@@ -548,15 +549,44 @@ function fb_feed_fb($op, $data, &$return) {
       // Use javascript to publish feed messages
       foreach ($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey] as $d) {
         // http://wiki.developers.facebook.com/index.php/JS_API_M_FB.Connect.ShowFeedDialog
-        $template_data = json_encode($d['tokens']);
-        $target_ids = json_encode($d['options']['target_ids']);
-        $body_general = json_encode($d['options']['body_general']);
-        // TODO, other options
-$return[] = "FB.Connect.showFeedDialog({$d[bundle_id]}, {$template_data});";
-      // remove displayed items from session        //$return[] = "FB.Connect.showFeedDialog({$d[bundle_id]}, {$template_data}, {$target_ids}, '{$body_general}');";
+
+        $args = array($d['bundle_id']);
+        if ($d['tokens'])
+          $args[] = json_encode($d['tokens']);
+        foreach (array('target_ids', 'body_general') as $key) {
+          if (isset($d['options'][$key]))
+            $args[] = json_encode($d['options'][$key]);
+        }
+        // TODO: story_size, require_connect, callback
+        
+        $return[] = "FB.Connect.showFeedDialog(" . implode(',', $args) . ");";
       }
       // remove displayed items from session
       unset($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey]);
+    }
+  }
+}
+
+function fb_feed_init() {
+  // insert FBJS to show feed dialog.  Ideally this would be done right before a page is rendered, not in init.
+  // In Drupal 6 this code should be moved to a preprocess_page hook.
+
+  global $fb, $fb_app;
+  if ($fb && $fb->in_fb_canvas()) {
+    if (isset($_SESSION['fb_feed_dialogs'][$fb_app->apikey])) {
+      foreach ($_SESSION['fb_feed_dialogs'][$fb_app->apikey] as $d) {
+        // calling http://wiki.developers.facebook.com/index.php/Facebook.showFeedDialog
+        $args = array($d['bundle_id']);
+        if ($d['tokens'])
+          $args[] = json_encode($d['tokens']);
+        foreach (array('body_general', 'target_id') as $key) {
+          if ($d['options'][$key])
+            $args[] = json_encode($d['options'][$key]);          
+        }
+        $js = "Facebook.showFeedDialog(" . implode(',', $args) . ");";
+        drupal_add_js($js, 'inline', 'fbml', FALSE, FALSE);
+      }
+      unset($_SESSION['fb_feed_dialogs'][$fb_app->apikey]);
     }
   }
 }
