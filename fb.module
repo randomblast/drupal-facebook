@@ -228,12 +228,12 @@ function fb_api_init($fb_app, $fbu) {
   if (!$cache[$fb_app->apikey][$fbu]) {
     // We don't have a cached resource for this app/user combo, so we're going to create one.
     $fb = new Facebook($fb_app->apikey, $fb_app->secret);
-    
+
     // Iframes may link or redirect within the iframe, in which case facebook
     // will not provide all its normal variables.  To prepare for such a case,
     // we cache the facebook parameters in the session.
     // We update the cache whenever possible, to keep it current.
-    if ($fb->in_frame() && $fb->validate_fb_params() && $fb->fb_params) {
+    if ($fb->in_frame() && $fb->fb_params) {
       $_SESSION['fb_frame_params'] = $fb->fb_params; // hacky to use fb's internal data structure
     }
     
@@ -241,14 +241,14 @@ function fb_api_init($fb_app, $fbu) {
     if ($fbu && $session) {
       $fb->set_user($fbu, $session);
     }
-    else if ($fbu && $fbu == $fb->get_loggedin_user() && $fb->validate_fb_params()) {
+    else if ($fbu && $fbu == $fb->get_loggedin_user()) {
       // Canvas page, current user is logged in already.
       // Nothing to do here.
     }
     else if ($fbu == FB_FBU_NO_SESSION) {
       $fb->set_user(NULL, NULL);
     }
-
+    
     // Cache the result, in case we're called again.
     $cache[$fb_app->apikey][$fbu] = $fb;
     
@@ -256,7 +256,7 @@ function fb_api_init($fb_app, $fbu) {
     // We won't really know if our session is valid until later.
     // get_loggedin_user does not really test it.
     if ($fbu_orig != FB_FBU_NO_SESSION &&
-	$fbu_orig != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
+        $fbu_orig != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
       // An FBU other than CURRENT was specified, but we failed to log in.
       watchdog('fb', t('Failed to log into facebook app %app as user %user',
                        array('%app' => $fb_app->title,
