@@ -74,14 +74,13 @@ function fb_user_fb($op, $data, &$return) {
   $fb_app_data = fb_app_get_data($fb_app);
   $fb_user_data = $fb_app_data['fb_user']; // our configuration
   
-  if ($op == FB_OP_CANVAS_INITIALIZE) {
-    
+  if ($op == FB_OP_INITIALIZE) {
     // Here we ask facebook to prompt the user to authorize the app.
     if (fb_user_authentication_is_required($fb_app)) {
       $fb->require_login();
     }
   }
-  else if ($op == FB_OP_CANVAS_POST_INIT) {
+  else if ($op == FB_OP_POST_INIT) {
     // Observe special rules for canvas page users without local accounts
     if (!$user->uid && !_fb_user_special_page() && !$_REQUEST['form_id']) {
       if ($fbu = fb_facebook_user($fb)) {
@@ -100,7 +99,7 @@ function fb_user_fb($op, $data, &$return) {
     // We reach this point if the user has authorized the app.
     // Could be they visited a canvas page,
     // or could be they clicked a fbConnect link.
-
+    
     $fbu = $data['fbu']; // The user id on facebook.
     
     // Remember the original uid

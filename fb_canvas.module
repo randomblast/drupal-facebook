@@ -64,7 +64,24 @@ function fb_canvas_fb($op, $data, &$return) {
   $fb = $data['fb'];
   $fb_app = $data['fb_app'];
   
-  if ($op == FB_OP_CANVAS_INITIALIZE) {
+  if ($op == FB_OP_CURRENT_APP) {
+    if ($apikey = $_REQUEST[FB_APP_REQ_API_KEY]) {
+      // If facebook has passed the app key, let's use that.
+      $fb_app = fb_get_app(array('apikey' => $apikey));
+    }
+    else {
+      if (function_exists('fb_settings')) {
+        // See fb_settings.inc
+        if ($nid = fb_settings(FB_SETTINGS_APP_NID)) {
+          // Here if we're in iframe, using our /fb_canvas/nid/ path convention.
+          $fb_app = fb_get_app(array('nid' => $nid));
+        }
+      }
+    }
+    if ($fb_app)
+      $return = $fb_app;
+  }
+  else if ($op == FB_OP_INITIALIZE) {
     // Get our configuration settings.
     $fb_app_data = fb_app_get_data($fb_app);
     $fb_canvas_data = $fb_app_data['fb_canvas'];
@@ -75,18 +92,13 @@ function fb_canvas_fb($op, $data, &$return) {
       $custom_theme = $fb_canvas_data['theme_fbml'];
     else if (fb_canvas_is_iframe())
       $custom_theme = $fb_canvas_data['theme_iframe'];
-    
-    // This is for backward compatability (delete eventually)
-    if (!$custom_theme)
-      $custom_theme = variable_get('fb_theme', 'fb_fbml');
-    
-
+ 
     // Special handling for forms, as they are submitted directly to us, not
     // to apps.facebook.com/canvas
     // we will buffer, and later cache, the results.
     if (fb_canvas_handling_form())
       ob_start();
-
+    
     //drupal_set_message("fb_canvas_fb" . dpr($_GET, 1) . 'arg(0) = ' . dpr(arg(0), 1) . 'arg(1) = ' . dpr(arg(1), 1) . 'frontpage ' . dpr(variable_get('site_frontpage', 'node'), 1));
     if ($_GET['q'] == drupal_get_normal_path(variable_get('site_frontpage', 'node'))) {
       if ($fb->get_loggedin_user()) {
@@ -102,7 +114,7 @@ function fb_canvas_fb($op, $data, &$return) {
         menu_set_active_item(drupal_get_normal_path($front));
     }
   }
-  else if ($op == FB_OP_CANVAS_EXIT) {
+  else if ($op == FB_OP_EXIT) {
     $destination = $return;
     if (fb_canvas_handling_form() && $fb_app) {
       $output = ob_get_contents();

@@ -93,8 +93,17 @@ function fb_connect_enabled_apps() {
   return $apps;
 }
 
+/**
+ * Implementation of hook_fb().
+ */
 function fb_connect_fb($op, $data, &$return) {
   //dpm(func_get_args(), "fb_connect_fb($op)");
+  if ($op == FB_OP_CURRENT_APP) {
+    // This will cause fb.module to set the global $fb when user is logged in via fbConnect.
+    if ($apikey = $GLOBALS['fb_connect_apikey']) { // see fb_session.inc
+      $return = fb_get_app(array('apikey' => $apikey));
+    }
+  }
 }
 
 /**

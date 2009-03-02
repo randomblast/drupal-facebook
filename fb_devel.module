@@ -23,10 +23,10 @@ function fb_devel_fb($op, $data, &$return) {
   $fb_app = $data['fb_app'];
   $fb = $data['fb'];
   
-  if ($op == FB_OP_CANVAS_INITIALIZE) {
+  if ($op == FB_OP_INITIALIZE) {
     // Sanity check.
     $nid = fb_settings(FB_SETTINGS_APP_NID);
-    if ($nid != $fb_app->nid) {
+    if ($nid && $nid != $fb_app->nid) {
       $message = t('fb_app id (%fb_app_id) does not equal fb settings id (%fb_settings_id).  This is usually caused by the wrong callback url on your <a href="!url">facebook application settings form</a>.',
                    array('%fb_app_id' => $fb_app->nid,
                          '%fb_settings_id' => $nid,

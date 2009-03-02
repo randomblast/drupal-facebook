@@ -19,13 +19,8 @@ function fb_app_fb($op, $data, &$return) {
   $fb = $data['fb'];
   $fb_app = $data['fb_app'];
   
-  if ($op == FB_OP_CANVAS_GET_APP) {
-    // This operation determines which app the canvas callback is for.  Theoretically,
-    // this allows fb_app and other app-defining modules to co-exist.  We need
-    // to determine if the app is one of ours and if so, return the app
-    // details.
-    
-    // If apikey or nid was passed to us, use that
+  if ($op == FB_OP_GET_APP) {
+    // Load app data, using the criteria passed in
     if ($data['nid'])
       $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE fb.nid=%d and status=1",
                                          $data['nid']));
@@ -36,22 +31,6 @@ function fb_app_fb($op, $data, &$return) {
     else if ($data['label']) {
       $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE label='%s' and status=1",
                                          $data['label']));
-    }
-    else if ($apikey = $_REQUEST[FB_APP_REQ_API_KEY]) {
-      // If facebook has passed the app key, let's use that.
-      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE apikey='%s' and status=1",
-                                         $apikey));
-    } 
-    else {
-      if (function_exists('fb_settings')) {
-        // See fb_settings.inc
-        if ($nid = fb_settings(FB_SETTINGS_APP_NID)) {
-          // Here if we're in iframe, using our /fb_canvas/nid/ path convention.
-          $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE fb.nid=%d and status=1",
-                                             $nid));
-          
-        }
-      }
     }
     if ($fb_app)
       $return = $fb_app;

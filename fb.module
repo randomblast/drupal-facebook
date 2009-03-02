@@ -5,12 +5,15 @@
 define('FB_HOOK', 'fb');
 
 // Ops for hook_fb.
-define('FB_OP_CANVAS_GET_APP', 'get_app'); // Query which app a FB callback addresses
-define('FB_OP_CANVAS_INITIALIZE', 'init'); // Start a FB callback
-define('FB_OP_CANVAS_POST_INIT', 'post init'); // Another chance to start FB callback
-define('FB_OP_CANVAS_EXIT', 'exit'); // End an FB callback
+define('FB_OP_GET_APP', 'get_app'); // Load data from a known app
+
+define('FB_OP_CURRENT_APP', 'current_app'); // determine active app in canvas page or facebook connect
+define('FB_OP_INITIALIZE', 'init'); // 
+define('FB_OP_POST_INIT', 'post init'); // 
+
+define('FB_OP_EXIT', 'exit'); // End an FB callback
 define('FB_OP_GET_FBU', 'get_fbu'); // Query the local user's FB account
-define('FB_OP_GET_INFINITE_SESSION', 'get_inf_sess'); // Query infinite session data XXX deprecated
+define('FB_OP_GET_INFINITE_SESSION', 'get_inf_sess'); // Query infinite session data
 define('FB_OP_GET_USER_SESSION', 'get_user_sess');
 
 define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
@@ -27,7 +30,7 @@ define('FB_GRANT_REALM_FRIEND', 'fb_friend');
 define('FB_GRANT_REALM_GROUP', 'fb_group');
 
 // When initializing Facebook API, which user to log in as:
-define('FB_FBU_INFINITE_SESSION', 'fbu_infinite'); // XXX deprecated, use no session
+define('FB_FBU_INFINITE_SESSION', 'fbu_infinite'); // Some APIs still require a session, use no session where possible
 define('FB_FBU_NO_SESSION', 'fbu_no_session'); // http://wiki.developers.facebook.com/index.php/Category:Sessionless_API
 define('FB_FBU_CURRENT', 'fbu_current'); // Canvas pages only
 define('FB_FBU_ANY', 'fbu_any'); // Use current user on canvas page, fall back to infinite session otherwise.
@@ -97,7 +100,7 @@ function fb_init() {
   }
   
   // Ask other modules for app detail
-  $fb_app = fb_invoke(FB_OP_CANVAS_GET_APP);
+  $fb_app = fb_invoke(FB_OP_CURRENT_APP);
   
   if ($fb_app) {
     // we are in a callback
@@ -107,9 +110,8 @@ function fb_init() {
     
     if ($fb) {
       // Give other modules a chance to initialize, require login, etc...
-      //fb_invoke($fb_app, FB_OP_CANVAS_INITIALIZE);
-      fb_invoke(FB_OP_CANVAS_INITIALIZE, array('fb_app' => $fb_app,
-					       'fb' => $fb));
+      fb_invoke(FB_OP_INITIALIZE, array('fb_app' => $fb_app,
+                                        'fb' => $fb));
       
       // See if the facebook user id is known
       if ($fbu = $fb->get_loggedin_user()) {
@@ -122,9 +124,9 @@ function fb_init() {
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", WATCHDOG_ERROR);
     
   }
-
-  fb_invoke(FB_OP_CANVAS_POST_INIT, array('fb_app' => $fb_app,
-					  'fb' => $fb));
+  
+  fb_invoke(FB_OP_POST_INIT, array('fb_app' => $fb_app,
+                                   'fb' => $fb));
 }
 
 
@@ -354,7 +356,7 @@ function fb_get_app($search_data) {
   if (!is_array($search_data))
     $search_data = array('apikey' => $search_data);
   
-  $fb_app = fb_invoke(FB_OP_CANVAS_GET_APP, $search_data);
+  $fb_app = fb_invoke(FB_OP_GET_APP, $search_data);
   return $fb_app;
 }
 
@@ -522,10 +524,11 @@ function fb_menu($may_cache) {
  */
 function fb_exit($destination = NULL) {
   global $fb_app, $fb;
-  //fb_invoke($fb_app, FB_OP_CANVAS_EXIT, $destination);
-  fb_invoke(FB_OP_CANVAS_EXIT, array('fb_app' => $fb_app,
-				     'fb' => $GLOBALS['fb']),
-	    $destination);
+  if ($fb_app && $fb) {
+    fb_invoke(FB_OP_EXIT, array('fb_app' => $fb_app,
+                                'fb' => $GLOBALS['fb']),
+              $destination);
+  }
 }
 
 function _fb_form_cache_cb($cid) {
