@@ -205,13 +205,20 @@ function fb_connect_footer($is_front) {
       //FB.FBDebug.logLevel = 4;
       //FB.FBDebug.isEnabled = true;
 
-      FB.Facebook.init(\"{$fb_app->apikey}\", \"{$receiver}\", {$options});
-      FB.Facebook.get_sessionState().waitUntilReady(function()
-      {
-        {$extra_js}
-      });
+      FB.init(\"{$fb_app->apikey}\", \"{$receiver}\", {$options});
     });
   });
+";
+      if ($extra_js) {
+        $output .= "
+  FB.ensureInit(function()
+    {
+      {$extra_js}
+    });
+";
+      }
+      
+      $output .= "
 </script>\n";
     }
     // Call function which only work after FB.Facebook.init has been called.
@@ -254,6 +261,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       $fbu = fb_connect_already_loggedin($fb_app);
       fb_connect_require_feature('XFBML', $fb_app);
       fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
+      //fb_connect_init_option('doNotUseCachedConnectState', TRUE, $fb_app);
 
       $base = drupal_get_path('module', 'fb_connect');
       drupal_add_js(array('fb_connect' => array(
