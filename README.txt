@@ -10,7 +10,7 @@ Please read http://drupal.org/node/288721#version and confirm that
 you are using the correct version.
 
 Installation and setup documentation now available online
-http://drupal.org/node/195035.  (Read this document first, as it
+http://drupal.org/node/195035.  (Read this README.txt first, as it
 contains the most up-to-date information.  Then consult the online
 documentation for more detailed instructions.)
 
@@ -55,16 +55,20 @@ To install or upgrade from an earlier version of Drupal for Facebook:
   settings.php.
 
 - Enable the Facebook modules via the drupal admin pages, as usual.
-  You must enable at least fb.module and fb_app.module.  You will
-  probably want to enable fb_user and more of the modules as your App
-  needs them.  Enable fb_canvas if you support canvas pages.
+  You must enable at least "DFF Facebook API" and "DFF Applications"
+  modules.  You will probably want to enable "DFF User Management" and
+  more of the modules as your App needs them.  Enable "DFF Canvas
+  Pages" if you support canvas pages.  Enable "DFF Connect" for
+  Facebook Connect features.  During development, the "DFF Devel"
+  module is a must.
 
 - You must enable clean URLs.  If you don't, some links that drupal
   creates will not work properly on canvas pages.
 
 - Create an application on Facebook, currently at
-  http://www.facebook.com/developers/editapp.php?new.  Fill in just
-  the minimum required to get an apikey and secret.
+  http://www.facebook.com/developers/editapp.php?new.  Fill in the
+  minimum required to get an apikey and secret.  If supporting canvas
+  pages, get a canvas name, too.
 
 - Go to Create Content >> Facebook Application.  Use the apikey and
   secret that Facebook has shown you.  If you have any trouble with
@@ -88,7 +92,7 @@ Reread this file and follow instructions carefully.
 
 Enable the devel module, http://drupal.org/project/devel.
 
-Enable the fb_devel module and add the block it provides to the footer
+Enable the "DFF Devel" module and add the block it provides to the footer
 of your Facebook theme.
 
 If you see FBML Error (line 62): illegal tag "body" under "fb:canvas",
@@ -100,9 +104,10 @@ refresh its list of where the themes are located.
 If you _still_ see CSS Errors or HTML Errors, most likely the fb_fbml
 theme is still not being used.  This can happen if the theme is
 initialized before fb.module is initialized.  To avoid this, don't
-have any code directly in your .module files, put that code in
-hook_init instead.  And if still necessary, lower the weight of the fb
-module in your system table.  See http://drupal.org/node/187868
+have any code that initializes a theme directly in your .module files,
+put that code in hook_init instead.  And if still necessary, lower the
+weight of the fb module in your system table.  See
+http://drupal.org/node/187868
 
 If you see "The page you requested was not found."  Make sure the
 canvas page you specified agrees exactly with the canvas page assigned
@@ -140,7 +145,7 @@ $conf['fb_actions_verbose'] = TRUE; // more debug output
  * Enable Drupal for Facebook.  Sets up custom_url_rewrite and session
  * handling required for canvas pages and callbacks from facebook servers.
  */
-include "profiles/custom/modules/fb/fb_settings.inc";
+include "sites/all/modules/fb/fb_settings.inc";
 
 
 ?>
