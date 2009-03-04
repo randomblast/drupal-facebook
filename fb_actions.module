@@ -1,12 +1,14 @@
 <?php
-  /**
-   * @file
-   * 
-   * Actions defined here interact with Facebook's API.  This makes it
-   * possible to notify facebook of various activities as they happen.
-   */
+/**
+ * @file
+ * 
+ * Actions defined here interact with Facebook's API.  This makes it
+ * possible to notify facebook of various activities as they happen.
+ */
 
-
+/**
+ * Implemntation of hook_action_info()
+ */
 function fb_actions_action_info() {
   return array('fb_actions_profile_fbml' =>
                array('type' => 'fb_action',
