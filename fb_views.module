@@ -1,4 +1,9 @@
 <?php
+/**
+ * @file
+ * Facebook-specific views arguments, filters, etc...
+ */
+
 
 function fb_views_views_tables() {
   // The fb_user_app table allows us to associate a node author's uid to a
@@ -7,6 +12,14 @@ function fb_views_views_tables() {
   // This might need to be improved to take the apikey into account (for sites that host more than one app.)
   $tables['fb_user_app'] = 
     array('name' => 'fb_user_app',
+          'fields' => array(
+            'fbu' => array(
+              'name' => t('FB: Author Profile Picture'),
+              'handler' => 'fb_views_handler_profile_pic',
+              'help' => t('Displays the FBML for the node authors profile picture'),
+              'sortable' => FALSE,
+            ),
+          ),
           'join' => array('left' => array('table' => 'node',
                                           'field' => 'uid'),
                           'right' => array('field' => 'uid')),
@@ -14,7 +27,12 @@ function fb_views_views_tables() {
     );
   
   return $tables;
-  }
+}
+
+// Alternative to this field would be to override theme_user_picture, then use the author picture field from views_user.inc
+function fb_views_handler_profile_pic($fieldinfo, $fielddata, $value, $data) {
+  return '<div class="picture"><fb:profile-pic uid="'.$value.'" linked="yes" size="thumb" /></div>';
+}
 
 function fb_views_views_arguments() {
   $items['fb_user_author'] =
@@ -94,16 +112,16 @@ function fb_views_handler_author_is_friend($op, &$query, $a1, $a2 = null) {
   }
 }
 
-  /**
-   * Introduce a theme style that mimics a facebook discussion board.
-   * 
-   * To use: make a theme which provides a page view, and select view type
-   * 'Facebook Discussion'.  Then under Fields, include Node: Title, Node:
-   * Created Time, Node: Author Name, Comment: Count, Comment: Last Comment
-   * Author, Comment: Last Comment Time.
-   * 
-   * It may not look exactly like a facebook discussion, but comes close.
-   */
+/**
+ * Introduce a theme style that mimics a facebook discussion board.
+ * 
+ * To use: make a theme which provides a page view, and select view type
+ * 'Facebook Discussion'.  Then under Fields, include Node: Title, Node:
+ * Created Time, Node: Author Name, Comment: Count, Comment: Last Comment
+ * Author, Comment: Last Comment Time.
+ * 
+ * It may not look exactly like a facebook discussion, but comes close.
+ */
 function fb_views_views_style_plugins() {
   $items = array();
   $items['fb_discussion'] = 
