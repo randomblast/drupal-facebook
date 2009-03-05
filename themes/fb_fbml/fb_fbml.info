@@ -1,0 +1,11 @@
+name = fb_fbml
+description = Use on Facebook FBML canvas pages only.
+core = 6.x
+engine = phptemplate
+
+regions[admin] = Admin sidebar
+regions[header] = Canvas Header
+regions[right] = Canvas Right
+regions[content_footer] = Content Footer
+regions[canvas_footer] = Canvas Footer
+

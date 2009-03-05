@@ -16,39 +16,31 @@ define('FB_FEED_NODE_TYPE_TEMPLATE', 'fb_feed_template');
 define('FB_FEED_HOOK', 'fb_feed');
 define('FB_FEED_OP_TOKEN_ALTER', 'fb_feed_token_alter');
 
-function fb_feed_menu($may_cache) {
+function fb_feed_menu() {
   $items = array();
-  if ($may_cache) {
-    $items[] = array('path' => 'fb_feed/register',
-                     'title' => t('Register template'),
-                     'type' => MENU_CALLBACK,
-                     'access' => user_access('administer fb apps'),
-                     'callback' => 'fb_feed_register_cb',
-    );
-    $items[] = array('path' => 'fb_feed/deactivate',
-                     'title' => t('Deactivate template'),
-                     'type' => MENU_CALLBACK,
-                     'access' => user_access('administer fb apps'),
-                     'callback' => 'drupal_get_form',
-                     'callback arguments' => array('fb_feed_deactivate_confirm'),
-    );
-
-  }
-  else {
-    if (arg(0) == 'node' && is_numeric(arg(1))) {
-      $node = node_load(arg(1));
-      if ($node->type == 'fb_app') {
-        $fb_app_data = fb_app_get_data($node->fb_app);
-        $items[] = array('path' => "node/$node->nid/fb_feed/templates",
-                         'title' => t('Feed Templates'),
-                         'type' => MENU_LOCAL_TASK,
-                         'access' => node_access('update', $node),
-                         'callback' => 'fb_feed_template_page',
-                         'callback arguments' => array($node->nid),
-        );
-      }
-    }
-  }
+  $items['fb_feed/register'] = array(
+    'title' => 'Register template',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('adminster fb apps'),
+    'page callback' => 'fb_feed_register_cb',
+  );
+  $items['fb_feed/deactivate'] = array(
+    'title' => 'Deactivate template',
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('adminster fb apps'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fb_feed_deactivate_confirm'),
+  );
+  
+  $items['node/%fb_app_nid/fb_feed/templates'] = array(
+    'title' => t('Feed Templates'),
+    'type' => MENU_LOCAL_TASK,
+    'access callback' => 'node_access',
+    'access arguments' => array('update', 1),
+    'page callback' => 'fb_feed_template_page',
+    'page arguments' => array(1),
+  );
+  
   return $items;
 }
 
@@ -112,7 +104,8 @@ function fb_feed_register_cb($nid) {
   drupal_goto('node/'.$node->fb_app_nid.'/fb_feed/templates');
 }
 
-function fb_feed_template_page($fb_app_nid) {
+function fb_feed_template_page($node) {
+  $fb_app = $node->fb_app;
   $registered = array();
   $unregistered = array();
   // Query all known templates
@@ -127,7 +120,6 @@ function fb_feed_template_page($fb_app_nid) {
   }
   
   // Query facebook for a list of registered templates we know nothing about.
-  $fb_app = fb_get_app(array('nid' => $fb_app_nid));
   $fb = fb_api_init($fb_app, FB_FBU_ANY);
   if ($fb) {
     try {
@@ -143,6 +135,8 @@ function fb_feed_template_page($fb_app_nid) {
         }
     } 
     catch (Exception $e) {
+      dpm($fb, "fb");
+      dpm($fb->api_client, "api_client");
       fb_log_exception($e, t('Failed to get template bundles.'));
       drupal_set_message(t('This page may show more information if you configure an infinite session or Facebook Connect.'));
     }
@@ -162,6 +156,9 @@ function fb_feed_template_page($fb_app_nid) {
     }
     $header = array(t('Unregistered Template'), t('Operations'));
     $output .= theme('table', $header, $rows);
+  }
+  else {
+    $output .= '<p>' . t('No unregistered templates found.') . '</p>';
   }
   if (count($registered))  {
     $rows = array();
@@ -194,6 +191,9 @@ function fb_feed_template_page($fb_app_nid) {
     }
     $header = array(t('Registered Template'), t('Bundle ID'), t('Operations'));
     $output .= theme('table', $header, $rows);
+  }
+  else {
+    $output .= '<p>' . t('No registered templates found.') . '</p>';
   }
   
   
@@ -431,10 +431,10 @@ function fb_feed_insert($node) {
            $node->nid, $node->fb_app_nid, $fb_app->apikey, $bundle_id, $data);
   
   if ($bundle_id)
-    watchdog('fb_feed', t('Registered Facebook feed template bundle %id for application %app',
-                          array('%id' => $bundle_id,
-                                '%app' => $fb_app->title,
-                          )));
+    watchdog('fb_feed', 'Registered Facebook feed template bundle %id for application %app',
+             array('%id' => $bundle_id,
+                   '%app' => $fb_app->title,
+             ));
 }
 
 function fb_feed_update($node) {
@@ -463,10 +463,10 @@ function fb_feed_update($node) {
            $node->fb_app_nid, $fb_app->apikey, $bundle_id, $data, $node->nid);
   
   if ($bundle_id)
-    watchdog('fb_feed', t('Updated Facebook feed template bundle %id for application %app',
-                          array('%id' => $bundle_id,
-                                '%app' => $fb_app->title,
-                          )));
+    watchdog('fb_feed', 'Updated Facebook feed template bundle %id for application %app',
+             array('%id' => $bundle_id,
+                   '%app' => $fb_app->title,
+             ));
   
 }
 
@@ -739,10 +739,10 @@ function fb_feed_action_publish(&$context, $values = array()) {
                                             'context' => $context));
 
     if (fb_verbose()) {
-      watchdog('fb_feed', t("Publish user action, app is %app, bundle is %bundle_id, params are !params.",
-                            array('%app' => $fb_app->title,
-                                  '%bundle_id' => $template->bundle_id,
-                                  '!params' => dprint_r($params, 1))));
+      watchdog('fb_feed', "Publish user action, app is %app, bundle is %bundle_id, params are !params.",
+               array('%app' => $fb_app->title,
+                     '%bundle_id' => $template->bundle_id,
+                     '!params' => dprint_r($params, 1)));
     }
     if (is_array($params['tokens']) && $params['do_publish']) {
       if (is_array($params['target_ids']))

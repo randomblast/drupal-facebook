@@ -1,6 +1,6 @@
-  .page-wrap {
-  position: relative;
-  }
+.page-wrap {
+    position: relative;
+}
   .page-wrap.in-new-facebook { width: 760px; }
 
   div.error {
@@ -80,6 +80,7 @@
   
   .header ul.links, .header .block-menu {
   float: right;
+  clear: right;
 }
   
   .header .block .content {clear: none;}
@@ -150,17 +151,17 @@
 
   /* Give some links the facebook button look */
   a.fb_button {
-	background:#526EA6 url(http://www.facebook.com/images/pandemic/white_arrow_on_blue.gif) no-repeat scroll right center;
-	border-color:#145C9A rgb(14, 31, 91) rgb(14, 31, 91) rgb(20, 92, 154);
-	border-style:solid;
-	border-width:1px;
+    background:#526EA6 url(http://www.facebook.com/images/pandemic/white_arrow_on_blue.gif) no-repeat scroll right center;
+    border-color:#145C9A rgb(14, 31, 91) rgb(14, 31, 91) rgb(20, 92, 154);
+    border-style:solid;
+    border-width:1px;
     color:#FFFFFF;
     font-weight:bold;
     padding:3px 24px 5px 15px;
   }
   a.fb_button:hover {
     background-color:#40578A;
-	text-decoration:none;
+    text-decoration:none;
   }
 
   table {

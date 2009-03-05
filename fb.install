@@ -7,18 +7,8 @@ function _fb_install_set_weight() {
 function fb_install() {
   _fb_install_set_weight();
 }
-function fb_update_1() {
-  _fb_install_set_weight();  
+
+function fb_uninstall() {
+  _fb_install_set_weight();
 }
 
-/**
- * The callback URL has changed and this requires manual updates to App settings.
- */
-function fb_update_2() {
-  $message = t('Warning!  The Drupal for Facebook modules have changed.  Manual intervention is required!  See !url1 or !url2.',
-               array('!url1' => l('http://apps.facebook.com/drupalforfacebook/node/1055', 'http://apps.facebook.com/drupalforfacebook/node/1055'),
-                     '!url2' => l('http://drupalforfacebook.org/node/1055','http://drupalforfacebook.org/node/1055')));
-  drupal_set_message($message);
-  watchdog('fb', $message);
-}
-?>

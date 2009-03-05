@@ -10,6 +10,7 @@ if ($extra_style)
 ?>
 <div <?php print $class; ?> <?php print $style; ?>>
 
+<?php if ($picture || $page == 0 || $submitted || $about || $terms) { ?>
 <div class="node-header">
    <?php if ($picture && $submitted) {
   print $picture;
@@ -19,6 +20,7 @@ if ($extra_style)
 <span class="submitted"><?php print $submitted?></span>
 <span class="taxonomy"><?php print $terms?></span>
 </div>
+<?php } ?>
 <div class="content"><?php print $content?></div>
 <div class="footer">
   <?php if ($links) { ?><div class="links"><?php print $links?></div><?php }; ?>

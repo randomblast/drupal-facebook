@@ -27,43 +27,51 @@ function fb_infinite_fb($op, $data, &$return) {
 /**
  * hook_menu
  */
-function fb_infinite_menu($may_cache) {
-  $items = array();
-  if ($may_cache) {
-    $items[] = array('path' => 'fb/infinite/display',
-                     'title' => t('Facebook session information'),
-                     'access' => TRUE,
-                     'callback' => 'fb_infinite_display_page',
-                     'type' => MENU_CALLBACK,
+function fb_infinite_menu() {
+  $items['fb/infinite/display'] = 
+    array('title' => t('Facebook session information'),
+          'page callback' => 'fb_infinite_display_page',
+          'access callback' => TRUE,
+          'type' => MENU_CALLBACK,
     );
-  }
-  else {
-    if (arg(0) == 'node' && is_numeric(arg(1))) {
-      $node = node_load(arg(1));
-      if ($node->type == 'fb_app') {
-        // Only show if infinite session is configured.
-        $fb_app_data = fb_app_get_data($node->fb_app);
-        $fb_infinite_data = $fb_app_data['fb_infinite'];
-        if ($fb_infinite_data['key']) {
-          $items[] = array('path' => "node/$node->nid/fb/infinite/test",
-                           'title' => t('Infinite session test'),
-                           'type' => MENU_LOCAL_TASK,
-                           'access' => node_access('update', $node),
-                           'callback' => 'fb_infinite_test_page',
-                           'callback arguments' => array($node->nid),
-          );
-        }
-      }
+  
+  $items['node/%fb_infinite/fb/infinite/test'] = 
+    array('title' => 'Infinite session test',
+          'page callback' => 'fb_infinite_test_page',
+          'page arguments' => array(1),
+          'access callback' => 'node_access',
+          'access arguments' => array('update', 1),
+          'type' => MENU_LOCAL_TASK,
+    );
+  
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_load to create custom loader for hook_menu
+ * Checks a fb_app nid to see if infinite session is configured
+ *
+ * see "Defining your own wildcard loader" - http://drupal.org/node/209056
+ * passing $nid not needed if menu_get_object were to work
+ */
+function fb_infinite_load($nid) {
+  $fb_app = fb_get_app(array('nid' => $nid));
+  if ($fb_app) {
+    // Only allow menu item if infinite session is configured.
+    $fb_app_data = fb_app_get_data($fb_app);
+    $fb_infinite_data = $fb_app_data['fb_infinite'];
+    if (isset($fb_infinite_data['key'])) {
+      return $fb_app;
     }
   }
-  return $items;
 }
 
 /**
  * Implementation of hook_form_alter.
  */
-function fb_infinite_form_alter($form_id, &$form) {
-  //drupal_set_message("fb_infinte_form_alter($form_id) " . dpr($form, 1));
+function fb_infinite_form_alter(&$form, &$form_state, $form_id) {
+  //drupal_set_message("fb_infinite_form_alter($form_id) " . dpr($form, 1)) . dpr($form_state, 1));
   
   // Add our settings to the fb_app edit form.
   if (is_array($form['fb_app_data'])) {
@@ -120,7 +128,7 @@ function fb_infinite_form_alter($form_id, &$form) {
 
 function fb_infinite_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   if ($node->type == 'fb_app') {
-    if ($op == 'submit') {
+    if ($op == 'presave') {
       $fb_app_data = $node->fb_app_data;
       $fb_infinite_data = $fb_app_data['fb_infinite'];
 
@@ -169,14 +177,15 @@ function fb_infinite_display_page() {
 /**
  * Menu callback to test infinite session values.
  */
-function fb_infinite_test_page($nid) {
+function fb_infinite_test_page($fb_app) {
+  //dpm(func_get_args(), "fb_infinite_test_page");
+
   if ($GLOBALS['fb']) {
     $url = $GLOBALS['fb_old_base_url'] . "?q=".$_GET['q'];
     return t('Do not use this page from a canvas page.  Try !link.',
              array('!link' => l($url, $url)));
   }
-
-  $fb_app = fb_get_app(array('nid' => $nid));
+  
   $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
   if ($fb) {
     $fbu = $fb->api_client->users_getLoggedInUser();
@@ -191,7 +200,8 @@ function fb_infinite_test_page($nid) {
                                                    'status',
                                              ));
       $info = $info[0];
-      $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', NULL, 'id='.$info['uid']);
+      $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', 
+                   array('query' => 'id='.$info['uid']));
       
       drupal_set_message(t('Infinite session key is working.'));
       $output .= '<p>'.t('Facebook infinite session user: !user',
@@ -206,11 +216,11 @@ function fb_infinite_test_page($nid) {
     }
   }
   else {
-    drupal_set_message(t('Infinite session key test failed.'), 'error');
-    $output .= '<p>'.t('Unable to log initialize Facebook API.').'</p>';
+    drupal_set_message('Infinite session key test failed.', 'error');
+    // TODO: provide helpful hints of how to fix the problem.
+    $output .= '<p>'.t('Unable to log into Facebook using infinite session key.').'</p>';
   }
-    
+  
   return $output;
 }
 
-?>

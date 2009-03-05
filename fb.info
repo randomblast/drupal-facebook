@@ -1,3 +1,5 @@
 name = DFF Facebook API
 description = Imports and uses the Facebook API.
 package = Drupal for Facebook
+core = 6.x
+php = 5

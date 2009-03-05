@@ -8,17 +8,14 @@
  * Facebook Connect aware.
  */
 
-function fb_connect_menu($may_cache) {
+function fb_connect_menu() {
   $items = array();
   
-  if ($may_cache) {
-    $items[] = array(
-      'path' => 'fb/connect/receiver',
-      'callback' => 'fb_connect_receiver',
-      'type' => MENU_CALLBACK,
-      'access' => TRUE,
-    );
-  }
+  $items['fb/connect/receiver'] = array(
+    'page callback' => 'fb_connect_receiver',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
   return $items;
 }
 
@@ -79,7 +76,7 @@ function fb_connect_app_init($fb_app) {
 function fb_connect_already_loggedin($fb_app) {
   if ($_SESSION['fb_connect'])
     return $_SESSION['fb_connect'][$fb_app->apikey];
-
+  
   return FALSE;
 }
 
@@ -125,7 +122,7 @@ function fb_connect_user($op, &$edit, &$account, $category = NULL) {
 	  $session_key = $fb->api_client->session_key;
 	  // http://forum.developers.facebook.com/viewtopic.php?id=21879
 	  // Use next parameter to expire session.
-	  drupal_goto("http://www.facebook.com/logout.php?app_key={$fb_app->apikey}&session_key={$session_key}&next=" . url('<front>', NULL, NULL, TRUE));
+	  drupal_goto("http://www.facebook.com/logout.php?app_key={$fb_app->apikey}&session_key={$session_key}&next=" . url('<front>', array('absolute' => TRUE)));
 	}
       } catch (Exception $e) {
 	fb_log_exception($e, t('Failed to log out of fbConnect session'));

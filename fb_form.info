@@ -1,4 +1,5 @@
 name = DFF Forms
 description = Enables FBML form elements via Drupal Form API.  Provides commonly needed forms such as invite friends to install application.
 package = Drupal for Facebook
-dependencies = fb
+dependencies[] = fb
+core = 6.x

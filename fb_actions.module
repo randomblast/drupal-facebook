@@ -161,9 +161,9 @@ function fb_actions_profile_fbml(&$object, $values) {
     }
     
     if (variable_get('fb_actions_verbose', FALSE))
-      watchdog('fb_actions', t('Setting Facebook profile markup for !user to !body',
-                               array('!user' => theme('username', $user),
-                                     '!body' => htmlentities($body))));
+      watchdog('fb_actions', 'Setting Facebook profile markup for !user to !body',
+               array('!user' => theme('username', $user),
+                     '!body' => htmlentities($body)));
     try {
       // http://wiki.developers.facebook.com/index.php/Profile.setFBML
       $fb->api_client->profile_setFBML(NULL, $fbu, $body, NULL, $mobile_profile, $profile_main);
@@ -249,9 +249,9 @@ function fb_actions_ref_fbml(&$object, $values) {
       $body = fb_canvas_process_fbml($body, $fb_app);
     }
     if (variable_get('fb_actions_verbose', FALSE))
-      watchdog('fb_actions', t('Setting Facebook ref FBML for %handle to %body',
-                               array('%handle' => $values['handle'],
-                                     '%body' => htmlentities($body))));
+      watchdog('fb_actions', 'Setting Facebook ref FBML for %handle to %body',
+               array('%handle' => $values['handle'],
+                     '%body' => htmlentities($body)));
     $fb->api_client->fbml_setRefHandle($values['handle'], $body);
     fb_report_errors($fb);
   }
@@ -328,11 +328,11 @@ function fb_actions_cron_per_user($obj, $values) {
       // Find a local account for the application user
       $account = fb_user_get_local_user($data->fbu, $fb_app);
       if (variable_get('fb_actions_verbose', FALSE))
-        watchdog('fb_action_debug', "fb_actions_cron_per_user fbu is $data->fbu, local user is " . theme('username', $account), WATCHDOG_ERROR);
+        watchdog('fb_action_debug', "fb_actions_cron_per_user fbu is $data->fbu, local user is " . theme('username', $account), array(), WATCHDOG_ERROR);
       
       if (!$account || !$account->uid) {
-        watchdog('fb cron', t('Facebook user %fbu does not correspond to a local account.',
-                              array('%fbu' => $data->fbu)));
+        watchdog('fb cron', 'Facebook user %fbu does not correspond to a local account.',
+                 array('%fbu' => $data->fbu));
         //db_query("DELETE FROM {fb_user_app} WHERE apikey='%s' AND fbu = %d",
         //         $fb_app->apikey,
         //         $data->fbu);
@@ -354,7 +354,7 @@ function fb_actions_cron_per_user($obj, $values) {
 		       array('fb' => $fb,
 			     'fb_app' => $fb_app));
           } catch (Exception $e) {
-            watchdog('fb cron', "Action per user failed. " . $e->getMessage(), WATCHDOG_ERROR);
+            watchdog('fb cron', "Action per user failed. " . $e->getMessage(), array(),  WATCHDOG_ERROR);
           }
 
         } // end if able to log into facebook

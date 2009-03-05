@@ -5,7 +5,7 @@ More information: http://www.drupalforfacebook.org, http://drupal.org/project/fb
 
 Primary author and maintainer: Dave Cohen (http://www.dave-cohen.com/contact)
 
-Version: HEAD (version 2.x for Drupal 5.x)
+Version: N/A (version 2.x for Drupal 6.x)
 Please read http://drupal.org/node/288721#version and confirm that
 you are using the correct version.
 

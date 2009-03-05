@@ -1,17 +1,48 @@
 <?php
 
+function fb_fbml_preprocess_page() {
+  dpm(func_get_args(), 'fb_fbml_preprocess_page');
+}
 
-function fb_fbml_page($content, $show_blocks = TRUE) {
-  $output = phptemplate_page($content, $show_blocks);
+function fb_fbml_page($content, $show_blocks = TRUE, $show_messages = TRUE) {
+  $variables = array('template_files' => array(),
+		     'content' => $content,
+		     'show_blocks' => $show_blocks,
+		     'show_messages' => $show_messages,
+		     );
+  $hook = 'page';
+  
+  // We have to go out of our way here to theme the tabs.
+  
+  // The code in menu.inc that themes them is complex,
+  // incomprehensible, and tangles the theme layer with the logic
+  // layer.  It doesn't help that the same theme functions are called
+  // for tabs as are called for all other menus.  So we use a global
+  // to keep track of what we're doing.
+  global $_fb_fbml_state;
+  $_fb_fbml_state = 'tabs';
+  // Why does a call to menu_tab_root_path theme the tabs?  I have no
+  // idea, but it does and caches the result.
+  menu_tab_root_path();
+  $_fb_fbml_state = NULL;
+  
+  template_preprocess($variables, $hook);
+  template_preprocess_page($variables, $hook);
+  // If any modules implement a preprocess function, they're SOL, we don't know about it.
+  
+  // Now our own preprocessing
+  fb_fbml_preprocess($variables, $hook);
+  
+  $template_file = path_to_theme() . '/page.tpl.php';
+  $output = theme_render_template($template_file, $variables);
   
   if (function_exists('fb_canvas_process')) {
     $output = fb_canvas_process($output);
   }
   return $output;
-  
 }
 
-function _phptemplate_variables($hook, $vars = array()) {
+function fb_fbml_preprocess(&$vars, $hook) {
   global $fb_app, $user;
   
   if ($hook == 'page') {
@@ -71,17 +102,17 @@ function _phptemplate_variables($hook, $vars = array()) {
       
       // Style page differently depending on which sidebars are present.
       // Approach copied from Zen theme.
-      // allows advanced theming based on context (home page, node of certain type, etc.)
+      // allows styling based on context (home page, node of certain type, etc.)
       $body_classes = array();
       $body_classes[] = ($vars['is_front']) ? 'front' : 'not-front';
       $body_classes[] = ($user->uid > 0) ? 'logged-in' : 'not-logged-in';
-      if ($vars['sidebar_left'] && $vars['sidebar_right']) {
+      if ($vars['left'] && $vars['right']) {
 	$body_classes[] = 'with-both-sidebars';
       }
-      else if ($vars['sidebar_right']) {
+      else if ($vars['right']) {
 	$body_classes[] = 'with-sidebar-right';
       }
-      else if ($vars['sidebar_left']) {
+      else if ($vars['left']) {
 	$body_classes[] = 'with-sidebar-left';
       }
       
@@ -90,23 +121,22 @@ function _phptemplate_variables($hook, $vars = array()) {
 	$body_classes[] = 'in-new-facebook';
       
       $vars['body_classes'] = implode(' ', $body_classes);
-      
     }
   }
   else if ($hook == 'node') {
     if ($vars['teaser']) {
       $vars['template_file'] = 'node-teaser';
     }
-    
+
     // TODO: could move this to phptemplate engine.
     if (count($vars['about']))
       $vars['about'] = drupal_render($vars['about']);
     if (count($vars['children']))
       $vars['children'] = drupal_render($vars['children']);
-    
+
     if ($vars['extra_style'])
       $vars['extra_style'] = drupal_render($vars['extra_style']);
-    
+
     if ($vars['teaser'])
       $size = 'thumb';
     else
@@ -116,7 +146,6 @@ function _phptemplate_variables($hook, $vars = array()) {
     
     //drupal_set_message("node vars: " . dprint_r($vars, 1));
   }
-  return $vars;
 }
 
 function fb_fbml_regions() {
@@ -132,37 +161,64 @@ function fb_fbml_regions() {
 }
 
 //// tabs
+function fb_fbml_menu_local_task($link, $active = FALSE) {
+  global $_fb_fbml_state;
 
-function phptemplate_menu_local_tasks() {
+  if ($_fb_fbml_state == 'tabs') {
+	if ($active) {
+	  $link = str_replace('selected="false"', 'selected="true"', $link);
+	}
+	return $link;
+  } 
+  else
+	return theme_menu_local_task($link, $active);
+}
+
+function fb_fbml_menu_item_link($link) {
+  global $_fb_fbml_state;
+
+  if ($_fb_fbml_state == 'tabs') {
+	// Theme an FBML tab
+	$output .= "<fb:tab-item href=\"".url($link['href'])."\" title=\"".$link['title']."\" selected=\"false\">".$item['title']."</fb:tab-item>\n";
+	return $output;
+  }
+  else
+	return theme_menu_item_link($link, $active);
+}
+
+function fb_fbml_menu_local_tasks() {
   global $fb;
+  // Because menu.inc's navigation of the menu tree is too complicated
+  // to understand, or reproduce here, we need to maintain state as the
+  // menu tree is navigated.
+  global $_fb_fbml_state;
+  $_fb_fbml_state = 'argh';
+
   if ($fb && $fb->in_fb_canvas()) {
-    $local_tasks = menu_get_local_tasks();
-    $pid = menu_get_active_nontask_item();
     $output = '';
     
-    if (count($local_tasks[$pid]['children'])) {
-      $output .= "<fb:tabs>\n";
-      foreach ($local_tasks[$pid]['children'] as $mid) {
-	$item = menu_get_item($mid);
-	$selected = menu_in_active_trail($mid) ? "true" : "false";
-	$output .= "<fb:tab-item href=\"".url($item['path'], NULL, NULL, FALSE)."\" title=\"".$item['title']."\" selected=\"$selected\">".$item['title']."</fb:tab-item>\n";
-      }
-      $output .= "</fb:tabs>\n";
-	}
-    // TODO secondary local tasks
-    if ($secondary = menu_secondary_local_tasks()) {
-	  $output .= "<ul class=\"tabs secondary\">\n". $secondary ."</ul>\n";
+    $_fb_fbml_state = 'primary';
+    if ($primary = menu_primary_local_tasks()) {
+      $output .= "<fb:tabs>\n". $primary ."</fb:tabs>\n";
     }
+
+    $_fb_fbml_state = 'secondary';
+    
+    if ($secondary = menu_secondary_local_tasks()) {
+      // TODO: use fbml for secondary tabs
+      $output .= "<ul class=\"tabs secondary\">\n". $secondary ."</ul>\n";
+    }
+    $_fb_fbml_state = NULL;
+    
   }
-  else 
+  else {
     $output = theme_menu_local_tasks();
-  
+  }
   return $output;
-  
 }
 
 // collapsing fieldsets
-function phptemplate_fieldset($element) {
+function fb_fbml_fieldset($element) {
   global $fb;
   if (($fb && $fb->in_fb_canvas()) ||
       (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml())) {

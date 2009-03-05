@@ -33,9 +33,9 @@
 </div>
 <?php endif; ?>
 </div>
-<?php if ($sidebar_right):?>
+<?php if ($right):?>
 <div id="sidebar-right" class="sidebar-right">
-   <?php print $sidebar_right; ?>
+   <?php print $right; ?>
 <?php print $admin /* Administrator only sidebar */?>
 </div>
 <?php endif; ?>

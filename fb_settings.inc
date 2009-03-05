@@ -5,6 +5,7 @@ define('FB_SETTINGS_APP_NID', 'fb_cb');
 define('FB_SETTINGS_PAGE_TYPE', 'fb_cb_type');
 define('FB_SETTINGS_SESSION_KEY', 'fb_sess');
 
+// NOTE: can't use variable_set() -- database.inc hasn't loaded yet, so db_query() in variable_set() fails
 if (!is_array($conf))
   $conf = array();
 
@@ -47,20 +48,46 @@ if ($nid = _fb_settings_parse(FB_SETTINGS_APP_NID))
 }
 
 /**
- * Implementation of conf_url_rewrite
+ * Implementation of conf_url_rewrite_inbound
  * 
  * Defines the URL rewrite if not defined already.  If it is defined already,
- * or your using 118n modules, you should define a custom_url_rewrite in
- * settings.php which calls fb_canvas_url_rewrite in addition to any others
+ * or your using 118n modules, you should define a custom_url_rewrite_inbound in
+ * settings.php which calls fb_canvas_url_rewrite_inbound in addition to any others
  * that need to be called.  The order will be important!
  */
 
-if(!function_exists('custom_url_rewrite')) {
-  function custom_url_rewrite($type, $path, $original) {
-    return fb_settings_url_rewrite($type, $path, $original);
+//TODO: this needs confirmation.
+//custom_url_rewrite was dropped in 6.x so I split the 'source' portion of the old function
+//into _inbound and the 'alias' portion into _outbound versions
+//really guessing here, but it seems to be working
+if(!function_exists('custom_url_rewrite_inbound')) {
+  function custom_url_rewrite_inbound(&$result, $path, $path_language) {
+    fb_settings_url_rewrite_inbound($result, $path, $path_language);
   }
 }  
 
+if(!function_exists('custom_url_rewrite_outbound')) {
+  function custom_url_rewrite_outbound(&$path, $options, $original_path) {
+    fb_settings_url_rewrite_outbound($path, $options, $original_path);
+  }
+}
+
+//TODO: especially verify this one - not sure what to do with Absolute paths, if anything
+//TODO: problem with _fb_canvas_make_form_action_local - is it caused by this?
+//TODO: I don't think the fb_canvas_is_fbml() and fb_canvas_is_iframe() functions are returning the right values either
+function fb_settings_url_rewrite_outbound(&$path, $options, $original_path) {
+  //dpm(func_get_args(), 'fb_settings_url_rewrite_outbound');
+  $pre = '';
+  
+  // Prefix each known value to the URL
+  foreach (array_reverse(_fb_settings_url_rewrite_prefixes()) as $prefix) {
+    if ($value = fb_settings($prefix))
+      $pre .= $prefix . '/'. $value . '/';
+  }
+  $path  = $pre . $path;
+  
+  return $path;
+}
 
 /**
  * Rewrite URLs for facebook canvas pages.
@@ -69,43 +96,43 @@ if(!function_exists('custom_url_rewrite')) {
  * set when serving canvas pages.  However, it gets called before
  * modules are loaded.  So it must live here.
  */
-function fb_settings_url_rewrite($type, $path, $original){
-  //dpm(func_get_args(), 'fb_canvas_url_rewrite');
-  //print("fb_canvas_url_rewrite($type, $path, $original)");
-  $prefixes = array(FB_SETTINGS_APP_NID, FB_SETTINGS_PAGE_TYPE, FB_SETTINGS_SESSION_KEY);
-  if ($type == 'source') {
-    // See if this is a request for us.
-    if (strpos($path, FB_SETTINGS_APP_NID . '/') === 0) {
-	  // Too soon for arg() function.
-      $args = explode('/', $path);
-      while (count($args) && in_array($args[0], $prefixes)) {
-        $key = array_shift($args);
-        $value = array_shift($args);
-        fb_settings($key, $value); // Store for use later.
-      }
-      if ($app_nid = fb_settings(FB_SETTINGS_APP_NID)) {
-        if (count($args)) {
-          $path = implode('/', $args); // remaining args
-          $path = drupal_get_normal_path($path);
-        }
-        else
-          // frontpage
-          $path = drupal_get_normal_path(variable_get('site_frontpage', 'node'));
-      }
-    } 
-  }
-  else if ($type == 'alias') {
-    $pre = '';
-    
-    // Prefix each known value to the URL
-    foreach ($prefixes as $prefix) {
-      if ($value = fb_settings($prefix))
-	$pre .= $prefix . '/'. $value . '/';
+function fb_settings_url_rewrite_inbound(&$result, $path, $path_language){
+  //$origpath = $path;
+  //watchdog('fb_settings', "fb_settings_url_rewrite_inbound($result, $path, $path_language)", array(), WATCHDOG_DEBUG);
+  
+  // See if this is a request for us.
+  if (strpos($path, FB_SETTINGS_APP_NID . '/') === 0) {
+    // Too soon for arg() function.
+    $args = explode('/', $path);
+    while (count($args) && in_array($args[0], _fb_settings_url_rewrite_prefixes())) {
+      $key = array_shift($args);
+      $value = array_shift($args);
+      $app_nid = fb_settings($key, $value); // Store for use later.
     }
-    $path  = $pre . $path;
+    if ($app_nid = fb_settings(FB_SETTINGS_APP_NID)) {
+      if (count($args)) {
+        $path = implode('/', $args); // remaining args
+        $alias = drupal_lookup_path('source', $path, $path_language); //can't use drupal_get_normal_path, it calls custom_url_rewrite_inbound
+        if ($alias) 
+          $path = $alias;
+      }
+      else {
+        // frontpage
+        $path = variable_get('site_frontpage', 'node');
+        $alias = drupal_lookup_path('source', $path, $path_language);
+        if ($alias) 
+          $path = $alias;
+        $_REQUEST['destination'] = $path; //required workaround for compatibility with Global Redirect module, best practice?
+      }
+    }
+  }
+  else { //resolve aliases for non-fb-callbacks
+    $alias = drupal_lookup_path('source', $path, $path_language);
+    if ($alias) 
+      $path = $alias;
   }
   
-  return $path;  
+  $result = $path;
 }
 
 function fb_settings($key, $value = NULL) {
@@ -114,6 +141,17 @@ function fb_settings($key, $value = NULL) {
     $cache[$key] = $value;
   }
   return $cache[$key];
+}
+
+/**
+ * Returns a list of the values which we prepend to paths when rewriting urls.
+ */
+function _fb_settings_url_rewrite_prefixes() {
+  static $prefixes;
+  if (!isset($prefixes)) {
+    $prefixes = array(FB_SETTINGS_APP_NID, FB_SETTINGS_PAGE_TYPE, FB_SETTINGS_SESSION_KEY);
+  }
+  return $prefixes;
 }
 
 /**
@@ -139,5 +177,3 @@ function _fb_settings_parse($key) {
   }
 }
 
-
-?>

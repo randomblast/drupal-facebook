@@ -53,7 +53,7 @@ else {
   
   $apikey = NULL;
   // Discover APIKEY by inspecting cookies.
- foreach ($_COOKIE as $key => $value) {
+  foreach ($_COOKIE as $key => $value) {
     if ($pos = strpos($key, '_session_key')) {
       $apikey = substr($key, 0, $pos);
     }

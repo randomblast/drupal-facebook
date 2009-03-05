@@ -1,6 +1,9 @@
 name = DFF Devel
 description = Blocks and messages that help when developing and debugging Apps.
 package = Drupal for Facebook
-dependencies = fb devel
+dependencies[] = fb
+dependencies[] = devel
+core = 6.x
+
 
 

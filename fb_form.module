@@ -15,30 +15,27 @@
 /**
  * hook_menu.
  */
-function fb_form_menu($may_cache) {
+function fb_form_menu() {
   $items = array();
-  if ($may_cache) {
-    // Page allowing a user to invite their friends to add the app.
-    $items[] = array('path' => 'fb/invite',
-                     'callback' => 'fb_form_invite_page',
-                     'access' => TRUE,
-                     'type' => MENU_CALLBACK,
-    );
-    $items[] = array('path' => 'fb_form_friend_selector_autocomplete',
-                     'callback' => 'fb_form_friend_selector_autocomplete',
-                     'access' => TRUE,
-                     'type' => MENU_CALLBACK,
-    );
-  }
+  // Page allowing a user to invite their friends to add the app.
+  $items['fb/invite'] = 
+    array('page callback' => 'fb_form_invite_page',
+	  'access callback' => TRUE,
+	  'type' => MENU_CALLBACK,
+	  );
+  $items['fb_form_friend_selector_autocomplete'] = 
+    array('page callback' => 'fb_form_friend_selector_autocomplete',
+	  'access callback' => TRUE,
+	  'type' => MENU_CALLBACK,
+	  );
   return $items;
 }
 
 /**
  * hook_form_alter.
  */
-function fb_form_form_alter($form_id, &$form) {
-  // Drupal allows no clean way to set $form['#type'], so we hack.
-
+function fb_form_form_alter(&$form, &$form_state, $form_id) {
+  /* Drupal allows no clean way to set $form['#type'], so we hack... */
   if ($type = $form['#fb_form_type_hack']) {
     $form['#type'] = $type;
     unset($form['#fb_form_type_hack']);
@@ -121,7 +118,7 @@ function fb_form_invite_page() {
 
   if (function_exists('fb_canvas_is_fbml') &&
       !fb_canvas_is_fbml()) {
-    drupal_set_message(t('Unable to display page.  FBML required.'), 'error');
+    drupal_set_message('Unable to display page.  FBML required.', 'error');
     drupal_not_found();
     exit();
   }
@@ -259,7 +256,7 @@ function fb_form_friend_options($fbu) {
   $items = array();
 
   if ($fb) {
-    $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=$fbu)";
+    $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=$fbu)"; //TODO: db_query this to be safe?
     $result = $fb->api_client->fql_query($query);
     
     // TODO: sort results by name
@@ -273,14 +270,14 @@ function fb_form_friend_options($fbu) {
 function fb_form_group_member_options($fbg, $fbu) {
   global $fb;
 
-  $query = "SELECT uid FROM group_member WHERE gid=$fbg";
+  $query = "SELECT uid FROM group_member WHERE gid=$fbg"; //TODO: db_query this?
   $result = $fb->api_client->fql_query($query);
   drupal_set_message("fb_form_group_member_options($fbg, $fbu) query $query returns" . dpr($result, 1));
 
 
 
 
-  $query = "SELECT uid, first_name, last_name FROM user WHERE uid IN (SELECT uid FROM group_member WHERE gid=$fbg)";
+  $query = "SELECT uid, first_name, last_name FROM user WHERE uid IN (SELECT uid FROM group_member WHERE gid=$fbg)"; //TODO: db_query to be safe?
   $result = $fb->api_client->fql_query($query);
   drupal_set_message("fb_form_group_member_options($fbg, $fbu) query $query returns" . dpr($result, 1));
 
@@ -384,7 +381,7 @@ function fb_form_friend_selector_process($orig) {
   else
     $element['#type'] = 'textfield';
 
-  $element['#autocomplete_path'] = url('fb_form_friend_selector_autocomplete', NULL, NULL, TRUE);
+  $element['#autocomplete_path'] = url('fb_form_friend_selector_autocomplete', array('absolute' => TRUE));
   return $element;
 }
 
@@ -472,6 +469,14 @@ function fb_form_friend_selector_validate($element, $set_errors = TRUE) {
   _form_set_value($_POST, $element, $element['#parents'], $items);
 }
 
+function fb_form_theme() {
+  return array(
+    'friend_selectorXXX' => array(
+      'arguments' => array('fbu' => NULL),
+      ),
+    );
+}
+
 // TODO: provide some alternative when NOT a facebook app.
 // deprecated!
 function theme_fb_form_friend_selector($fbu = NULL) {
@@ -482,4 +487,3 @@ function theme_fb_form_friend_selector($fbu = NULL) {
   $output = "<fb:friend-selector uid=\"$fbu\" name=\"fbname\" idname=\"fbu\" />";
   return $output;
 }
-?>

@@ -1,39 +1,38 @@
 <?php
 
+/**
+ * Implementation of hook_install().
+ */
 function fb_user_install() {
-  global $db_type;
-  if ($db_type == 'mysqli' ||
-	  $db_type == 'mysql') {
-    $query[] = <<<QUERY
-CREATE TABLE IF NOT EXISTS {fb_user_app} (
-apikey varchar(128) NOT NULL,
-fbu int(11) unsigned NOT NULL,
-uid int(11) unsigned DEFAULT NULL,
-added int(4) unsigned NOT NULL,
-time_cron int(11) unsigned NOT NULL,
-time_access int(11) unsigned NOT NULL,
-session_key varchar(128) NOT NULL,
-session_key_expires int(11) unsigned NOT NULL,
-PRIMARY KEY (apikey, fbu),
-INDEX (uid),
-UNIQUE INDEX (uid, apikey)
-) /*!40100 DEFAULT CHARACTER SET UTF8 */;
-QUERY;
-  }
-  else {
-    // TODO: handle other databases
-    drupal_set_message(t('Unable to install fb_user database schema to a database of type: %type', array('%type' => $db_type)), 'error');
-  }
-  foreach ($query as $q) {
-    $status = db_query ($q);
-	if (!$status) {
-	  drupal_set_message(t('Error installing fb_user: %error %query', 
-						   array('%query' => '<pre>'.$q.'</pre>',
-								 '%error' => db_error())), 
-						 'error');
-	}
-  }
+  // Create tables.
+  drupal_install_schema('fb_user');
+}
+
+
+/**
+ * Implementation of hook_uninstall().
+ */
+function fb_user_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('fb_user');
+}
+
+
+function fb_user_schema() {
+  $schema['fb_user_app'] = 
+    array('fields' => array('apikey' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+                            'fbu' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'uid' => array('type' => 'int', 'size' => 'normal', 'not null' => TRUE, ),
+                            'added' => array('type' => 'int', 'length' => 4, 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'time_cron' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'time_access' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'session_key' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+                            'session_key_expires' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+          ),
+          'primary key' => array('apikey', 'fbu'),
+    );
   
+  return $schema;
 }
 
 function fb_user_update_1() {

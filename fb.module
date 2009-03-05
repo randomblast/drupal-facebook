@@ -70,12 +70,12 @@ function fb_init() {
 	  if (strpos($key, 'fb_') === 0)
 	    $req[] = $key . '=' . $val;
 	}
-	$url = url($_REQUEST['q'], implode('&', $req), NULL, TRUE);
+        $url = url($_REQUEST['q'], array('query' => $req, 'absolute' => TRUE));
 	if (fb_verbose())
-	  watchdog('fb_debug', t('Facebook session key was %old, now %new.  Destroying session and sending user to %url.',
-				 array('%old' => $_SESSION['fb_frame_params']['session_key'],
-				       '%new' => $_REQUEST['fb_sig_session_key'],
-				       '%url' => $url)));
+	  watchdog('fb_debug', 'Facebook session key was %old, now %new.  Destroying session and sending user to %url.',
+                   array('%old' => $_SESSION['fb_frame_params']['session_key'],
+                         '%new' => $_REQUEST['fb_sig_session_key'],
+                         '%url' => $url));
 	
 	session_destroy();
 	drupal_goto($url);
@@ -96,7 +96,7 @@ function fb_init() {
                          array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
                                // This link should work with clean URLs
                                // disabled.
-                               '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>')), 'error');
+                               '!readme' => '<a href='. base_path() . drupal_get_path('module', 'fb') .'/README.txt>README.txt</a>')), 'error');
   }
   
   // Ask other modules for app detail
@@ -121,7 +121,7 @@ function fb_init() {
       }
     }
     else
-      watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", WATCHDOG_ERROR);
+      watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", array(), WATCHDOG_ERROR);
     
   }
   
@@ -188,24 +188,26 @@ function fb_api_init($fb_app, $fbu) {
   $fbu_orig = $fbu;
   
   // Determine the actual facebook user id to use.
-  if ($GLOBALS['fb'] && $GLOBALS['fb']->validate_fb_params() &&
+  if ($GLOBALS['fb'] && $GLOBALS['fb']->api_key == $fb_app->apikey && 
+      $GLOBALS['fb']->validate_fb_params() &&
       ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY ||
        $fbu == $GLOBALS['fb']->get_loggedin_user())) {
     return $GLOBALS['fb'];
   }
-  else if (($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
+  else if ($GLOBALS['fb']->api_key == $fb_app->apikey && 
+           ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
            && isset($_SESSION['fb_frame_params']) && !$_REQUEST['fb_sig']) {
     $params = $_SESSION['fb_frame_params'];
     $fbu = $params['user'];
     $session = $params['session_key'];
   }
-  else if ($fbu == FB_FBU_CURRENT && $GLOBALS['fb']) {
+  else if ($GLOBALS['fb'] && $GLOBALS['fb']->api_key == $fb_app->apikey &&
+           $fbu == FB_FBU_CURRENT) {
     // No current user to use, probably anonymous canvas page.
     return $GLOBALS['fb'];
   }
   else if ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
     // Learn the infinite session id and key
-    // Infinite session is deprecated!!! XXX
     $data = fb_invoke(FB_OP_GET_INFINITE_SESSION, array('fb_app' => $fb_app,
 							'fb' => $GLOBALS['fb']),
 		      array());
@@ -250,7 +252,7 @@ function fb_api_init($fb_app, $fbu) {
     else if ($fbu == FB_FBU_NO_SESSION) {
       $fb->set_user(NULL, NULL);
     }
-    
+
     // Cache the result, in case we're called again.
     $cache[$fb_app->apikey][$fbu] = $fb;
     
@@ -260,9 +262,9 @@ function fb_api_init($fb_app, $fbu) {
     if ($fbu_orig != FB_FBU_NO_SESSION &&
         $fbu_orig != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
       // An FBU other than CURRENT was specified, but we failed to log in.
-      watchdog('fb', t('Failed to log into facebook app %app as user %user',
-                       array('%app' => $fb_app->title,
-                             '%user' => $fbu_orig)), WATCHDOG_ERROR);
+      watchdog('fb', 'Failed to log into facebook app %app as user %user',
+               array('%app' => $fb_app->title,
+                     '%user' => $fbu_orig), WATCHDOG_ERROR);
     }
   }
   
@@ -287,8 +289,8 @@ function _fb_api_init($fb_app = NULL) {
     $fb = fb_api_init($fb_app, FB_FBU_ANY);
   
   if (!$fb) {
-    watchdog('fb', t('%function unable to initialize Facebook API.',
-                     array('%function' => '_fb_api_init()')), WATCHDOG_ERROR);
+    watchdog('fb', '%function unable to initialize Facebook API.',
+             array('%function' => '_fb_api_init()'), WATCHDOG_ERROR);
     return;
   }
   else
@@ -309,12 +311,24 @@ function fb_facebook_user($fb = NULL) {
   
   $fbu = $fb->get_loggedin_user();
   if ($fb->api_client->error_code) {
-    watchdog('fb', 'Failed to get Facebook user id.', 'error');
+    watchdog('fb', 'Failed to get Facebook user id.', array(), WATCHDOG_ERROR);
     if (function_exists('dprint_r'))
-      watchdog('fb', 'Failed to get Facebook user id.  detail:' . dprint_r($_REQUEST, 1), 'error');
+      watchdog('fb', 'Failed to get Facebook user id.  detail:' . dprint_r($_REQUEST, 1), array(), WATCHDOG_ERROR);
   }
   return $fbu;
 }
+
+/**
+ * Facebook provides a method, users_isAppUser(), which is buggy and
+ * unreliable.  So we need to implement our own.
+ */
+function fb_is_app_user($fb) {
+  if ($fb->api_client->added || $fb->api_client->is_user)
+    return TRUE;
+  else
+    return $fb->api_client->users_isAppUser;
+}
+
 
 /**
  * Given a local user id, find the facebook id.
@@ -344,7 +358,7 @@ function fb_get_fbu($uid, $fb_app = NULL) {
  * TODO: This code will probably not handle every case and may need some work.
  */
 function fb_get_callback_url($fb_app) {
-  $url = url('', NULL, NULL, TRUE) . FB_SETTINGS_APP_NID . '/'. $fb_app->nid . '/';
+  $url = url('', array('absolute' => TRUE)) . FB_SETTINGS_APP_NID . '/'. $fb_app->nid . '/';
   return $url;
 }
 
@@ -364,7 +378,7 @@ function fb_get_app($search_data) {
  * Convenience method to return a list of all known apps, suitable for form
  * elements.
  */
-function fb_get_app_options($include_current) {
+function fb_get_app_options($include_current = FALSE) {
   $apps = fb_get_all_apps();
   $options = array();
   if ($include_current)
@@ -473,15 +487,15 @@ function fb_user_load($fbu = NULL) {
     if (!$account)
       $account = user_load(array('uid' => variable_get('fb_facebook_user', 2)));
     if (!$account)
-      watchdog('fb', t('Failed to load user from facebook fbu=%fbu',
-                       array('%fbu' => $fbu)), 'error');
+      watchdog('fb', 'Failed to load user from facebook fbu=%fbu',
+               array('%fbu' => $fbu), WATCHDOG_ERROR);
     $account->fbu = $fbu;
     return $account;
   }
 }
 
 
-function fb_form_alter($form_id, &$form) {
+function fb_form_alter(&$form, &$form_state, $form_id) {
   // Because facebook users don't have email, it can't be required on user form
   if ($form_id == 'user_register') {
     if (user_access('administer users')) {
@@ -496,26 +510,21 @@ function fb_form_alter($form_id, &$form) {
 }
 
 
-function fb_menu($may_cache) {
+function fb_menu() {
   $items = array();
   
-  if (!$may_cache) {
-    // Initialization moved to fb_init(), nothing to do here.
-  }
-  else {
     // When forms are submitted directly to us, we cache the results,
     // and show them later via this callback
-    $items[] = array('path' => 'fb/form_cache',
-                     'callback' => '_fb_form_cache_cb',
+    $items['fb/form_cache'] = array(
+                     'page callback' => '_fb_form_cache_cb',
                      'type' => MENU_CALLBACK,
-                     'access' => TRUE);
+                     'access callback' => TRUE);
 
     // A page to help determine infinite session keys
-    $items[] = array('path' => 'fb/session',
-                     'callback' => '_fb_session_cb',
+    $items['fb/session'] = array(
+                     'page callback' => '_fb_session_cb',
                      'type' => MENU_CALLBACK,
-                     'access' => TRUE); // TODO: restrict access?
-  }
+                     'access callback' => TRUE); // TODO: restrict access?
   return $items;
 }
 
@@ -651,7 +660,7 @@ function fb_report_errors($fb = FB_APP_CURRENT, $message = NULL) {
                          '!link' => l(t('error codes'), "http://wiki.developers.facebook.com/index.php/Error_codes"),
                          '!message' => $message,
                    ));
-      watchdog('fb', $message, WATCHDOG_ERROR);
+      watchdog('fb', $message, array(), WATCHDOG_ERROR);
       drupal_set_message($message, 'error');
     }
   }
@@ -667,7 +676,7 @@ function fb_log_exception($e, $text = '', $fb = NULL) {
   if ($fb) {
     $message .= '. (' . t('logged into facebook as %fbu', array('%fbu' => $fb->get_loggedin_user())) . ')';
   }
-  watchdog('fb', $message, WATCHDOG_ERROR);
+  watchdog('fb', $message, array(), WATCHDOG_ERROR);
   if (user_access('administer fb apps')) {
     drupal_set_message($message, 'error');    
   }
@@ -681,7 +690,7 @@ function fb_log_exception($e, $text = '', $fb = NULL) {
                 array('%message' => $exception->getMessage(),
                      '!trace' => '<pre>'.$exception->getTraceAsString().'</pre>',
                ));
-  watchdog('fb', $message, WATCHDOG_ERROR);
+   watchdog('fb', $message, array(), WATCHDOG_ERROR);
   //drupal_set_message($message, 'error');
   print $message;
 
@@ -756,14 +765,14 @@ function fb_add_js($filename, $type) {
   static $cache;
   if (!$cache) {
     $cache = array();
-
+    
     // Add the most basic file we need.
     $base_file = drupal_get_path('module', 'fb') . '/fb_fbml.js';
     $base_file .= "?v=".filemtime($base_file);
     drupal_add_js($base_file, 'module', 'fbml');
     
     // Add some settings that FBJS code will often need.
-    $baseUrl = url('', NULL, NULL, TRUE);
+    $baseUrl = url('', array('absolute' => TRUE));
     drupal_add_js(array('fbjs' => array('baseUrlFb' => $baseUrl,
                                         'baseUrl' => fb_scrub_urls($baseUrl),
                         ),

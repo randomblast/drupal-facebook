@@ -1,20 +1,18 @@
 <?php
 
-function fb_devel_menu($may_cache) {
-  $items = array();
-
-  if ($may_cache) {
-    $items[] = array('path' => 'fb/devel',
-                     'callback' => 'fb_devel_page',
-                     'type' => MENU_CALLBACK,
-                     'access' => TRUE, // TODO: restrict access
-    );
-    $items[] = array('path' => 'fb/devel/fbu',
-                     'callback' => 'fb_devel_fbu_page',
-                     'type' => MENU_CALLBACK,
-                     'access' => TRUE,
-    );
-  }
+function fb_devel_menu() {
+  $items['fb/debug'] = array(
+    'page callback' => 'fb_devel_page',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE, /* TODO: restrict access */
+  );
+  
+  $items['fb/devel/fbu'] = array(
+    'page callback' => 'fb_devel_fbu_page',
+    'type' => MENU_CALLBACK,
+    'access' => TRUE,
+  );
+  
   return $items;
 }
 
@@ -33,7 +31,7 @@ function fb_devel_fb($op, $data, &$return) {
                          '!url' => "http://www.facebook.com/developers/apps.php",
                    ));
       drupal_set_message($message, 'error');
-      watchdog('fb_devel', $message);
+      watchdog('fb_devel', $message, array(), WATCHDOG_ERROR);
     }
     
     // Theme sanity check
@@ -45,7 +43,7 @@ function fb_devel_fb($op, $data, &$return) {
                          // disabled.
                          '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>'));
       drupal_set_message($message, 'error');
-      watchdog('fb_devel', $message);      
+      watchdog('fb_devel', $message, array(), WATCHDOG_ERROR);
     }
 
     // path replacement sanity check
@@ -68,7 +66,10 @@ function fb_devel_fb($op, $data, &$return) {
     $message .= dprint_r($_REQUEST,1);
     watchdog('fb_devel', $message);
   }
-
+  
+  else if ($op == FB_OP_CANVAS_EXIT && $data['fb'] && $return) {
+    watchdog('fb_devel', 'Drupal is redirecting a canvas page, destination is %destination.', array('%destination' => $return));
+  }
 }
 
 /**
@@ -179,8 +180,13 @@ function fb_devel_canvas_info() {
     else {
       // Followed a link from within an iframe.
       $info['Page Status'] = t('Global fb instance is set (followed link in iframe, or handling a form).');
+      $info['fb'] = $fb;
     }
     $info['fb_facebook_user'] = fb_facebook_user();
+    // users_isAppUser() may be unreliable!
+    $info['users_isAppUser'] = $fb->api_client->users_isAppUser();
+    $fbu = fb_facebook_user();
+    $info["users_isAppUser($fbu)"] = $fb->api_client->users_isAppUser($uid);
   }
   else {
     $info['Page Status'] = t('Not a canvas page.');
@@ -190,6 +196,9 @@ function fb_devel_canvas_info() {
   $info['base_url'] = $base_url;
   $info['base_path'] = $base_path;
   $info['url() returns'] = url();
+  $info['$_REQUEST[q] is'] = $_REQUEST['q'];
+  $info['arg(0) is'] = arg(0);
+  $info['arg(1) is'] = arg(1);
   $info['session_id'] = session_id();
   $info['session_name'] = session_name();
 
@@ -197,6 +206,11 @@ function fb_devel_canvas_info() {
   $info['fb_app'] = $fb_app;
   $info['session'] = $_SESSION;
   $info['cookies'] = $_COOKIE;
+
+  if ($fb) {
+    $info['api_client'] = $fb->api_client;
+  }
+
   $form = array();
   foreach ($info as $key => $val) {
     if (is_string($val) || is_numeric($val) || !$val) {

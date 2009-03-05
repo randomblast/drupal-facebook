@@ -6,36 +6,62 @@
    */
   // TODO: some of these tables should be created by othe module install files.
 
+/**
+ * hook_install()
+ */
 function fb_app_install() {
-  switch ($GLOBALS['db_type']) {
-    case 'mysql':
-    case 'mysqli':
-      db_query("
-CREATE TABLE IF NOT EXISTS {fb_app} (
-nid int(11) unsigned NOT NULL,
-label varchar(128) NOT NULL,
-apikey varchar(128) NOT NULL,
-id varchar(128) NOT NULL,
-secret varchar(128) NOT NULL,
-canvas varchar(128) NOT NULL,
-require_login int(4) NOT NULL,
-create_account int(4) NOT NULL,
-unique_account int(4) NOT NULL,
-data longtext,
-PRIMARY KEY (nid),
-UNIQUE KEY (apikey)
-) /*!40100 DEFAULT CHARACTER SET UTF8 */;
-");
-
-  }
+  // Create tables.
+  drupal_install_schema('fb_app');
   
-  drupal_set_message(t('Facebook Application module installed. Please grant yourself <a href="!perm">permissions</a> and then browse to <a href="!create">Create Content => Facebook Application</a> to get started.', array('!perm' => url('admin/user/access'), '!create' => url('node/add/fb-app'))));
-  
+  drupal_set_message(t('Facebook Application module installed. Please grant yourself <a href="!perm">permissions</a> and then browse to <a href="!create">Create Content => Facebook Application</a> to get started.', array('!perm' => url('admin/user/permissions'), '!create' => url('node/add/fb-app'))));
 }
 
-function fb_app_update_1() {
+/**
+ * hook_uninstall()
+ */
+function fb_app_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('fb_app');
+}
+
+function fb_app_schema() {
+  $schema['fb_app'] = array(
+    'description' => 'Main FB_APP table',
+    'fields' => array(
+      'nid' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+      'label' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+      'apikey' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+      'id' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+      'secret' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+      'canvas' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+      'require_login' => array('type' => 'int', 'length' => 4, 'not null' => TRUE, ),
+      'create_account' => array('type' => 'int', 'length' => 4, 'not null' => TRUE, ),
+      'unique_account' => array('type' => 'int', 'length' => 4, 'not null' => TRUE, ),
+      'rid' => array('type' => 'int', 'length' => 10, 'unsigned' => TRUE, 'not null' => TRUE, ),
+      'data' => array('type' => 'text', 'size' => 'big', ),
+    ),
+    'unique keys' => array(
+      'apikey' => array('apikey'),
+    ),
+    'primary key' => array('nid'),
+  );
+  $schema['fb_app_block'] = array(
+    'fields' => array(
+      'nid' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+      'delta' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, ),
+      'format' => array('type' => 'int', 'length' => 11, 'default' => 0, ),
+      'body' => array('type' => 'text', 'size' => 'big', 'not null' => TRUE, ),
+    ),
+    'primary key' => array('nid', 'delta'),
+  );
+  $schema['fb_cache_filter'] = drupal_get_schema_unprocessed('system', 'cache');
+
+  return $schema;  
+}
+
+function fb_app_update_6100() {
   // Add id field
-  $ret[] = update_sql('ALTER TABLE {fb_app} ADD id varchar(128) NOT NULL');
-  return $ret;
+  $ret = array();
+  db_add_field($ret, 'fb_app', 'id', array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ));
+	return $ret;
 }
-?>

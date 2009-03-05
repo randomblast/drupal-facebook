@@ -45,7 +45,7 @@ function fb_app_fb($op, $data, &$return) {
     }
   }
   else if ($op == FB_OP_SET_PROPERTIES) {
-    $url = url(FB_SETTINGS_APP_NID . '/' . $fb_app->nid . '/' . FB_APP_PATH_EVENT, NULL, NULL, TRUE) . '/';
+    $url = url(FB_SETTINGS_APP_NID . '/' . $fb_app->nid . '/' . FB_APP_PATH_EVENT, array('absolute' => TRUE)) . '/';
     $return['uninstall_url'] = $url . FB_APP_EVENT_POST_REMOVE;
     $return['authorize_url'] = $url . FB_APP_EVENT_POST_AUTHORIZE;
   }
@@ -58,18 +58,26 @@ function fb_app_fb($op, $data, &$return) {
 }
 
 /**
- * hook_menu
+ * Loader callback for drupal menu api.
  */
-function fb_app_menu($may_cache) {
-  $items = array();
-  if ($may_cache) {
-    // Allow facebook to notify on various events, like adding or removing an app.
-    $items[] = array('path' => FB_APP_PATH_EVENT,
-                     'access' => TRUE,
-                     'callback' => 'fb_app_event_cb',
-                     'type' => MENU_CALLBACK,                     
-    );
+function fb_app_nid_load($nid) {
+  $node = node_load($nid);
+  if ($node->type == 'fb_app') {
+    return $node;
   }
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function fb_app_menu() {
+  $items = array();
+  // Allow facebook to notify on various events, like adding or removing an app.
+  $items[FB_APP_PATH_EVENT] = 
+    array('access callback' => TRUE,
+          'page callback' => 'fb_app_event_cb',
+          'type' => MENU_CALLBACK,                     
+    );
   return $items;
 }
 
@@ -101,15 +109,14 @@ function fb_app_node_info() {
   );
 }
 
-function fb_app_access($op, $node) {
-  global $user;
-  if (user_access('administer fb apps'))
+function fb_app_access($op, $node, $account) {
+  if (user_access('administer fb apps', $account))
     return TRUE;
-  if ($op == 'create' && user_access('create fb apps'))
+  if ($op == 'create' && user_access('create fb apps', $account))
     return TRUE;
   else if ($op == 'update' || $op == 'delete') {
     if ($node->uid == $user->uid && 
-        user_access('edit own fb apps'))
+        user_access('edit own fb apps', $account))
       return TRUE;
   }
 }
@@ -245,9 +252,24 @@ function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
   return $node;
 }
 
+function fb_app_theme() {
+  return array(
+    'fb_app' => array(
+      'arguments' => array('data' => NULL),
+      ),
+    'dl' => array(
+      'arguments' => array('items' => NULL),
+      ),
+    'fb_app_user_info' => array(
+      'arguments' => array('fb_app' => NULL, 'info' => NULL),
+      ),
+  );
+}
+
 function fb_app_get_about_url($fb_app) {
   if ($fb_app->id)
-    return url("http://www.facebook.com/apps/application.php", "id=$fb_app->id");
+    return url("http://www.facebook.com/apps/application.php", 
+               array('query' => array('id' => $fb_app->id)));
 }
 
 function theme_fb_app($fb_app) {
@@ -301,10 +323,10 @@ function fb_app_get_app_properties(&$fb_app) {
     if ($fb = fb_api_init($fb_app, FB_FBU_NO_SESSION)) {
       try {
         $props = $fb->api_client->admin_getAppProperties(array_values($props_map));
+        $cache[$fb_app->apikey] = $props;
       } catch (Exception $e) {
         fb_log_exception($e, t('Failed to get application properties from Facebook'));
       }
-      $cache[$fb_app->apikey] = $props;
     }
   }
   else {
@@ -349,9 +371,9 @@ function fb_app_insert($node) {
            $fb_app->unique_account, $fb_app->data
   );
 
-  watchdog('fb_app', t('Created Facebook Application %label.',
-                       array('%label' => $fb_app->label,
-                       )),
+  watchdog('fb_app', 'Created Facebook Application %label.',
+           array('%label' => $fb_app->label,
+           ),
            WATCHDOG_NOTICE,
            l($node->title, 'node/'.$node->nid));
   
@@ -451,7 +473,7 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
 function theme_fb_app_user_info($fb_app, $info) {
   if ($info['pic_big'])
     $output .= '<p><img src="'.$info['pic_big'].'" /></p>';
-  $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', NULL, 'id='.$info['uid']);
+  $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', array('query' => 'id=' . $info['uid']));
   if ($info['is_app_user'])
     $output .= '<p>' . t('!fb_link uses %title',
                          array('!fb_link' => $fb_link,
@@ -482,5 +504,4 @@ function fb_app_token_values($type = 'all', $object = NULL) {
   }
   return $values;
 }
-
 ?>

@@ -1,5 +1,6 @@
 name= DFF User Management
 description = Create local accounts for users of Facebook Apps.
 package = Drupal for Facebook
-dependencies = fb fb_app
-
+dependencies[] = fb
+dependencies[] = fb_app
+core = 6.x
