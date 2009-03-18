@@ -189,7 +189,6 @@ function fb_api_init($fb_app, $fbu) {
   
   // Determine the actual facebook user id to use.
   if ($GLOBALS['fb'] && $GLOBALS['fb']->api_key == $fb_app->apikey && 
-      $GLOBALS['fb']->validate_fb_params() &&
       ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY ||
        $fbu == $GLOBALS['fb']->get_loggedin_user())) {
     return $GLOBALS['fb'];
@@ -297,6 +296,25 @@ function _fb_api_init($fb_app = NULL) {
     return $fb;
 }
 
+/**
+ * Sometimes calls to fb_api_init succeed, but calls to the client api
+ * will fail because cookies are obsolete or what have you.  This
+ * function makes a call to facebook to test the session.  Expensive,
+ * so use only when necessary.
+ */
+function fb_api_check_session($fb) {
+  // TODO: caching
+  $success = FALSE;
+  try {
+    $is_user = $fb->api_client->users_isAppUser();
+    // Does not matter what is returned, as long as exception is not thrown.
+    $success = TRUE;
+  }
+  catch (Exception $e) {
+    $success = FALSE;
+  }
+  return $success;
+}
 
 /**
  * Returns the facebook user id currently visiting a canvas page, or if set_user has been called.
@@ -520,11 +538,6 @@ function fb_menu() {
                      'type' => MENU_CALLBACK,
                      'access callback' => TRUE);
 
-    // A page to help determine infinite session keys
-    $items['fb/session'] = array(
-                     'page callback' => '_fb_session_cb',
-                     'type' => MENU_CALLBACK,
-                     'access callback' => TRUE); // TODO: restrict access?
   return $items;
 }
 
@@ -551,24 +564,6 @@ function _fb_form_cache_cb($cid) {
   // cache_clear_all($cid, 'cache_page');
   print $cache->data;
   exit();
-}
-
-function _fb_session_cb() {
-  global $fb, $fb_app;
-  global $user;
-  drupal_set_message("_fb_session_cb" . dpr($_REQUEST, 1));
-  $output = '<p>'.t('You are logged in as local user !username, with Facebook user id %fbu.',
-                    array('!username' => theme('username', $user),
-                          '%fbu' => fb_get_fbu($user))).'</p>';
-  $output .= '<p>'.l(t('Request an infinite session key.'),
-                       'http://www.facebook.com/code_gen.php?v=1.0&api_key='.$fb_app->apikey).'</p>';
-  
-  $output .= drupal_get_form('fb_session_key_form');
-
-  $output .= '<p>'.t('Current session key: %key',
-                     array('%key' => htmlentities($fb->api_client->session_key)))."</p>\n";
-  
-  return $output;
 }
 
 function fb_session_key_form() {
@@ -675,6 +670,9 @@ function fb_log_exception($e, $text = '', $fb = NULL) {
   
   if ($fb) {
     $message .= '. (' . t('logged into facebook as %fbu', array('%fbu' => $fb->get_loggedin_user())) . ')';
+  }
+  if (fb_verbose()) {
+    $message .= '<pre>' . $e . '</pre>';
   }
   watchdog('fb', $message, array(), WATCHDOG_ERROR);
   if (user_access('administer fb apps')) {
