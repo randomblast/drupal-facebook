@@ -5,7 +5,7 @@ More information: http://www.drupalforfacebook.org, http://drupal.org/project/fb
 
 Primary author and maintainer: Dave Cohen (http://www.dave-cohen.com/contact)
 
-Version: HEAD (version 2.x for Drupal 6.x)
+Branch: HEAD (version 2.x for Drupal 6.x)
 Please read http://drupal.org/node/288721#version and confirm that
 you are using the correct version.
 
@@ -82,8 +82,6 @@ To install or upgrade from an earlier version of Drupal for Facebook:
   settings as many have changed, especially the choices under user
   management.  You'll have to submit your changes in order for your
   application to work properly with the new Facebook API.
-
-- This patch is required for Drupal 5.x: http://drupal.org/node/241878
 
 Troubleshooting:
 ---------------
