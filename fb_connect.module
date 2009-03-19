@@ -104,13 +104,32 @@ function fb_connect_fb($op, $data, &$return) {
   else if ($op == FB_OP_POST_INIT) {
     if ($apikey = variable_get('fb_connect_primary_apikey', NULL)) {
       if ($data['fb_app']->apikey == $apikey) {
-        // Init Facebook javascript whenever logged into fbConnect
+        // Init Facebook javascript for primary app
+        $base = drupal_get_path('module', 'fb_connect');
+        drupal_add_js(array('fb_connect' => array(
+                              'front_url' => url('<front>'),
+                            ),
+                      ), 'setting');
+        drupal_add_js($base . '/fb_connect.js');
+        
         fb_connect_require_feature('XFBML', $fb_app);
         // fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
         fb_connect_init_option('ifUserConnected', "{fb_connect_on_connected}", $fb_app);
         fb_connect_init_option('ifUserNotConnected', "{fb_connect_on_not_connected}", $fb_app);
       }
     }
+  }
+  else if ($op == FB_OP_SET_PROPERTIES) {
+    // We need to set the Facebook Connect URL, but currently Facebook's APIs do not allow it.
+    $callback_url = url('',array('absolute' => TRUE)) . FB_SETTINGS_APP_NID . '/' . $data['fb_app']->nid . '/';
+    $settings_url = "http://www.facebook.com/developers/editapp.php?app_id={$data[fb_app]->id}&view=connect";
+    if (user_access('administer fb apps')) {
+      // Could use t() here, but this is a temporary fix...
+      drupal_set_message("TAKE NOTE: Unable to automatically set the Facebook Connect URL.  You should visit the <a href={$settings_url}>application settings on facebook.com</a> and confirm that the Connect URL is set to <em>$callback_url</em>");
+    }
+  }
+  else if ($op == FB_OP_LIST_PROPERTIES) {
+    // TODO: include the Facebook Connect URL, when Facebook makes this possible.
   }
 
 }
