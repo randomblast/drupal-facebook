@@ -95,12 +95,24 @@ function fb_connect_enabled_apps() {
  */
 function fb_connect_fb($op, $data, &$return) {
   //dpm(func_get_args(), "fb_connect_fb($op)");
-  if ($op == FB_OP_CURRENT_APP) {
+  if ($op == FB_OP_CURRENT_APP && !$return) {
     // This will cause fb.module to set the global $fb when user is logged in via fbConnect.
-    if ($apikey = $GLOBALS['fb_connect_apikey']) { // see fb_session.inc
+    if ($apikey = variable_get('fb_connect_primary_apikey', NULL)) {
       $return = fb_get_app(array('apikey' => $apikey));
     }
   }
+  else if ($op == FB_OP_POST_INIT) {
+    if ($apikey = variable_get('fb_connect_primary_apikey', NULL)) {
+      if ($data['fb_app']->apikey == $apikey) {
+        // Init Facebook javascript whenever logged into fbConnect
+        fb_connect_require_feature('XFBML', $fb_app);
+        // fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
+        fb_connect_init_option('ifUserConnected', "{fb_connect_on_connected}", $fb_app);
+        fb_connect_init_option('ifUserNotConnected', "{fb_connect_on_not_connected}", $fb_app);
+      }
+    }
+  }
+
 }
 
 /**
@@ -128,6 +140,16 @@ function fb_connect_user($op, &$edit, &$account, $category = NULL) {
 	fb_log_exception($e, t('Failed to log out of fbConnect session'));
       }
     }
+  }
+}
+
+function fb_connect_exit($url = NULL) {
+  if (isset($GLOBALS['fb_connect_logging_out'])) {
+    global $fb;
+    session_write_close(); // drupal_goto calls this, so why not us?
+    if (!isset($url))
+      $url = url('<front>', NULL, NULL, TRUE);
+    $fb->logout($url);
   }
 }
 
@@ -197,12 +219,16 @@ function fb_connect_footer($is_front) {
       $fb_app = $data['fb_app'];
       $features = $data['features'];
       $options = json_encode($option_data[$fb_app->apikey]);
+      // Hack!  What's the way to json_encode a function name?
+      $options = str_replace('"{', '', $options);
+      $options = str_replace('}"', '', $options);
+
       // drupal_add_js cannot add external javascript, so we use hook_footer instead.
       $output = '<script src="http://static.ak.connect.facebook.com/js/api_lib/v0.4/FeatureLoader.js.php" type="text/javascript"></script>';
       $output .= "\n";
       $feature_list = '["' . implode('","', $features) . '"]';
       // Put together the URL for the receiver.  The prefix must be identical to the apps callback URL.
-      $receiver = fb_get_callback_url($fb_app) . "fb/connect/receiver";
+      $receiver = fb_get_callback_url($fb_app) . "fb_connect/receiver";
       $output .= "
 <script type=\"text/javascript\">
   $(document).ready(function() {
@@ -215,26 +241,38 @@ function fb_connect_footer($is_front) {
     });
   });
 ";
-      if ($extra_js) {
-        $output .= "
+      // Extra JS after successful fbConnect init.
+      $output .= "
   FB.ensureInit(function()
     {
+      fb_connect_init();
       {$extra_js}
     });
 ";
-      }
       
       $output .= "
 </script>\n";
     }
-    // Call function which only work after FB.Facebook.init has been called.
-    $output .= "
-<script type=\"text/javascript\">
-  $(document).ready(fb_connect_init);
-</script>\n";
   }
   return $output;
+}
 
+function _fb_connect_block_login_defaults() {
+  return array('anon_not_connected' => array(
+                 'title' => t('Facebook Connect'),
+                 'body' => t('Facebook users login here. !button',
+                             array('!button' => "<fb:login-button onclick='fb_connect_login_onclick();'></fb:login-button>")),
+               ),
+               'user_not_connected' => array(
+                 'title' => t('Facebook Connect'),
+                 'body' => t('Link your account with Facebook. !button',
+                             array('!button' => "<fb:login-button onclick='fb_connect_login_onclick();'></fb:login-button>")),
+               ),
+               'connected' => array(
+                 'title' => t('Facebook Connect'),
+                 'body' => "<fb:profile-pic uid=!fbu></fb:profile-pic><fb:login-button onclick='fb_connect_logout_onclick();' autologoutlink=true></fb:login-button>",
+               ),
+  );
 }
 
 /**
@@ -253,10 +291,44 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
     return $items;
   }
   else if ($op == 'configure') {
-    // TODO
+    $defaults = variable_get('fb_connect_block_' . $delta, _fb_connect_block_login_defaults());
+    $form['config'] = array('#tree' => TRUE);
+    foreach(array('anon_not_connected', 'user_not_connected', 'connected') as $key) {
+      $form['config'][$key] = array(
+        '#type' => 'fieldset',
+        // title and description below
+        '#collapsible' => TRUE,
+        '#collapsed' => FALSE,
+      );
+      $form['config'][$key]['title'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Default title'),
+        //'#description' => t('Default title.'),
+        '#default_value' => $defaults[$key]['title'],
+      );
+      $form['config'][$key]['body'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Body'),
+        //'#description' => t('Block body'),
+        '#default_value' => $defaults[$key]['body'],
+      );
+    }
+    $form['config']['anon_not_connected']['#title'] = t('Anonymous user, not connected');
+    $form['config']['anon_not_connected']['#description'] = t('Settings when local user is Anonymous, and not connected to Facebook.  Typically a new account will be created when the user clicks the connect button.');
+    $form['config']['user_not_connected']['#title'] = t('Registered user, not connected');
+    $form['config']['user_not_connected']['#description'] = t('Settings when local user is registered, and not connected to Facebook.  Typically the facebook id will be linked to the local id after the user clicks the connect button.');
+    $form['config']['connected']['#title'] = t('Connected user');
+    $form['config']['connected']['#description'] = t('Settings when local user is connected to Facebook.  You may render facebook\'s logout button, and/or information about the user.');
+    $form['config']['connected']['body']['#description'] .= t('Note that <em>!fbu</em> will be replaced with the user\'s facebook id.');
+
+    $form['config']['filter'] = filter_form($defaults['filter']);
+    $form['config']['filter']['#description'] .= t('Format selected will apply to all body fields above.  Be sure to select a format which allows FBML tags!');
+    $form['config']['filter']['#collapsed'] = FALSE;
+
+    return $form;
   }
   else if ($op == 'save') {
-    // TODO
+    variable_set('fb_connect_block_' . $delta, $edit['config']);
   }
   else if ($op == 'view') {
     if (strpos($delta, 'login_') === 0) {
@@ -264,9 +336,9 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       $label = substr($delta, 6); // length of 'login_'
       $fb_app = fb_get_app(array('label' => $label));
       $fb = fb_connect_app_init($fb_app);
-      $fbu = fb_connect_already_loggedin($fb_app);
+      $fbu = $fb->get_loggedin_user();
       fb_connect_require_feature('XFBML', $fb_app);
-      fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
+      //fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
       //fb_connect_init_option('doNotUseCachedConnectState', TRUE, $fb_app);
 
       $base = drupal_get_path('module', 'fb_connect');
@@ -279,23 +351,76 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
                     ), 'setting');
       drupal_add_js($base . '/fb_connect.js');
       
-      // TODO: make content and login-button configurable
+      $defaults = variable_get('fb_connect_block_' . $delta, _fb_connect_block_login_defaults());
       if ($fbu) {
-        $content = "You're connected, <fb:name uid=$fbu useyou=false></fb:user>.
-<fb:profile-pic uid=$fbu></fb:profile_pic>
-<fb:login-button onclick='fb_connect_logout_onclick();' autologoutlink=true></fb:login-button>";
+        $subject = $defaults['connected']['title'];
+        $content = $defaults['connected']['body'];
+        // substitute %fbu
+        $content = str_replace('!fbu', $fbu, $content);
+      } else if ($GLOBALS['user']->uid){
+        $subject = $defaults['user_not_connected']['title'];
+        $content = $defaults['user_not_connected']['body'];
       } else {
-        $content = "This button should allow you to log in with your facebook credentials.
-<fb:login-button onclick='fb_connect_login_onclick();'></fb:login-button>";
+        $subject = $defaults['anon_not_connected']['title'];
+        $content = $defaults['anon_not_connected']['body'];
+      }
+      
+      // If user has changed defaults, run filter
+      if ($defaults['filter']) {
+        $subject = check_plain($subject);
+        $content = check_markup($content, $default['filter'], FALSE);
       }
       
       $block = array(
-        'subject' => t('Login via Facebook'),
+        'subject' => $subject,
         'content' => $content,
       );
       return $block;
     }
   }
 }
+
+
+function fb_connect_form_alter($form_id, &$form) {
+  // Add our settings to the fb_app edit form.
+  if (is_array($form['fb_app_data'])) {
+    $node = $form['#node'];
+    $fb_app_data = fb_app_get_data($node->fb_app);
+    $fb_connect_data = $fb_app_data['fb_connect'];
+   
+    $form['fb_app_data']['fb_connect'] = array(
+      '#type' => 'fieldset',
+      '#title' => 'Facebook Connect',
+      '#tree' => TRUE,
+      '#collapsible' => TRUE,
+      '#collapsed' => $node->nid ? TRUE : FALSE,
+    );
+
+    $form['fb_app_data']['fb_connect']['primary'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Primary'),
+      '#description' => t('Initialize fbConnect javascript on all (non-canvas) pages.  If this site supports multiple Facebook Apps, this may be checked for at most one.'),
+      '#default_value' => $fb_connect_data['primary'],
+    );
+    if ($primary_apikey = variable_get('fb_connect_primary_apikey', NULL)) {
+      if ($primary_apikey != $node->fb_app->apikey) {
+        $primary = fb_get_app(array('apikey' => $primary_apikey));
+        $form['fb_app_data']['fb_connect']['primary']['#description'] .= '<br/>' . t('Note that checking this will replace %app as the primary Facebook Connect app.',
+                                                                                     array('%app' => $primary ? $primary->title : $primary_apikey));
+      }
+    }
+  }
+}
+
+function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
+  if (($op == 'insert' || $op == 'update') && $node->type == 'fb_app') {
+    //dpm(func_get_args(), "fb_connect_nodeapi($op)"); // debug
+    if ($node->fb_app_data['fb_connect']['primary']) {
+      variable_set('fb_connect_primary_apikey', $node->fb_app['apikey']);
+      drupal_set_message(t('!node is now the primary Facebook Connect application.', array('!node' => l($node->title, 'node/' . $node->nid))));
+    }
+  }
+}
+
 
 ?>
