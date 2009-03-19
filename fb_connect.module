@@ -381,7 +381,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
 }
 
 
-function fb_connect_form_alter($form_id, &$form) {
+function fb_connect_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (is_array($form['fb_app_data'])) {
     $node = $form['#node'];
