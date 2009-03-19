@@ -87,13 +87,18 @@ function fb_canvas_fb($op, $data, &$return) {
     $fb_app_data = fb_app_get_data($fb_app);
     $fb_canvas_data = $fb_app_data['fb_canvas'];
     
+    $is_canvas = FALSE;
+
     // Set an app-specific theme.
     global $custom_theme; // Set by this function.
-    if (fb_canvas_is_fbml())
+    if (fb_canvas_is_fbml()) {
       $custom_theme = $fb_canvas_data['theme_fbml'];
-    else if (fb_canvas_is_iframe())
+      $is_canvas = TRUE;
+    }
+    else if (fb_canvas_is_iframe()) {
       $custom_theme = $fb_canvas_data['theme_iframe'];
-
+      $is_canvas = TRUE;
+    }
 
     // Special handling for forms, as they are submitted directly to us, not
     // to apps.facebook.com/canvas
@@ -101,8 +106,7 @@ function fb_canvas_fb($op, $data, &$return) {
     if (fb_canvas_handling_form())
       ob_start();
     
-    //drupal_set_message("fb_canvas_fb" . dpr($_GET, 1) . 'arg(0) = ' . dpr(arg(0), 1) . 'arg(1) = ' . dpr(arg(1), 1) . 'frontpage ' . dpr(variable_get('site_frontpage', 'node'), 1));
-    if ($_GET['q'] == drupal_get_normal_path(variable_get('site_frontpage', 'node'))) {
+    if ($is_canvas && $_GET['q'] == drupal_get_normal_path(variable_get('site_frontpage', 'node'))) {
       if ($fb->get_loggedin_user()) {
         if ($fb->api_client->users_isAppUser())
           $front = $fb_canvas_data['front_added'];
