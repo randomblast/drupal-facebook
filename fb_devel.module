@@ -104,10 +104,13 @@ function fb_devel_page() {
   dpm(fb_get_fbu($user), 'Facebook user via fb_get_fbu');
   //dpm($user, "Local user " . theme('username', $user));
   
-  //dpm($_COOKIE, 'cookie');
-  //dpm($_REQUEST, "Request");
+  if ($GLOBALS['fb_connect_apikey'])
+    drupal_set_message("fb_connect_apikey = " . $GLOBALS['fb_connect_apikey']);
+
+  dpm($_COOKIE, 'cookie');
+  dpm($_REQUEST, "Request");
   //dpm($fb_app, "fb_app");
-  //drupal_set_message("session_id returns " . session_id());
+  drupal_set_message("session_id returns " . session_id());
   //dpm($_SESSION, "session:");
 
   return "This is the facebook debug page.";
@@ -183,10 +186,12 @@ function fb_devel_canvas_info() {
       $info['fb'] = $fb;
     }
     $info['fb_facebook_user'] = fb_facebook_user();
-    // users_isAppUser() may be unreliable!
-    $info['users_isAppUser'] = $fb->api_client->users_isAppUser();
     $fbu = fb_facebook_user();
-    $info["users_isAppUser($fbu)"] = $fb->api_client->users_isAppUser($uid);
+    if (fb_api_check_session($fb)) {
+      // users_isAppUser() may be unreliable!
+      $info['users_isAppUser'] = $fb->api_client->users_isAppUser();
+      $info["users_isAppUser($fbu)"] = $fb->api_client->users_isAppUser($uid);
+    }
   }
   else {
     $info['Page Status'] = t('Not a canvas page.');
