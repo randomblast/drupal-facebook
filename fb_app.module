@@ -93,6 +93,8 @@ function fb_app_event_cb($event_type) {
 				   'fb' => $GLOBALS['fb']));
   // This page is called by facebook, not a user's browser.
   print('Thanks Facebook, for your fancy API!');
+  // Problems if we save session during Facebook Connect, because the event callback's share session with normal pages.
+  session_save_session(FALSE);
   exit();
 }
 
@@ -115,7 +117,7 @@ function fb_app_access($op, $node, $account) {
   if ($op == 'create' && user_access('create fb apps', $account))
     return TRUE;
   else if ($op == 'update' || $op == 'delete') {
-    if ($node->uid == $user->uid && 
+    if ($node->uid == $account->uid && 
         user_access('edit own fb apps', $account))
       return TRUE;
   }
