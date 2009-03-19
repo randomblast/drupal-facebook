@@ -19,14 +19,22 @@ define('FB_USER_OPTION_MAP_NEVER', 1);
 define('FB_USER_OPTION_MAP_ALWAYS', 2);
 
 
+function fb_user_perm() {
+  return array('edit own extended permissions', 'delete own fb_user authmap');
+}
 
 /**
  * There are several pages where we don't want to automatically create a new
  * account or use an account configured for this app.
  */
 function _fb_user_special_page() {
-  return (arg(0) == 'user' || arg(0) == 'fb_user' ||
-          (arg(0) == 'fb' && arg(1) == 'form_cache'));
+  // TODO: hopefully this can be simplified.
+  return ((arg(0) == 'user' && arg(1) == 'login') ||
+          (arg(0) == 'user' && arg(1) == 'register') || 
+          arg(0) == 'fb_user' ||
+          (arg(0) == 'fb' && arg(1) == 'form_cache') ||
+          (arg(0) == 'fb_app' && arg(1) == 'event') ||
+          (arg(0) == 'fb_connect' && arg(2) == 'receiver'));
 }
 
 /**
@@ -43,20 +51,18 @@ function _fb_user_track($fb, $fb_app, $user) {
   $fb_user_data = $fb_app_data['fb_user']; // our configuration
   
   if (!$user->uid || $user->uid == $fb_user_data['not_logged_in_uid'] || $user->uid == $fb_user_data['logged_in_uid']) {
-    $result =db_query("REPLACE INTO {fb_user_app} (apikey, fbu, added, time_access, session_key, session_key_expires) VALUES ('%s', %d, %d, %d, '%s', %d)",
-                      $fb_app->apikey, fb_facebook_user(),
-                      fb_is_app_user($fb), time(),
-                      $fb->api_client->session_key, $_REQUEST['fb_sig_expires']
-    );
+    // Should we even keep data for users who have not added???
+    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=NULL WHERE apikey='%s' AND fbu=%d",
+                       time(), $fb->api_client->session_key, $fb->session_expires,
+                       $fb_app->apikey, fb_facebook_user($fb));
+    
   }
   else {
     // Uid is accurate.
-    $result =db_query("REPLACE INTO {fb_user_app} (apikey, fbu, uid, added, time_access, session_key, session_key_expires) VALUES ('%s', %d, %d, %d, %d, '%s', %d)",
-                      $fb_app->apikey, fb_facebook_user(),
-                      $user->uid,
-                      fb_is_app_user($fb), time(),
-                      $fb->api_client->session_key, $_REQUEST['fb_sig_expires']
-    );
+    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=%d WHERE apikey='%s' AND fbu=%d",
+                       time(), $fb->api_client->session_key, $fb->session_expires,
+                       $user->uid,
+                       $fb_app->apikey, fb_facebook_user($fb));
   }
   if ($result === FALSE) {
     watchdog('fb_user', "Failed to update fb_user_app table.", array(), WATCHDOG_ERROR);
@@ -83,7 +89,7 @@ function fb_user_fb($op, $data, &$return) {
   else if ($op == FB_OP_POST_INIT) {
     // Observe special rules for canvas page users without local accounts
     if (!$user->uid && !_fb_user_special_page() && !$_REQUEST['form_id']) {
-      if ($fbu = fb_facebook_user($fb)) {
+      if ($fbu = fb_facebook_user($fb) && fb_api_check_session($fb) && !$fb->api_client->users_isAppUser()) {
         $uid = $fb_app_data['fb_user']['logged_in_uid'];
       }
       else {
@@ -106,7 +112,7 @@ function fb_user_fb($op, $data, &$return) {
     // Remember the original uid
     $original_uid = $user->uid;
     
-    if ($user->fbu != $fbu) {
+    if ($user->fbu != $fbu && fb_api_check_session($fb)) {
       // Try the application-specific account.
       $account = user_external_load("$fbu-$fb_app->apikey@facebook.com");
       if (!$account)
@@ -145,22 +151,20 @@ function fb_user_fb($op, $data, &$return) {
       }
     }
 
-    // Check if we need to create a local account for this user.
-    if (($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_ADD &&
-	 fb_is_app_user($fb)) ||
-	($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_LOGIN)) {
-      
-      // Check if the local account is already made.
-      if ($user->fbu != fb_facebook_user($fb) && (!_fb_user_special_page())) {
+    // Check if the local account needs to be made.
+    if ($user->fbu != fb_facebook_user($fb) && (!_fb_user_special_page()) && fb_api_check_session($fb)) {
+      if (($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_ADD &&
+           $fb->api_client->users_isAppUser()) ||
+          ($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_LOGIN)) {
+        
 	// We need to make a local account for this facebook user.
-        watchdog("fb_user", "fb_user_fb calling fb_user_create_local_user"); // debug
 	$user = fb_user_create_local_user($fb, $fb_app, fb_facebook_user($fb), 
 					  array('app_specific' => $fb_user_data['unique_account'],
 						'roles' => array($fb_user_data['new_user_rid'] => TRUE),
-						));
-	watchdog('fb_user', "Created new user !username for application %app",
-                 array('!username' => theme('username', $user),
-                       '%app' => $fb_app->label));
+                                          ));
+	watchdog('fb_user', t("Created new user !username for application %app" . dprint_r(array('session_name' => session_name(), 'session_id' => session_id()), 1),
+			      array('!username' => theme('username', $user),
+				    '%app' => $fb_app->label)));
 	
       }
     }
@@ -178,7 +182,8 @@ function fb_user_fb($op, $data, &$return) {
                      '%role' => $fb_user_data['new_user_rid']));
     }
     
-    if ($user->uid != $original_uid) {
+    if ($user->uid != $original_uid &&
+        !(arg(0) == 'fb_app' && arg(1) == 'event')) {
       // We've changed the user.  In order to ensure that drupal handles
       // permissions properly, the user must make the request all over
       // again.  Skip this for the profile tab, as facebook does not allow
@@ -193,9 +198,16 @@ function fb_user_fb($op, $data, &$return) {
 	  watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $url to ensure permissions are correct."); // debug
 	$fb->redirect($url);
       }
+      else if (!fb_settings(FB_SETTINGS_APP_NID)) {
+        // Facebook connect pages (not callback or receiver)
+        $path = $_REQUEST['q'];
+	if (fb_verbose())
+	  watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $path to ensure permissions are correct."); // debug
+        drupal_goto($path);
+      }
     }
     
-    // Keep a record of when user accesses app, and whether they have added it.
+    // Keep a record of when user accesses app.
     _fb_user_track($fb, $fb_app, $user);
 
     // Now do I need a goto or some such???
@@ -227,22 +239,20 @@ function fb_user_fb($op, $data, &$return) {
     // Facebook has notified us of some event.
     // We handle some of the events here.
     $event_type = $data['event_type'];
+
+    // Ensure fb_user_app table accurately reflects whether user has authorized.
+    
     if ($event_type == FB_APP_EVENT_POST_AUTHORIZE) {
-      // User has authorized us to know some details about her,
-      // A.K.A. "logged in" in the facebook sense.
-      
-      // You might think we'd create a new account for the user now, but we
-      // don't have to.  Because facebook passes parameters as if the user
-      // browsed the callback URL, our normal init code does everything we
-      // need to do.
+      // User has authorized us to know some details about her.
+      db_query("REPLACE INTO {fb_user_app} (apikey, fbu, added, session_key, session_key_expires) VALUES ('%s', %d, 1, '%s', %d)",
+               $fb_app->apikey, fb_facebook_user($fb),
+               $fb->api_client->session_key, $fb->session_expires);
     }
     else if ($event_type == FB_APP_EVENT_POST_REMOVE) {
       // User has removed the app from their account.
-
-      // As described above, we don't have to do anything here, because our
-      // normal init code tracks the user.  Perhaps we could delete all record
-      // of the user here, but why bother?  We just flag them as having
-      // uninstalled the app (in _fb_user_track()).
+      // Should we delete the row here???
+      db_query("UPDATE {fb_user_app} SET added=0, session_key=NULL, session_key_expires=NULL WHERE apikey='%s' AND fbu=%d",
+               $fb_app->apikey, fb_facebook_user($fb));
     }
   }
 }
@@ -409,42 +419,50 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   
   // Add tabs on user edit pages to manage maps between local accounts and facebook accounts.
   if ($op == 'categories') {
-    // A tab for administrators
-    $items[] = array('name' => 'fb_user',
-                     'title' => t('Facebook Applications'),
-                     'weight' => 1,
-    );
-    // A tab for each application the user has authorized
-    $result = _fb_app_query_all();
-    $apps = array();
-    while ($fb_app = db_fetch_object($result)) {
-      $apps[$fb_app->label] = $fb_app;
-      $fb_app_data = fb_app_get_data($fb_app);
-      $fb_user_data = $fb_app_data['fb_user']; // our configuration
-      
-      $fbu = _fb_user_get_fbu($account->uid, $fb_app);
-
-      if ($fbu && !$info[$fbu]) {
-        // The drupal user is a facebook user.  Now, learn more from facebook.
-        $fb = fb_api_init($fb_app, FB_FBU_ANY);
-        // Note: this requires infinite session with facebook.  TODO: fallback to fb_user_app table.
-        $info[$fbu] = $fb->api_client->users_getInfo(array($fbu), 
-                                                     array('name',
-                                                           'is_app_user',
-                                                     ));
+    if (user_access('administer users') ||
+        (user_access('delete own fb_user authmap') && $user->uid == $account->uid)) {
+      // A tab for administrators
+      $items[] = array('name' => 'fb_user',
+                       'title' => t('Facebook Applications'),
+                       'weight' => 1,
+      );
+    }
+    if (user_access('edit own extended permissions') &&
+        $user->uid == $account->uid) {
+      // A tab for each application the user has authorized
+      $result = _fb_app_query_all();
+      $apps = array();
+      while ($fb_app = db_fetch_object($result)) {
+        $apps[$fb_app->label] = $fb_app;
+        $fb_app_data = fb_app_get_data($fb_app);
+        $fb_user_data = $fb_app_data['fb_user']; // our configuration
         
-        if ($info[$fbu][0]['is_app_user']) {
-          $items[] = array('name' => $fb_app->label,
-                           'title' => $fb_app->title,
-                           'weight' => 2);
+        $fbu = _fb_user_get_fbu($account->uid, $fb_app);
+        
+        if ($fbu && !$info[$fbu]) {
+          // The drupal user is a facebook user.  Now, learn more from facebook.
+          $fb = fb_api_init($fb_app, FB_FBU_ANY);
+          // Note: this requires infinite session with facebook.  TODO: fallback to fb_user_app table.
+          $info[$fbu] = $fb->api_client->users_getInfo(array($fbu), 
+                                                       array('name',
+                                                             'is_app_user',
+                                                       ));
+          
+          if ($info[$fbu][0]['is_app_user']) {
+            $items[] = array('name' => $fb_app->label,
+                             'title' => $fb_app->title,
+                             'weight' => 2);
+          }
         }
-        
       }
     }
     return $items;
   }
   else if ($op == 'form' && $category == 'fb_user') {
-    $form['map'] = array('#tree' => TRUE);
+    if (!user_access('administer users') &&
+        !(user_access('delete own fb_user authmap') && $user->uid == $account->uid))
+      return; // hide from this user
+    
     // Iterate through all facebook apps, because they do not all use the same
     // map scheme.
     $result = _fb_app_query_all();
@@ -453,11 +471,11 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       $fb_user_data = $fb_app_data['fb_user']; // our configuration
       
       $fbu = _fb_user_get_fbu($account->uid, $fb_app);
-
+      
       if ($fbu && !$info[$fbu]) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app, FB_FBU_ANY);
-        // Note: this requires infinite session with facebook.  TODO: fallback to fb_user_app table.
+        // Note: this requires infinite session with facebook or active fbconnect session.  TODO: fallback to fb_user_app table.
         $info[$fbu] = $fb->api_client->users_getInfo(array($fbu), 
                                                      array('name',
                                                            'is_app_user',
@@ -516,77 +534,95 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
         }
       }
     }
+    if (isset($form)) {
+      $form['map']['#tree'] = TRUE;
+    }
+    else {
+      // Could add a facebook connect button or canvas page authorization link.
+      $form['description'] = array(
+        '#type' => 'markup',
+        '#value' => t('This account is not associated with a Facebook Application.'),
+        '#prefix' => '<p>',
+        '#suffix' => '</p>',
+      );
+    }
     return $form;
   }
   else if ($op == 'form' && ($fb_app = $apps[$category])) {
-    // Application-specific settings
-    $form['#fb_app'] = $fb_app; // used in hook_form_alter.
-
-    if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
+    if (user_access('edit own extended permissions') &&
+        $GLOBALS['user']->uid == $account->uid) {
+      // Application-specific settings
+      $form['#fb_app'] = $fb_app; // used in hook_form_alter.
+      
+      if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
+        $sections = array('profile', 'info');
+        foreach ($sections as $section) {
+          $form[$section] =
+            array('#type' => 'markup',
+                  '#value' => '<fb:add-section-button section="'.$section.'" />',
+            );
+        }
+      }
+      // http://wiki.developers.facebook.com/index.php/Extended_permissions
+      $permissions = 
+        array('email' => 'Allow %application to send you email', 
+              'offline_access' => 'Grant %application access to your Facebook profile.',
+              'status_update' => 'Allow %application to set your status.', 
+              'photo_upload' => 'Allow %application to upload photos.', 
+              'create_listing' => 'Allow %application to create marketplace listings on your behalf.',
+              'create_event' => 'Allow %application to create events on your behalf.',
+              'rsvp_event' => 'Allow %application to RSVP to events on your behalf',
+              'sms' => 'Allow %application to send you SMS text messages.',
+        );
+      foreach ($permissions as $key => $t) {
+        if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
+          $form[$key] =
+            array('#type' => 'markup',
+                  '#value' => '<fb:prompt-permission perms="'.$key.'">'.
+                  t($t, array('%application' => $fb_app->title)) .
+                  '<br /></fb:prompt-permission>',
+            );
+        } 
+        else {
+          // Non-fbml page
+          // TODO: use API to hide permissions we already have
+          $url = url($_GET['q'], array('absolute' => TRUE));
+          $form[$key] =
+            array('#type' => 'markup',
+                  '#value' => l(t($t, array('%application' => $fb_app->title)),
+                                "http://www.facebook.com/authorize.php",
+                                array(),
+                                "api_key={$fb_app->api_key}&v=1.0&ext_perm={$key}&next={$url}&next_cancel={$url}"),
+                  '#prefix' => '<p>',
+                  '#suffix' => '</p>',
+            );
+          
+        }
+      }
+      
+      // Add buttons for boxes and info
       $sections = array('profile', 'info');
       foreach ($sections as $section) {
-        $form[$section] =
-          array('#type' => 'markup',
-                '#value' => '<fb:add-section-button section="'.$section.'" />',
-          );
+        if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
+          $form[$section] =
+            array('#type' => 'markup',
+                  '#value' => '<fb:add-section-button section="'.$section.'" />',
+            );
+        }
+        // No way to add these to a non-canvas page ???
       }
-    }
-    // http://wiki.developers.facebook.com/index.php/Extended_permissions
-    $permissions = 
-      array('email' => 'Allow %application to send you email', 
-            'offline_access' => 'Grant %application access to your Facebook profile.',
-            'status_update' => 'Allow %application to set your status.', 
-            'photo_upload' => 'Allow %application to upload photos.', 
-            'create_listing' => 'Allow %application to create marketplace listings on your behalf.',
-            'create_event' => 'Allow %application to create events on your behalf.',
-            'rsvp_event' => 'Allow %application to RSVP to events on your behalf',
-            'sms' => 'Allow %application to send you SMS text messages.',
-      );
-    foreach ($permissions as $key => $t) {
-      if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
-        $form[$key] =
-          array('#type' => 'markup',
-                '#value' => '<fb:prompt-permission perms="'.$key.'">'.
-                t($t, array('%application' => $fb_app->title)) .
-                '<br /></fb:prompt-permission>',
-          );
-      } 
-      else {
-        // Non-fbml page
-        // TODO: use API to hide permissions we already have
-        $url = url($_GET['q'], array('absolute' => TRUE));
-        $form[$key] =
-          array('#type' => 'markup',
-                '#value' => l(t($t, array('%application' => $fb_app->title)),
-                              "http://www.facebook.com/authorize.php",
-                              array(),
-                              "api_key={$fb_app->api_key}&v=1.0&ext_perm={$key}&next={$url}&next_cancel={$url}"),
-          );
-        
-      }
+      
+      $form['description'] =
+        array('#type' => 'markup',
+              '#value' => l(t('All settings for %application (and other Facebook Applications).', array('%application' => $fb_app->title)),
+                            'http://www.facebook.com/editapps.php',
+                            array('html' => TRUE)),
+              '#prefix' => '<p>',
+              '#suffix' => "</p>\n",
+        );
+      return $form;      
     }
 
-    // Add buttons for boxes and info
-    $sections = array('profile', 'info');
-    foreach ($sections as $section) {
-      if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
-        $form[$section] =
-          array('#type' => 'markup',
-                '#value' => '<fb:add-section-button section="'.$section.'" />',
-          );
-      }
-      // No way to add these to a non-canvas page at the moment
-    }
-
-    $form['description'] =
-      array('#type' => 'markup',
-            '#value' => l(t('All settings for %application (and other Facebook Applications).', array('%application' => $fb_app->title)),
-                          'http://www.facebook.com/editapps.php',
-                          array(), NULL, NULL, FALSE, TRUE),
-            '#prefix' => '<p>',
-            '#suffix' => "</p>\n",
-      );
-    return $form;
   }
   else if ($op == 'update' && $category == 'fb_user') {
     //dpm($edit, "fb_user_user($op)");
@@ -595,6 +631,10 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       foreach ($edit['map'] as $module => $authname) {
         user_set_authmaps($account, array($module => $authname));
       }
+  }
+  else if ($op == 'delete') {
+    db_query("DELETE FROM {fb_user_app} WHERE uid=%d",
+             $account->uid);
   }
 }
 
