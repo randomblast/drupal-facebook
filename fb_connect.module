@@ -11,7 +11,7 @@
 function fb_connect_menu() {
   $items = array();
   
-  $items['fb/connect/receiver'] = array(
+  $items['fb_connect/receiver'] = array(
     'page callback' => 'fb_connect_receiver',
     'type' => MENU_CALLBACK,
     'access callback' => TRUE,
