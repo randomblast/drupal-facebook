@@ -34,7 +34,7 @@ function _fb_user_special_page() {
           arg(0) == 'fb_user' ||
           (arg(0) == 'fb' && arg(1) == 'form_cache') ||
           (arg(0) == 'fb_app' && arg(1) == 'event') ||
-          (arg(0) == 'fb_connect' && arg(2) == 'receiver'));
+          (arg(0) == 'fb_connect' && arg(1) == 'receiver'));
 }
 
 /**
@@ -141,7 +141,7 @@ function fb_user_fb($op, $data, &$return) {
 	    list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
 	    user_set_authmaps($account, array($module => $authname));  // is this right?
 	    $user->fbu = $fbu;
-	    dpm("setting up authmap to associate " . theme('username', $user) . " with fbu $fbu");
+	    //dpm("setting up authmap to associate " . theme('username', $user) . " with fbu $fbu");
 	    watchdog('fb_user', 'Using authmap to associate user !user with facebook user id %fbu.',
                      array('!user' => theme('username', $user),
                            '%fbu' => $fbu));
