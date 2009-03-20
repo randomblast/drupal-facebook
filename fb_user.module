@@ -139,7 +139,7 @@ function fb_user_fb($op, $data, &$return) {
 	    $user->uid != $fb_app_data['fb_user']['logged_in_uid']) {
 	  if ($fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS) {
 	    list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
-	    user_set_authmaps($account, array($module => $authname));  // is this right?
+	    user_set_authmaps($user, array($module => $authname));  // is this right?
 	    $user->fbu = $fbu;
 	    //dpm("setting up authmap to associate " . theme('username', $user) . " with fbu $fbu");
 	    watchdog('fb_user', 'Using authmap to associate user !user with facebook user id %fbu.',
@@ -686,15 +686,15 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
   // debugging.
   //drupal_set_message("Facebook knows you as $username ($fbu)");
   
-  $authmap = _fb_user_get_authmap($fb_app, $fbu);
+  list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
   
-  $account = user_external_load($authmap);
+  $account = user_external_load($authname);
   
   if (!$account) {
     // Create a new user in our system
 
     // We need a username that will not collide with any already in our
-    // system.  Could use $authmap, but this will be just slightly more
+    // system.  Could use $authname, but this will be just slightly more
     // user-friendly.
     if ($config['app_specific'] && !$config['username'])
       $config['username'] = "$fbu-$fb_app->label@facebook";
@@ -713,7 +713,7 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
                           'pass' => user_password(),
                           'init' => db_escape_string($config['username']),
                           'status' => 1,
-                          'authname_fb_user' => $authmap,
+                          'authname_fb_user' => $authname,
     );
     
     // Allow $config to set other values, including mail
