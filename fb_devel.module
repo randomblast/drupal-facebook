@@ -212,7 +212,8 @@ function fb_devel_canvas_info() {
   else {
     $info['Page Status'] = t('Not a canvas page.');
   }
-  $info['local user'] = theme('username', $user);
+  // Use theme_username() rather than theme('username') because we want link to local user, even when FBML is enabled
+  $info['local user'] = theme_username($user);
   $info['fb_get_fbu'] = fb_get_fbu($user->uid);
   $info['base_url'] = $base_url;
   $info['base_path'] = $base_path;
