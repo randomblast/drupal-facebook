@@ -181,24 +181,32 @@ function fb_devel_canvas_info() {
   global $base_path;
 
   $info = array();
-  
+  $nid = fb_settings(FB_SETTINGS_APP_NID);
+
   if ($fb) {
     if ($fb->in_fb_canvas())
       $info['Page Status'] = t('Rendering FBML canvas page.');
     else if ($fb->in_frame()) {
       $info['Page Status'] = t('Rendering iframe.');
     }
-    else {
+    else if ($nid) {
       // Followed a link from within an iframe.
       $info['Page Status'] = t('Global fb instance is set (followed link in iframe, or handling a form).');
       $info['fb'] = $fb;
     }
+    else {
+      $info['Page Status'] = t('Connected via Facebook Connect');
+    }
+
     $info['fb_facebook_user'] = fb_facebook_user();
     $fbu = fb_facebook_user();
     if (fb_api_check_session($fb)) {
       // users_isAppUser() may be unreliable!
       $info['users_isAppUser'] = $fb->api_client->users_isAppUser();
       $info["users_isAppUser($fbu)"] = $fb->api_client->users_isAppUser($uid);
+    }
+    else {
+      $info['fb_api_check_session()'] = t('Returned FALSE');
     }
   }
   else {
