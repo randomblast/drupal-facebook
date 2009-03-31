@@ -121,15 +121,10 @@ function fb_connect_fb($op, $data, &$return) {
   }
   else if ($op == FB_OP_SET_PROPERTIES) {
     // We need to set the Facebook Connect URL, but currently Facebook's APIs do not allow it.
-    $callback_url = url('',array('absolute' => TRUE)) . FB_SETTINGS_APP_NID . '/' . $data['fb_app']->nid . '/';
-    $settings_url = "http://www.facebook.com/developers/editapp.php?app_id={$data[fb_app]->id}&view=connect";
-    if (user_access('administer fb apps')) {
-      // Could use t() here, but this is a temporary fix...
-      drupal_set_message("TAKE NOTE: Unable to automatically set the Facebook Connect URL.  You should visit the <a href={$settings_url}>application settings on facebook.com</a> and confirm that the Connect URL is set to <em>$callback_url</em>");
-    }
+    $return['connect_url'] = fb_connect_get_connect_url();
   }
   else if ($op == FB_OP_LIST_PROPERTIES) {
-    // TODO: include the Facebook Connect URL, when Facebook makes this possible.
+    $return[t('Connect URL')] = 'connect_url';
   }
 
 }
@@ -246,8 +241,8 @@ function fb_connect_footer($is_front) {
       $output = '<script src="http://static.ak.connect.facebook.com/js/api_lib/v0.4/FeatureLoader.js.php" type="text/javascript"></script>';
       $output .= "\n";
       $feature_list = '["' . implode('","', $features) . '"]';
-      // Put together the URL for the receiver.  The prefix must be identical to the apps callback URL.
-      $receiver = fb_get_callback_url($fb_app) . "fb_connect/receiver";
+      // Put together the URL for the receiver.  The prefix must be identical to the apps connect URL.
+      $receiver = fb_connect_get_connect_url($fb_app) . "fb_connect/receiver";
       $output .= "
 <script type=\"text/javascript\">
   $(document).ready(function() {
@@ -275,6 +270,24 @@ function fb_connect_footer($is_front) {
   }
   return $output;
 }
+
+
+/**
+ * Convenience method to get an apps connect URL.
+ *
+ */
+function fb_connect_get_connect_url($fb_app) {
+  // absolute URL with no rewriting applied
+  global $base_url;
+  $suffix = FB_SETTINGS_APP_NID . '/' . $fb_app->nid . '/';
+  
+  // In regular pages, we need to add the suffix.
+  $url = $base_url . '/' . $suffix;
+
+  return $url;
+}
+
+
 
 function _fb_connect_block_login_defaults() {
   return array('anon_not_connected' => array(
