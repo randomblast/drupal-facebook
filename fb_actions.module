@@ -341,7 +341,7 @@ function fb_actions_cron_per_user($obj, $values) {
         // If here, local user has been found.
         // The older facebook API required us to log in as the current user.
 	// In the new API we should not need a user account to perform tasks appropriate for cron jobs.
-        $fb = fb_api_init($fb_app, FB_FBU_NO_SESSION);
+        $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
 	if ($fb) {
           // Set things up as if this were a canvas page.
           $GLOBALS['user'] = $account;

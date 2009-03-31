@@ -32,7 +32,10 @@ define('FB_GRANT_REALM_GROUP', 'fb_group');
 // When initializing Facebook API, which user to log in as:
 define('FB_FBU_INFINITE_SESSION', 'fbu_infinite'); // Some APIs still require a session, use no session where possible
 define('FB_FBU_NO_SESSION', 'fbu_no_session'); // http://wiki.developers.facebook.com/index.php/Category:Sessionless_API
-define('FB_FBU_CURRENT', 'fbu_current'); // Canvas pages only
+
+// NOTE: on Connect Pages, using anything other than FB_FBU_CURRENT will cause cookies to be set which cause problems on subsequent pages.  So only use something other than FB_FBU_CURRENT if you absolutely must!
+
+define('FB_FBU_CURRENT', 'fbu_current'); // Canvas pages and Connect pages
 define('FB_FBU_ANY', 'fbu_any'); // Use current user on canvas page, fall back to infinite session otherwise.
 
 //// Constants for internal use
