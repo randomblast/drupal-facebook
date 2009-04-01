@@ -121,7 +121,7 @@ function fb_connect_fb($op, $data, &$return) {
   }
   else if ($op == FB_OP_SET_PROPERTIES) {
     // We need to set the Facebook Connect URL, but currently Facebook's APIs do not allow it.
-    $return['connect_url'] = fb_connect_get_connect_url();
+    $return['connect_url'] = fb_connect_get_connect_url($data['fb_app']);
   }
   else if ($op == FB_OP_LIST_PROPERTIES) {
     $return[t('Connect URL')] = 'connect_url';
