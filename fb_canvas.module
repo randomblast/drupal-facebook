@@ -454,10 +454,7 @@ function fb_canvas_fix_url($url, $fb_app) {
   $patterns[] = "|#([^\?]*)|";
   $replacements[] = "#app{$fb_app->id}_$1";
 
-  watchdog('fb_debug', "fb_canvas_fix_url($url), patterns: " . dprint_r($patterns, 1) . " replacements: " . dprint_r($replacements, 1));
-  
   $url = preg_replace($patterns, $replacements, $url);
-  watchdog('fb_debug', "fb_canvas_fix_url returning $url");
 
   return $url;
 }
