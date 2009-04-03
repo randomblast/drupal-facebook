@@ -360,17 +360,15 @@ function fb_app_set_app_properties($fb_app) {
 }
 
 function fb_app_insert($node) {
-  //drupal_set_message("fb_app_insert" . dpr($node,1));
   $fb_app = (object) $node->fb_app;
   fb_app_get_app_properties($fb_app); // Get canvas and possible other props
   $fb_app->data = serialize($node->fb_app_data);
   $fb_app->nid = $node->nid;
   
-  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, require_login, create_account, unique_account, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s', %d, %d, %d, '%s')",
+  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s')",
            $node->nid, $fb_app->label, $fb_app->apikey, $fb_app->secret,
            $fb_app->id,
-           $fb_app->canvas_name, $fb_app->require_login, $fb_app->create_account, 
-           $fb_app->unique_account, $fb_app->data
+           $fb_app->data
   );
 
   watchdog('fb_app', 'Created Facebook Application %label.',
@@ -388,11 +386,10 @@ function fb_app_update($node) {
   $fb_app->data = serialize($node->fb_app_data);
   $fb_app->nid = $node->nid;
   
-  db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', id='%s', canvas='%s', require_login=%d, create_account=%d, unique_account=%d, data='%s' WHERE nid=%d",
+  db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', id='%s', data='%s' WHERE nid=%d",
            $fb_app->label, $fb_app->apikey, $fb_app->secret,
            $fb_app->id,
-           $fb_app->canvas_name, $fb_app->require_login, $fb_app->create_account,
-           $fb_app->unique_account, $fb_app->data,
+           $fb_app->data,
            $node->nid);
   
   fb_app_set_app_properties($fb_app); // Set callback URL, etc.

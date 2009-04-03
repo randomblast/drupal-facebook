@@ -33,11 +33,6 @@ function fb_app_schema() {
       'apikey' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
       'id' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
       'secret' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
-      'canvas' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
-      'require_login' => array('type' => 'int', 'length' => 4, 'not null' => TRUE, ),
-      'create_account' => array('type' => 'int', 'length' => 4, 'not null' => TRUE, ),
-      'unique_account' => array('type' => 'int', 'length' => 4, 'not null' => TRUE, ),
-      'rid' => array('type' => 'int', 'length' => 10, 'unsigned' => TRUE, 'not null' => TRUE, ),
       'data' => array('type' => 'text', 'size' => 'big', ),
     ),
     'unique keys' => array(
@@ -63,5 +58,19 @@ function fb_app_update_6100() {
   // Add id field
   $ret = array();
   db_add_field($ret, 'fb_app', 'id', array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ));
-	return $ret;
+  return $ret;
+}
+
+function fb_app_update_6101() {
+  $ret = array();
+  // The rid field is no longer used, and causes problems for databases in strict mode.
+  db_drop_field($ret, 'fb_app', 'rid');
+  // Other columns have been moved to fb_user.module, and are stored in data
+  db_drop_field($ret, 'fb_app', 'require_login');
+  db_drop_field($ret, 'fb_app', 'create_account');
+  db_drop_field($ret, 'fb_app', 'unique_account');
+  // canvas moved to fb_canvas.module
+  db_drop_field($ret, 'fb_app', 'canvas');
+
+  return $ret;
 }
