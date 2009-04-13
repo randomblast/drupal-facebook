@@ -105,13 +105,7 @@ function fb_connect_fb($op, $data, &$return) {
     if ($apikey = variable_get('fb_connect_primary_apikey', NULL)) {
       if ($data['fb_app']->apikey == $apikey) {
         // Init Facebook javascript for primary app
-        $base = drupal_get_path('module', 'fb_connect');
-        drupal_add_js(array('fb_connect' => array(
-                              'front_url' => url('<front>'),
-                            ),
-                      ), 'setting');
-        drupal_add_js($base . '/fb_connect.js');
-        
+        _fb_connect_add_js();
         fb_connect_require_feature('XFBML', $fb_app);
         // fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
         fb_connect_init_option('ifUserConnected', "{fb_connect_on_connected}", $fb_app);
@@ -127,6 +121,19 @@ function fb_connect_fb($op, $data, &$return) {
     $return[t('Connect URL')] = 'connect_url';
   }
 
+}
+
+function _fb_connect_add_js() {
+  static $just_once;
+  if (!isset($just_once)) {
+    $base = drupal_get_path('module', 'fb_connect');
+    drupal_add_js(array('fb_connect' => array(
+                          'front_url' => url('<front>'),
+                        ),
+                  ), 'setting');
+    drupal_add_js($base . '/fb_connect.js');
+    $just_once = TRUE;
+  }
 }
 
 /**
@@ -353,13 +360,14 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
     $form['config']['connected']['#description'] = t('Settings when local user is connected to Facebook.  You may render facebook\'s logout button, and/or information about the user.');
     $form['config']['connected']['body']['#description'] .= t('Note that <em>!fbu</em> will be replaced with the user\'s facebook id.');
 
-    $form['config']['filter'] = filter_form($defaults['filter']);
-    $form['config']['filter']['#description'] .= t('Format selected will apply to all body fields above.  Be sure to select a format which allows FBML tags!');
-    $form['config']['filter']['#collapsed'] = FALSE;
+    $form['config']['format'] = filter_form($defaults['format']);
+    $form['config']['format']['#description'] .= t('Format selected will apply to all body fields above.  Be sure to select a format which allows FBML tags!');
+    $form['config']['format']['#collapsed'] = FALSE;
 
     return $form;
   }
   else if ($op == 'save') {
+    $edit['config']['format'] = $edit['format'];
     variable_set('fb_connect_block_' . $delta, $edit['config']);
   }
   else if ($op == 'view') {
@@ -374,14 +382,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       //fb_connect_init_option('doNotUseCachedConnectState', TRUE, $fb_app);
 
       $base = drupal_get_path('module', 'fb_connect');
-      drupal_add_js(array('fb_connect' => array(
-                            'fbu' => $fbu ? $fbu : 0, // XXX
-                            'logout_url' => url('logout'), // XXX
-                            'front_url' => url('<front>'),
-                            'enable_login' => TRUE,
-                          ),
-                    ), 'setting');
-      drupal_add_js($base . '/fb_connect.js');
+      _fb_connect_add_js();
       
       $defaults = variable_get('fb_connect_block_' . $delta, _fb_connect_block_login_defaults());
       if ($fbu) {
@@ -398,9 +399,9 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       }
       
       // If user has changed defaults, run filter
-      if ($defaults['filter']) {
+      if ($defaults['format']) {
         $subject = check_plain($subject);
-        $content = check_markup($content, $default['filter'], FALSE);
+        $content = check_markup($content, $defaults['format'], FALSE);
       }
       
       $block = array(
@@ -454,5 +455,36 @@ function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   }
 }
 
+/**
+ * Helper function for themes to display the username.
+ */
+function fb_connect_fbml_username($object, $orig_username = NULL) {
+  if (!isset($orig_username))
+    // What to display if javascript disabled.
+    $orig_username = theme_username($object);
+
+  // First learn the Facebook id
+  if ($object->fbu) {
+    $fbu = $object->fbu;
+  }
+  else if ($pos = strpos($object->name, '@facebook')) {
+    // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
+    
+    $fbu = substr($object->name, 0, $pos);
+  }
+  else {
+    // Experimental.  This can be expensive on pages with many comments or nodes!
+    //$fbu = fb_get_fbu($object->uid);
+  }
+  
+  if (isset($fbu) && is_numeric($fbu)) {
+    // Display both orig and XFBML, to degrade gracefully.
+    $output = '<span class=fb_connect_hide>'.$orig_username.'</span><span class=fb_connect_show style="display:none"><a href="'. url('user/' . $object->uid) . '"><fb:name linked=false useyou=false uid=' . $fbu . '></fb:name></a></span>';
+    return $output;
+  }
+  else {
+    return $orig_username;
+  }
+}
 
 ?>
