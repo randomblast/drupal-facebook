@@ -4,11 +4,24 @@ function _fb_install_set_weight() {
   db_query("UPDATE {system} SET weight=-2 WHERE name='fb'");
 }
 
+function _fb_install_alter_session_table() {
+  // Make sessions.sid column large enough for Facebook's session_keys.
+  if (variable_get('fb_session_long_keys', TRUE)) {
+    // db_change_column fails.  http://drupal.org/node/429786
+    db_query('ALTER TABLE {sessions} MODIFY sid varchar(255)');
+  }
+}
+
 function fb_install() {
   _fb_install_set_weight();
+  _fb_install_alter_session_table();
 }
 
 function fb_uninstall() {
-  _fb_install_set_weight();
 }
 
+function fb_update_6000() {
+  $ret = array();
+  _fb_install_alter_session_table();
+  return $ret;
+}

@@ -113,8 +113,10 @@ if (isset($new_session_name)) {
  }
 
 if (isset($new_session_id)) {
-  // Facebook appends user id, time and expiry info which is not necessary for uniqueness.  Here we truncate that information to ensure the sid fits in sessions table.
-  $new_session_id = substr($new_session_id, 0, 64);
+  if (!variable_get('fb_session_long_keys', TRUE)) {
+    // Facebook appends user id, time and expiry info which is not necessary for uniqueness.  Here we truncate that information to ensure the sid fits in sessions table.
+    $new_session_id = substr($new_session_id, 0, 64);
+  }
   if ($new_session_id != $orig_session_id) {
     session_id($new_session_id);
     if (isset($GLOBALS['fb_connect_apikey'])) {
