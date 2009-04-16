@@ -693,6 +693,10 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
   if (!$account) {
     // Create a new user in our system
 
+    // learn some details from facebook
+    $infos = fb_users_getInfo(array($fbu), $fb);
+    $config['info'] = $infos[0];
+
     // We need a username that will not collide with any already in our
     // system.  Could use $authname, but this will be just slightly more
     // user-friendly.
@@ -707,9 +711,15 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
 					      'fb' => $GLOBALS['fb'],
 					      'fb_app' => $fb_app),
 			$config);
+
+    // use http://wiki.developers.facebook.com/index.php/Proxied_Email if mail not known
+    if (!isset($config['mail']) && variable_get('fb_user_use_proxied_email', TRUE)) {
+      $config['mail'] = $config['info']['proxied_email'];
+    }
     
     // TODO: double-check that username is not taken.
     $user_default = array('name' => $config['username'],
+                          'mail' => $config['mail'],
                           'pass' => user_password(),
                           'init' => db_escape_string($config['username']),
                           'status' => 1,

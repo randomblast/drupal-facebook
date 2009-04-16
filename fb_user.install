@@ -6,6 +6,15 @@
 function fb_user_install() {
   // Create tables.
   drupal_install_schema('fb_user');
+
+  // Change size of users.mail column
+  if (variable_get('fb_user_use_proxied_email', TRUE)) {
+    // Make mail column longer to support http://wiki.developers.facebook.com/index.php/Proxied_Email
+    // db_change_column fails.  http://drupal.org/node/429786
+    //db_change_column($ret, 'users', 'mail', 'mail', 'varchar', array('length' => 255, 'not null' => TRUE, 'default' => ''));
+    db_query("ALTER TABLE {users} MODIFY mail varchar(255)");
+  }
+
 }
 
 
@@ -57,5 +66,15 @@ function fb_user_update_3() {
   return $ret;
 }
 
+function fb_user_update_6000() {
+  $ret = array();
+  if (variable_get('fb_user_use_proxied_email', TRUE)) {
+    // Make mail column longer to support http://wiki.developers.facebook.com/index.php/Proxied_Email
+    // db_change_column fails.  http://drupal.org/node/429786
+    //db_change_column($ret, 'users', 'mail', 'mail', 'varchar', array('length' => 255, 'not null' => TRUE, 'default' => ''));
+    $ret[] = update_sql("ALTER TABLE {users} MODIFY mail varchar(255)");
+  }
+  return $ret;
+}
 
 ?>

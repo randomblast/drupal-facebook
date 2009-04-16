@@ -742,6 +742,7 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
                                                     'pic_big',
                                                     'pic_square',
                                                     'profile_update_time',
+                                                    'proxied_email',
                                                     'status',
                                                     ));
       // Update cache with recent results.
