@@ -7,14 +7,26 @@ function fb_feed_install() {
 CREATE TABLE IF NOT EXISTS {fb_feed_template} (
 nid int(11) unsigned NOT NULL,
 fb_app_nid int(11) unsigned NOT NULL,
+label varchar(128) NOT NULL,
 apikey varchar(128) NOT NULL,
 bundle_id BIGINT UNSIGNED NOT NULL,
 fb_feed_data longtext,
-PRIMARY KEY (nid)
+PRIMARY KEY (nid),
+UNIQUE KEY (label)
 ) /*!40100 DEFAULT CHARACTER SET UTF8 */;
 ");
   }
 
 }
 
+/**
+ * Add a label column.
+ */
+function fb_feed_update_6000() {
+  $ret = array();
+  db_add_column($ret, 'fb_feed_template', 'label', 'varchar(128)');
+  // TODO: populate label column, perhaps with nid.
+  db_add_unique_key($ret, 'fb_feed_template', 'label', array('label'));
+  return $ret;
+}
 ?>

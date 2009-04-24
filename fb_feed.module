@@ -1,10 +1,10 @@
 <?php
 
-  /**
-   * @file
-   * 
-   * Helpers for Facebook feeds (http://wiki.developers.facebook.com/index.php/New_Design_Feed_Wall)
-   */
+/**
+ * @file
+ * 
+ * Helpers for Facebook feeds (http://wiki.developers.facebook.com/index.php/New_Design_Feed_Wall)
+ */
 
 define('FB_FEED_LINES_PER_BUNDLE', 3);
 define('FB_FEED_SHORTS_PER_BUNDLE', 3);
@@ -72,7 +72,7 @@ function fb_feed_deactivate_confirm_submit($form_id, $values) {
   if ($success && $values['nid'])
     db_query("UPDATE {fb_feed_template} SET bundle_id=0 WHERE nid=%d",
              $values['nid']);
-
+  
   if ($success) {
     drupal_set_message(t('The template %bundle_id has been deactivated.',
                          array('%bundle_id' => $values['bundle_id'])));
@@ -240,6 +240,14 @@ function fb_feed_form(&$node, &$param) {
                          '#description' => t('Identifies the template bundle to site administrators.'),
   );
 
+  $form['label'] = array('#type' => 'textfield',
+                         '#title' => t('Label'),
+                         '#required' => TRUE,
+                         '#default_value' => $node->label,
+                         '#description' => t('Used to refer to this template programmatically.  Use only alphanumeric characters.  Make each label unique.'),
+                         '#weight' => -5,
+  );
+
   if ($type->body_label) {
     $form['body_filter']['body'] = 
       array('#type' => 'textarea', 
@@ -361,6 +369,7 @@ function fb_feed_form(&$node, &$param) {
 
 function fb_feed_validate($node) {
   // TODO
+  // Ensure each label is unique.
 }
 
 function fb_feed_register_template($node) {
@@ -427,8 +436,8 @@ function fb_feed_insert($node) {
   // has changed on us).
   $fb_app = fb_get_app(array('nid' => $node->fb_app_nid));
   
-  db_query("INSERT INTO {fb_feed_template} (nid, fb_app_nid, apikey, bundle_id, fb_feed_data) VALUES (%d, %d, '%s', %f, '%s')",
-           $node->nid, $node->fb_app_nid, $fb_app->apikey, $bundle_id, $data);
+  db_query("INSERT INTO {fb_feed_template} (nid, fb_app_nid, label, apikey, bundle_id, fb_feed_data) VALUES (%d, %d, '%s', '%s', %f, '%s')",
+           $node->nid, $node->fb_app_nid, $node->label, $fb_app->apikey, $bundle_id, $data);
   
   if ($bundle_id)
     watchdog('fb_feed', 'Registered Facebook feed template bundle %id for application %app',
@@ -459,8 +468,8 @@ function fb_feed_update($node) {
   // has changed on us).
   $fb_app = fb_get_app(array('nid' => $node->fb_app_nid));
 
-  db_query("UPDATE {fb_feed_template} SET fb_app_nid=%d, apikey='%s', bundle_id=%f, fb_feed_data='%s' WHERE nid=%d",
-           $node->fb_app_nid, $fb_app->apikey, $bundle_id, $data, $node->nid);
+  db_query("UPDATE {fb_feed_template} SET fb_app_nid=%d, label='%s', apikey='%s', bundle_id=%f, fb_feed_data='%s' WHERE nid=%d",
+           $node->fb_app_nid, $node->label, $fb_app->apikey, $bundle_id, $data, $node->nid);
   
   if ($bundle_id)
     watchdog('fb_feed', 'Updated Facebook feed template bundle %id for application %app',
@@ -477,7 +486,7 @@ function fb_feed_delete($node) {
 }
 
 function fb_feed_load($node) {
-  $data = db_fetch_array(db_query('SELECT fb_app_nid, apikey, bundle_id, fb_feed_data FROM {fb_feed_template} WHERE nid=%d',
+  $data = db_fetch_array(db_query('SELECT fb_app_nid, label, apikey, bundle_id, fb_feed_data FROM {fb_feed_template} WHERE nid=%d',
                                   $node->nid));
   $data['fb_feed_data'] = unserialize($data['fb_feed_data']);
   return $data;
@@ -519,23 +528,32 @@ function fb_feed_view($node, $teaser=FALSE, $page=FALSE) {
  * Our approach here is like drupal_set_message.  We save the data to
  * the session, and show the user the dialog on the next page request.
  */
-function fb_feed_show_dialog($fb_feed_nid, $tokens, $options) {
+function fb_feed_show_dialog($label, $tokens, $options) {
   if (!isset($_SESSION['fb_feed_dialogs']))
     $_SESSION['fb_feed_dialogs'] = array();
   
-  $node = node_load($fb_feed_nid);
-  // TODO: validate node is actually a template bundle
-  $fb_app = fb_get_app(array('nid' => $node->fb_app_nid));
-  
-  if (!isset($_SESSION['fb_feed_dialogs'][$fb_app->apikey])) {
-    $_SESSION['fb_feed_dialogs'][$fb_app->apikey] = array();
+  $template = fb_feed_get_template_by_label($label);
+ 
+  // Change token data structure.
+  if (is_object($tokens) && is_array($tokens->tokens)) {
+    foreach ($tokens->tokens as $i => $key) {
+      $fb_tokens[$key] = $tokens->values[$i];
+    }
+  }
+  else {
+    $fb_tokens = $tokens;
   }
   
-  $_SESSION['fb_feed_dialogs'][$fb_app->apikey][] = array(
-    'fb_feed_nid' => $node->nid,
-    'apikey' => $fb_app->apikey,
-    'bundle_id' => $node->bundle_id,
-    'tokens' => $tokens,
+  
+  if (!isset($_SESSION['fb_feed_dialogs'][$template->apikey])) {
+    $_SESSION['fb_feed_dialogs'][$template->apikey] = array();
+  }
+  
+  $_SESSION['fb_feed_dialogs'][$template->apikey][] = array(
+    'fb_feed_nid' => $template->nid,
+    'apikey' => $template->apikey,
+    'bundle_id' => $template->bundle_id,
+    'tokens' => $fb_tokens,
     'options' => $options,
   );
 }
@@ -553,12 +571,22 @@ function fb_feed_fb($op, $data, &$return) {
         $args = array($d['bundle_id']);
         if ($d['tokens'])
           $args[] = json_encode($d['tokens']);
-        foreach (array('target_ids', 'body_general') as $key) {
-          if (isset($d['options'][$key]))
-            $args[] = json_encode($d['options'][$key]);
+        foreach (array('target_ids' => 'null', 
+                       'body_general' => 'null',
+                       'story_size' => 'null',
+                       'require_connect' => 'null',
+                       'callback' => 'null',
+                       'user_message_prompt' => 'null',
+                       'user_message' => 'null',
+                 ) as $key => $default) {
+          if (isset($d['options'][$key])) {
+            if (in_array($key, array('require_connect', 'callback')))
+              $args[] = $d['options'][$key]; // no json_encode
+            else
+              $args[] = json_encode($d['options'][$key]);
+          } else
+            $args[] = $default;
         }
-        // TODO: story_size, require_connect, callback
-        
         $return[] = "FB.Connect.showFeedDialog(" . implode(',', $args) . ");";
       }
       // remove displayed items from session
@@ -801,5 +829,13 @@ function fb_feed_invoke($fb_app, $op, $return = NULL, $data = NULL) {
   return $return;
 }
 
+/**
+ * Helper to get feed data programatically.
+ */
+function fb_feed_get_template_by_label($label) {
+  $result = db_query("SELECT fbf.*, n.title FROM {fb_feed_template} fbf INNER JOIN {node} n ON n.nid = fbf.nid WHERE n.status=1 AND fbf.label='%s'",
+                     $label);
+  return db_fetch_object($result);
+}
 
 ?>
