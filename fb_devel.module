@@ -17,6 +17,15 @@ function fb_devel_menu() {
 }
 
 
+function fb_devel_init() {
+  if (fb_verbose() == 'extreme') {
+    if (arg(0) == 'fb_connect' && arg(1) == 'receiver') {
+      // useful for tracking down tricky connect bugs.
+      watchdog('fb_devel', "Facebook Connect receiver called" . "                                                       " . dpr($_REQUEST, 1));
+    }
+  }
+}
+
 function fb_devel_fb($op, $data, &$return) {
   $fb_app = $data['fb_app'];
   $fb = $data['fb'];
@@ -165,16 +174,16 @@ function fb_devel_fbu_page($fbu = NULL) {
 
 function fb_devel_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {
-    $items[0]['info'] = t('Facebook Devel Canvas Page Info');
+    $items[0]['info'] = t('Facebook Devel Page Info');
     return $items;
   }
   else if ($op == 'view') {
-    return array('subject' => t('Facebook Devel Canvas Page'),
-                 'content' => drupal_get_form('fb_devel_canvas_info'));
+    return array('subject' => t('Facebook Devel Info'),
+                 'content' => drupal_get_form('fb_devel_info'));
   }
 }
 
-function fb_devel_canvas_info() {
+function fb_devel_info() {
   global $fb, $fb_app;
   global $user;
   global $base_url;
@@ -258,5 +267,6 @@ function fb_devel_canvas_info() {
   // It's not really a form, but we like collapsible fieldsets
   return $form;
 }
+
 
 ?>
