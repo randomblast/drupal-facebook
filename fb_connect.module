@@ -112,6 +112,14 @@ function fb_connect_fb($op, $data, &$return) {
       }
     }
   }
+  else if ($op == FB_OP_CONNECT_JS_INIT) {
+    if (isset($_SESSION['fb_connect_init_js'])) {
+      foreach ($_SESSION['fb_connect_init_js'] as $js) {
+        $return[] = $js;
+      }
+      unset($_SESSION['fb_connect_init_js']);
+    }
+  }
   else if ($op == FB_OP_SET_PROPERTIES) {
     // We need to set the Facebook Connect URL, but currently Facebook's APIs do not allow it.
     $return['connect_url'] = fb_connect_get_connect_url($data['fb_app']);
@@ -216,6 +224,22 @@ function fb_connect_init_option($option = NULL, $value = NULL, $fb_app = NULL) {
   if ($option)
     $options[$fb_app->apikey][$option] = $value;
   return $options;
+}
+
+/**
+ * Add javascript to a facebook connect page.
+ *
+ * Use this to add calls to facebook JS,
+ * http://wiki.developers.facebook.com/index.php/JS_API_Index.
+ * 
+ * We use the session to store the javascript.  It must appear when
+ * the next page is rendered, similar to what drupal_set_message does.
+ * See hook_fb(FB_OP_CONNECT_JS_INIT), where the javascript is returned.
+ */
+function fb_connect_init_js($js) {
+  if (!isset($_SESSION['fb_connect_init_js']))
+    $_SESSION['fb_connect_init_js'] = array();
+  $_SESSION['fb_connect_init_js'][] = $js;
 }
 
 /**
