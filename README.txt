@@ -113,7 +113,7 @@ by facebook.  Note also that facebook will make all letters lower case
 even if you typed them upper.
 
 The Facebook client libraries has bugs if you do not have the JSON extension 
-for PHP installed, see http://us.php.net/manual/en/json.requirements.php.
+for PHP installed, see http://us.php.net/manual/en/json.requirements.php.  And tell facebook their client libs suck at http://bugs.developers.facebook.com/show_bug.cgi?id=4351.
 
 Bug reports and feature requests may be submitted.  
 Here's an idea: check the issue queue before you submit
