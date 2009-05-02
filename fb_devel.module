@@ -18,7 +18,7 @@ function fb_devel_menu() {
 
 
 function fb_devel_init() {
-  if (fb_verbose() == 'extreme') {
+  if (fb_verbose() === 'extreme') {
     if (arg(0) == 'fb_connect' && arg(1) == 'receiver') {
       // useful for tracking down tricky connect bugs.
       watchdog('fb_devel', "Facebook Connect receiver called" . "                                                       " . dpr($_REQUEST, 1));
