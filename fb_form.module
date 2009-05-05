@@ -471,19 +471,30 @@ function fb_form_friend_selector_validate($element, $set_errors = TRUE) {
 
 function fb_form_theme() {
   return array(
-    'friend_selectorXXX' => array(
-      'arguments' => array('fbu' => NULL),
-      ),
-    );
+    'fb_form_multi_friend_selector' => array(
+      'arguments' => array('elements' => NULL),
+    ),
+    'fb_form_request_form' => array(
+      'arguments' => array('elements' => NULL),
+    ),
+  );
 }
 
-// TODO: provide some alternative when NOT a facebook app.
-// deprecated!
-function theme_fb_form_friend_selector($fbu = NULL) {
-  drupal_set_message ("theme_fb_form_friend_selector");
-  if (!$fbu)
-    $fbu = fb_facebook_user();
-
-  $output = "<fb:friend-selector uid=\"$fbu\" name=\"fbname\" idname=\"fbu\" />";
+function theme_fb_form_multi_friend_selector($elements) {
+  $output = "<fb:multi-friend-selector " . drupal_attributes($elements['#attributes']) . ">" . $elements['#children'] ."</fb:multi-friend-selector>\n";
   return $output;
 }
+
+function theme_fb_form_request_form($elements) {
+  $output = "<fb:request-form " . drupal_attributes($elements['#attributes']) . ">". $elements['#children'] . "</fb:request-form>\n";
+  return $output;
+}
+
+/**
+ * Helper function allows alter hooks to wrap serverfbml on connect pages.
+ */
+function fb_form_serverfbml_wrap(&$elements) {
+  $elements['#prefix'] = '<fb:serverfbml><script type="text/fbml">' . $elements['#prefix'];
+  $elements['#suffix'] .= '</script></fb:serverfbml>';
+}
+
