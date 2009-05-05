@@ -40,3 +40,16 @@ function fb_connect_init() {
     $('.fb_connect_show').show();
     $('.fb_connect_hide').hide();
 }
+
+Drupal.behaviors.fb_connect = function() {
+    // Support for easy fbml popup markup which degrades when javascript not enabled.
+    // Markup is subject to change.  Currently...
+    // <div class=fb_connect_fbml_popup><a title="POPUP TITLE">LINK MARKUP</a><fb:SOME FBML>...</fb:SOME FBML></div>
+    $('div.fb_connect_fbml_popup').show().children().
+	bind('click', function(e) {
+	    popup = new FB.UI.FBMLPopupDialog($(this).attr('title'), $(this).next().html());
+	    popup.set_placement(FB.UI.PopupPlacement.topCenter);
+	    popup.show();
+	    e.preventDefault();
+	}).next().wrap('<div style="display: none;">');
+}
