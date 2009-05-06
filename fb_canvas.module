@@ -333,10 +333,11 @@ function fb_canvas_form_action_via_facebook(&$form) {
 
 function fb_canvas_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   if ($op == 'view' && $node->type == 'fb_app') {
-    if (user_access('administer fb apps')) {
+    if (user_access('administer fb apps') && $node->fb_app->canvas) {
       $fb_app = $node->fb_app;
+      $url = 'http://apps.facebook.com/' . $fb_app->canvas;
       $output = theme('dl', 
-                      array(t('Canvas URL') => "http://apps.facebook.com/$fb_app->canvas",
+                      array(t('Canvas URL') => l($url, $url, array('attributes' => array('target' => '_blank'))),
                       ));
       
       $node->content['fb_canvas'] = 
@@ -529,7 +530,6 @@ function fb_canvas_process($output, $add_target = TRUE) {
     if (fb_canvas_is_fbml()) {
       //dpm($output, "before fb_canvas_process");
       // We're producing FBML for a canvas page
-      
       /*
       TODO: $output['logo'] is not being processed properly by these
       patterns. fb_canvas_process() returns '/sites/all/themes/fb_fbml/logo.png'

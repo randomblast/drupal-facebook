@@ -33,6 +33,7 @@ function fb_app_schema() {
       'apikey' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
       'id' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
       'secret' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+      'canvas' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
       'data' => array('type' => 'text', 'size' => 'big', ),
     ),
     'unique keys' => array(
@@ -70,7 +71,15 @@ function fb_app_update_6101() {
   db_drop_field($ret, 'fb_app', 'create_account');
   db_drop_field($ret, 'fb_app', 'unique_account');
   // canvas moved to fb_canvas.module
-  db_drop_field($ret, 'fb_app', 'canvas');
+  db_drop_field($ret, 'fb_app', 'canvas'); // BAD IDEA!  see update 6202
 
+  return $ret;
+}
+
+function fb_app_update_6202() {
+  // canvas is too important, let's support it.
+  $ret = array();
+  db_add_field($ret, 'fb_app', 'canvas', array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ));
+  drupal_set_message(t('Further action required!  Edit and save each of your Facebook Applications nodes.  Even if you have made no changes, you must do this for each application which supports canvas pages.  Sorry for the inconvenience.'));
   return $ret;
 }

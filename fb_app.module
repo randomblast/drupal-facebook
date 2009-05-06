@@ -365,9 +365,10 @@ function fb_app_insert($node) {
   $fb_app->data = serialize($node->fb_app_data);
   $fb_app->nid = $node->nid;
   
-  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s')",
+  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s', '%s')",
            $node->nid, $fb_app->label, $fb_app->apikey, $fb_app->secret,
            $fb_app->id,
+           $fb_app->canvas_name,
            $fb_app->data
   );
 
@@ -386,9 +387,10 @@ function fb_app_update($node) {
   $fb_app->data = serialize($node->fb_app_data);
   $fb_app->nid = $node->nid;
   
-  db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', id='%s', data='%s' WHERE nid=%d",
+  db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', id='%s', canvas='%s', data='%s' WHERE nid=%d",
            $fb_app->label, $fb_app->apikey, $fb_app->secret,
            $fb_app->id,
+           $fb_app->canvas_name,
            $fb_app->data,
            $node->nid);
   
