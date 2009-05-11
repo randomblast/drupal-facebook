@@ -64,6 +64,23 @@ function _fb_user_track($fb, $fb_app, $user) {
                        $user->uid,
                        $fb_app->apikey, fb_facebook_user($fb));
   }
+  if ($result && !db_affected_rows()) {
+    // The row for this user was never inserted, or deleted.  Insert now.
+    $fbu = fb_facebook_user($fb);
+    if ($fbu) {
+      $info = fb_users_getInfo(array($fbu), $fb);
+      $data = $info[0];
+      $result = db_query("INSERT INTO {fb_user_app} (apikey, fbu, added, session_key, session_key_expires, time_access, uid, proxied_email, time_cron) VALUES ('%s', %d, %d, '%s', %d, %d, %d, '%s', %d)",
+                         $fb_app->apikey, $fbu,
+                         $data['is_app_user'],
+                         $fb->session_key, $fb->session_key_expires,
+                         time(),
+                         $user->uid,
+                         $data['proxied_email'],
+                         0 // time_cron
+      );
+    }
+  }
   if ($result === FALSE) {
     watchdog('fb_user', "Failed to update fb_user_app table.", array(), WATCHDOG_ERROR);
   }
@@ -101,6 +118,7 @@ function fb_user_fb($op, $data, &$return) {
       }
     }
     // TODO: is it now necessary to redirect the user back to current page?
+
   }
   else if ($op == FB_OP_APP_IS_AUTHORIZED) {
     // We reach this point if the user has authorized the app.
@@ -244,9 +262,12 @@ function fb_user_fb($op, $data, &$return) {
     
     if ($event_type == FB_APP_EVENT_POST_AUTHORIZE) {
       // User has authorized us to know some details about her.
-      db_query("REPLACE INTO {fb_user_app} (apikey, fbu, added, session_key, session_key_expires) VALUES ('%s', %d, 1, '%s', %d)",
+      db_query("REPLACE INTO {fb_user_app} (apikey, fbu, uid, added, session_key, session_key_expires, time_cron) VALUES ('%s', %d, %d, 1, '%s', %d, %d)",
                $fb_app->apikey, fb_facebook_user($fb),
-               $fb->api_client->session_key, $fb->session_expires);
+               $user->uid,
+               $fb->api_client->session_key, $fb->session_expires,
+               0 // time_cron
+      );
     }
     else if ($event_type == FB_APP_EVENT_POST_REMOVE) {
       // User has removed the app from their account.
@@ -286,8 +307,6 @@ function fb_user_authentication_is_required($fb_app) {
 }
 
 function fb_user_form_alter(&$form, &$form_state, $form_id) {
-  //drupal_set_message("fb_user_form_alter($form_id) " . dpr($form, 1));
-  
   // Add our settings to the fb_app edit form.
   if (is_array($form['fb_app_data'])) {
     $node = $form['#node'];
@@ -375,6 +394,45 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
     unset($form['submit']);
     unset($form['delete']);
   }
+  else if ($form_id == 'user_profile_form') {
+    // On user/edit, hide proxied email
+    if (isset($form['account']) && isset($form['account']['mail'])) {
+      $account = $form['_account']['#value'];
+      if ($form['account']['mail']['#default_value'] == $account->fb_user_proxied_mail) {
+        unset($form['account']['mail']['#default_value']);
+      } 
+    }
+  
+    
+  }
+}
+
+/**
+ * Learn the user's proxied email address.
+ * http://wiki.developers.facebook.com/index.php/Proxied_Email
+ */
+function fb_user_get_proxied_email($fbu, $fb_app) {
+  // Try to learn from local database
+  $result = db_query("SELECT * FROM {fb_user_app} WHERE apikey='%s' AND fbu=%d",
+                     $fb_app->apikey,
+                     $fbu);
+  if ($data = db_fetch_object($result)) {
+    $mail = $data->proxied_email;
+  }
+  
+  if (!$mail) {
+    // Ask facebook for info.
+    $fb = fb_api_init($fb_app);
+    $info = fb_users_getInfo(array($fbu), $fb);
+    $data = $info[0];
+    $mail = $data['proxied_email'];
+    if ($mail) {
+      // Store locally.
+      $result = db_query("UPDATE {fb_user_app} SET proxied_email='%s' WHERE apikey='%s' AND fbu=%d",
+                         $mail, $fb_app->apikey, $fbu);
+    }
+  }
+  return $mail;
 }
 
 /**
@@ -383,7 +441,7 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
 function fb_user_user($op, &$edit, &$account, $category = NULL) {
   global $user;
   static $apps;
-
+  
   // If form posted from an FBML canvas page, we learn the app and fbu from the post.
   // TODO: do we need additional validation here? (i.e. an fb_api_init to confirm the facebook params?)
   if ($_REQUEST['fb_sig']) {
@@ -392,10 +450,20 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     $fbu = $_REQUEST['fb_sig_user'];
   }
   else if ($GLOBALS['fb']) {
-    // Post from iframe
+    // Post from iframe, or facebook connect page, or canvas page.
     $fbu = fb_facebook_user();
+    $fb_app = $GLOBALS['fb_app'];
   }
   
+  if ($fb_app && $op == 'load' && $account->uid) {
+    if (!$account->mail) {
+      // Use proxied email, if facebook app is active and user uses it.
+      // TODO: confirm drupal never saves proxied address to users.mail.
+      $account->mail = fb_user_get_proxied_email($fbu, $fb_app);
+      $account->fb_user_proxied_mail = $account->mail; // Remember where we got address.
+    }
+  }
+
   if ($fb_app && $op == 'insert' || $op == 'login') {
     // A facebook user has logged in.  We can map the two acounts together.
     $fb_app_data = fb_app_get_data($fb_app);
@@ -711,11 +779,6 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
 					      'fb' => $GLOBALS['fb'],
 					      'fb_app' => $fb_app),
 			$config);
-
-    // use http://wiki.developers.facebook.com/index.php/Proxied_Email if mail not known
-    if (!isset($config['mail']) && variable_get('fb_user_use_proxied_email', TRUE)) {
-      $config['mail'] = $config['info']['proxied_email'];
-    }
     
     // TODO: double-check that username is not taken.
     $user_default = array('name' => $config['username'],

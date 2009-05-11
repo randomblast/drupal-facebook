@@ -7,13 +7,6 @@ function fb_user_install() {
   // Create tables.
   drupal_install_schema('fb_user');
 
-  // Change size of users.mail column
-  if (variable_get('fb_user_use_proxied_email', TRUE)) {
-    // Make mail column longer to support http://wiki.developers.facebook.com/index.php/Proxied_Email
-    // db_change_column fails.  http://drupal.org/node/429786
-    //db_change_column($ret, 'users', 'mail', 'mail', 'varchar', array('length' => 255, 'not null' => TRUE, 'default' => ''));
-    db_query("ALTER TABLE {users} MODIFY mail varchar(255)");
-  }
 
 }
 
@@ -33,6 +26,7 @@ function fb_user_schema() {
                             'fbu' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
                             'uid' => array('type' => 'int', 'size' => 'normal', 'not null' => TRUE, ),
                             'added' => array('type' => 'int', 'length' => 4, 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'proxied_email' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
                             'time_cron' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
                             'time_access' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
                             'session_key' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
@@ -68,12 +62,17 @@ function fb_user_update_3() {
 
 function fb_user_update_6000() {
   $ret = array();
-  if (variable_get('fb_user_use_proxied_email', TRUE)) {
-    // Make mail column longer to support http://wiki.developers.facebook.com/index.php/Proxied_Email
-    // db_change_column fails.  http://drupal.org/node/429786
-    //db_change_column($ret, 'users', 'mail', 'mail', 'varchar', array('length' => 255, 'not null' => TRUE, 'default' => ''));
-    $ret[] = update_sql("ALTER TABLE {users} MODIFY mail varchar(255)");
-  }
+  // We used to alter users.mail column here, to make it long enough for proxied emails.  But we no longer do this, instead we store proxied email in the fb_user_app table.
+  // See update 6001.
+  return $ret;
+}
+
+function fb_user_update_6001() {
+  $ret = array();
+  // Add column for proxied email.
+  // http://wiki.developers.facebook.com/index.php/Proxied_Email
+  db_add_column($ret, 'fb_user_app', 'proxied_email',
+                'varchar(255)', array('not null' => TRUE));
   return $ret;
 }
 
