@@ -54,7 +54,7 @@ function fb_devel_fb($op, $data, &$return) {
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message, array(), WATCHDOG_ERROR);
     }
-
+    
     // path replacement sanity check
     global $base_path;
     if ($base_path == "/{$fb_app->canvas}/") {
@@ -63,13 +63,23 @@ function fb_devel_fb($op, $data, &$return) {
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message);
     }
-
+    
     // arg_separator sanity check
     $sep = ini_get('arg_separator.output');
     if ($sep != '&') {
       $message = t('Facebook client libraries will not work properly if arg_separator.output is not "&".  Currently the value is "!sep".  Please change this in settings.php or php.ini.', array('!sep' => check_plain($sep)));
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message);
+    }
+
+    // clean url sanity check
+    if (!variable_get('clean_url', FALSE)) {
+      $message = t('Drupal for Facebook will not function properly until <a href=!url>clean URLs</a> are turned on.',
+                   array('!url' => url('admin/settings/clean-urls')));
+      if (user_access('access administration pages')) {
+        drupal_set_message($message, 'error');
+      }
+      watchdog('fb_devel', $message);      
     }
   }
   
