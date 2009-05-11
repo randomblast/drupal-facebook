@@ -131,7 +131,7 @@ to the very end of your settings.php, and modify the paths accordingly
 <?php
 
 /**
- * Common settings for DFF 
+ * Drupal for Facebook settings.
  */
 
 if (!is_array($conf))
@@ -143,8 +143,9 @@ $conf['fb_actions_verbose'] = TRUE; // more debug output
 //$conf['fb_api_file'] = 'facebook-platform/php/facebook.php'; // default is 'facebook-platform/php/facebook.php'
 
 /**
- * Enable Drupal for Facebook.  Sets up custom_url_rewrite and session
- * handling required for canvas pages and callbacks from facebook servers.
+ * Enable Drupal for Facebook.  
+ * Sets up custom_url_rewrite and session handling required for 
+ * canvas pages and Facebook Connect.
  */
 include "sites/all/modules/fb/fb_settings.inc";
 
