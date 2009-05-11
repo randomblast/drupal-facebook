@@ -156,7 +156,7 @@ function fb_init() {
  * are asking facebook to do.
  * 
  */
-function fb_api_init($fb_app, $fbu) {
+function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
   //dpm(func_get_args(), "fb_api_init");
   //$trace = debug_backtrace();
   //dpm($trace, "fb_api_init call stack");
