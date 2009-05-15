@@ -502,12 +502,30 @@ function fb_connect_fbml_username($object, $orig_username = NULL) {
   
   if (isset($fbu) && is_numeric($fbu)) {
     // Display both orig and XFBML, to degrade gracefully.
-    $output = '<span class=fb_connect_hide>'.$orig_username.'</span><span class=fb_connect_show style="display:none"><a href="'. url('user/' . $object->uid) . '"><fb:name linked=false useyou=false uid=' . $fbu . '></fb:name></a></span>';
-    return $output;
+    return theme(fb_connect_fbml_username, $orig_username, $object, $fbu);
   }
   else {
     return $orig_username;
   }
 }
 
+
+/**
+ * Implements hook_theme.
+ */
+function fb_connect_theme() {
+  return array(
+    'fb_connect_fbml_username' => array(
+      'arguments' => array( 
+        'orig_username' => NULL,
+        'object' => NULL,
+        'fbu' => NULL,
+       ),
+    ),
+  );
+}
+
+function theme_fb_connect_fbml_username($orig_username, $object, $fbu) {
+  return '<span class=fb_connect_hide>'.$orig_username.'</span><span class=fb_connect_show style="display:none"><a href="'. url('user/' . $object->uid) . '"><fb:name linked=false useyou=false uid=' . $fbu . '></fb:name></a></span>';  
+}
 ?>
