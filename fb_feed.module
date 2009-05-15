@@ -500,20 +500,21 @@ function fb_feed_view($node, $teaser=FALSE, $page=FALSE) {
   
   if (!$node->bundle_id)
     drupal_set_message(t('The template shown must be registered with Facebook before it can be used.'), 'error');
-
+  
   $items = array(t('Application') => l($fb_app->title, 'node/'.$fb_app->nid),
                  t('Template Bundle ID') => $node->bundle_id ? $node->bundle_id : '<em>'.t('Template bundle not registered') . '</em>',
   );
-  $items[t('One-line templates')] = implode("<br />\n", $node->fb_feed_data['line']);
+  $items[t('One-line templates')] = implode("<br />\n", 
+                                            array_map('check_plain', $node->fb_feed_data['line']));
   foreach ($node->fb_feed_data['short'] as $key => $template) {
     if (is_array($template))
       $items[t('Short template %num', array('%num' => $key +1))] =
-        implode("<br />\n", $node->fb_feed_data['short'][$key]);
+        implode("<br />\n", array_map('check_plain', $node->fb_feed_data['short'][$key]));
   }
   
   if ($node->fb_feed_data['full']['template_title']) {
     $items[t('Full template')] =
-      implode("<br />\n", $node->fb_feed_data['full']);    
+      implode("<br />\n", array_map('check_plain', $node->fb_feed_data['full']));
   }
   $node->content['fb_feed'] = array('#value' => theme('dl', $items));
   return $node;
