@@ -496,35 +496,6 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
                        'weight' => 1,
       );
     }
-    if (user_access('edit own extended permissions') &&
-        $user->uid == $account->uid) {
-      // A tab for each application the user has authorized
-      $result = _fb_app_query_all();
-      $apps = array();
-      while ($fb_app = db_fetch_object($result)) {
-        $apps[$fb_app->label] = $fb_app;
-        $fb_app_data = fb_app_get_data($fb_app);
-        $fb_user_data = $fb_app_data['fb_user']; // our configuration
-        
-        $fbu = _fb_user_get_fbu($account->uid, $fb_app);
-        
-        if ($fbu && !$info[$fbu]) {
-          // The drupal user is a facebook user.  Now, learn more from facebook.
-          $fb = fb_api_init($fb_app, FB_FBU_ANY);
-          // Note: this requires infinite session with facebook.  TODO: fallback to fb_user_app table.
-          $info[$fbu] = $fb->api_client->users_getInfo(array($fbu), 
-                                                       array('name',
-                                                             'is_app_user',
-                                                       ));
-          
-          if ($info[$fbu][0]['is_app_user']) {
-            $items[] = array('name' => $fb_app->label,
-                             'title' => $fb_app->title,
-                             'weight' => 2);
-          }
-        }
-      }
-    }
     return $items;
   }
   else if ($op == 'form' && $category == 'fb_user') {
@@ -616,82 +587,6 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       );
     }
     return $form;
-  }
-  else if ($op == 'form' && ($fb_app = $apps[$category])) {
-    if (user_access('edit own extended permissions') &&
-        $GLOBALS['user']->uid == $account->uid) {
-      // Application-specific settings
-      $form['#fb_app'] = $fb_app; // used in hook_form_alter.
-      
-      if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
-        $sections = array('profile', 'info');
-        foreach ($sections as $section) {
-          $form[$section] =
-            array('#type' => 'markup',
-                  '#value' => '<fb:add-section-button section="'.$section.'" />',
-            );
-        }
-      }
-      // http://wiki.developers.facebook.com/index.php/Extended_permissions
-      $permissions = 
-        array('email' => 'Allow %application to send you email', 
-              'offline_access' => 'Grant %application access to your Facebook profile.',
-              'status_update' => 'Allow %application to set your status.', 
-              'photo_upload' => 'Allow %application to upload photos.', 
-              'create_listing' => 'Allow %application to create marketplace listings on your behalf.',
-              'create_event' => 'Allow %application to create events on your behalf.',
-              'rsvp_event' => 'Allow %application to RSVP to events on your behalf',
-              'sms' => 'Allow %application to send you SMS text messages.',
-        );
-      foreach ($permissions as $key => $t) {
-        if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
-          $form[$key] =
-            array('#type' => 'markup',
-                  '#value' => '<fb:prompt-permission perms="'.$key.'">'.
-                  t($t, array('%application' => $fb_app->title)) .
-                  '<br /></fb:prompt-permission>',
-            );
-        } 
-        else {
-          // Non-fbml page
-          // TODO: use API to hide permissions we already have
-          $url = url($_GET['q'], array('absolute' => TRUE));
-          $form[$key] =
-            array('#type' => 'markup',
-                  '#value' => l(t($t, array('%application' => $fb_app->title)),
-                                "http://www.facebook.com/authorize.php",
-                                array(),
-                                "api_key={$fb_app->api_key}&v=1.0&ext_perm={$key}&next={$url}&next_cancel={$url}"),
-                  '#prefix' => '<p>',
-                  '#suffix' => '</p>',
-            );
-          
-        }
-      }
-      
-      // Add buttons for boxes and info
-      $sections = array('profile', 'info');
-      foreach ($sections as $section) {
-        if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
-          $form[$section] =
-            array('#type' => 'markup',
-                  '#value' => '<fb:add-section-button section="'.$section.'" />',
-            );
-        }
-        // No way to add these to a non-canvas page ???
-      }
-      
-      $form['description'] =
-        array('#type' => 'markup',
-              '#value' => l(t('All settings for %application (and other Facebook Applications).', array('%application' => $fb_app->title)),
-                            'http://www.facebook.com/editapps.php',
-                            array('html' => TRUE)),
-              '#prefix' => '<p>',
-              '#suffix' => "</p>\n",
-        );
-      return $form;      
-    }
-
   }
   else if ($op == 'update' && $category == 'fb_user') {
     //dpm($edit, "fb_user_user($op)");

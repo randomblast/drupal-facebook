@@ -1,0 +1,6 @@
+name= Extended Permissions
+description = Extended permisions Facebook Apps.
+package = Drupal for Facebook
+dependencies[] = fb
+dependencies[] = fb_app
+core = 6.x
