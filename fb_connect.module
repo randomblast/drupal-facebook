@@ -113,11 +113,8 @@ function fb_connect_fb($op, $data, &$return) {
     }
   }
   else if ($op == FB_OP_CONNECT_JS_INIT) {
-    if (isset($_SESSION['fb_connect_init_js'])) {
-      foreach ($_SESSION['fb_connect_init_js'] as $js) {
-        $return[] = $js;
-      }
-      unset($_SESSION['fb_connect_init_js']);
+    foreach (fb_connect_init_js() as $js) {
+      $return[] = $js;
     }
   }
   else if ($op == FB_OP_SET_PROPERTIES) {
@@ -134,8 +131,13 @@ function _fb_connect_add_js() {
   static $just_once;
   if (!isset($just_once)) {
     $base = drupal_get_path('module', 'fb_connect');
+    if (isset($GLOBALS['fb_connect_apikey'])) {
+      // If here, fb connect cookies are set.
+      $fbu = $_COOKIE[$GLOBALS['fb_connect_apikey'] . "_user"];
+    }
     drupal_add_js(array('fb_connect' => array(
                           'front_url' => url('<front>'),
+                          'fbu' => $fbu,
                         ),
                   ), 'setting');
     drupal_add_js($base . '/fb_connect.js');
@@ -232,14 +234,33 @@ function fb_connect_init_option($option = NULL, $value = NULL, $fb_app = NULL) {
  * Use this to add calls to facebook JS,
  * http://wiki.developers.facebook.com/index.php/JS_API_Index.
  * 
- * We use the session to store the javascript.  It must appear when
- * the next page is rendered, similar to what drupal_set_message does.
- * See hook_fb(FB_OP_CONNECT_JS_INIT), where the javascript is returned.
+ * We use Drupal's cache to store the javascript until it is rendered
+ * to a page.  This approach is analogous to drupal_set_message
+ * storing data temporarily in the session.  We use cache instead of
+ * session, because the session is not shared between Facebook's event
+ * callbacks and regular page requests.
+ *
  */
-function fb_connect_init_js($js) {
-  if (!isset($_SESSION['fb_connect_init_js']))
-    $_SESSION['fb_connect_init_js'] = array();
-  $_SESSION['fb_connect_init_js'][] = $js;
+function fb_connect_init_js($js = NULL) {
+  $fbu = fb_facebook_user();
+  $fb_app = $GLOBALS['fb_app'];
+  $cid = 'fb_connect_init_js_' . $fb_app->apikey . '_' . $fbu;
+  $cache = cache_get($cid, 'cache');
+  if (!isset($cache->data)) {
+    $cache = new stdClass();
+    $cache->data = array();
+  }
+  
+  if ($js) {
+    $cache->data[] = $js;
+    cache_set($cid, $cache->data, 'cache', time() + 60000); // Update cache
+  }
+  else if ($js === NULL) {
+    cache_clear_all($cid, 'cache');
+  }
+  
+  return $cache->data;
+  
 }
 
 /**

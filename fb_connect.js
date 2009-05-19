@@ -3,7 +3,7 @@
 var fb_connect_fbu = null;
 
 function fb_connect_on_connected(fbu) {
-    //alert("fb_connect_on_connected " + fbu + " settings fbu is " + Drupal.settings.fb_connect.fbu + " fb_connect_fbu is " + fb_connect_fbu);
+    // alert("fb_connect_on_connected " + fbu + " settings fbu is " + Drupal.settings.fb_connect.fbu + " fb_connect_fbu is " + fb_connect_fbu);
     if (fb_connect_fbu === 0) {
 	// We've gone from not connected to connected.
 	window.location.reload();
@@ -12,10 +12,10 @@ function fb_connect_on_connected(fbu) {
 }
 
 function fb_connect_on_not_connected() {
-    //alert("fb_connect_on_not_connected ");
-    if (fb_connect_fbu > 0) {
+    // alert("fb_connect_on_not_connected, settings fbu is " + Drupal.settings.fb_connect.fbu);
+    if (fb_connect_fbu > 0 || Drupal.settings.fb_connect.fbu > 0) {
 	// This code will not be reached if fb_connect_logout_onclick (below) calls logoutAndRedirect.
-	//alert("fb_connect_on_not_connected, reloading... ");
+	// alert("fb_connect_on_not_connected, reloading... ");
 	// We've gone from connected to not connected.
 	window.location.reload();
     }
