@@ -29,8 +29,8 @@ function fb_user_schema() {
                             'proxied_email' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
                             'time_cron' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
                             'time_access' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
-                            'session_key' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
-                            'session_key_expires' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'session_key' => array('type' => 'varchar', 'length' => 255, 'not null' => FALSE, ),
+                            'session_key_expires' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => FALSE, ),
           ),
           'primary key' => array('apikey', 'fbu'),
     );
@@ -76,4 +76,12 @@ function fb_user_update_6001() {
   return $ret;
 }
 
+function fb_user_update_6002() {
+  $ret = array();
+  // Allow session_key to be null, and 255 chars
+  $ret[] = update_sql("ALTER TABLE {fb_user_app} CHANGE session_key session_key varchar(255)");
+  // Allow NULL
+  $ret[] = update_sql("ALTER TABLE {fb_user_app} CHANGE session_key_expires session_key_expires int(11)");
+  return $ret;
+}
 ?>

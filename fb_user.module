@@ -20,7 +20,7 @@ define('FB_USER_OPTION_MAP_ALWAYS', 2);
 
 
 function fb_user_perm() {
-  return array('edit own extended permissions', 'delete own fb_user authmap');
+  return array('delete own fb_user authmap');
 }
 
 /**
@@ -52,7 +52,7 @@ function _fb_user_track($fb, $fb_app, $user) {
   
   if (!$user->uid || $user->uid == $fb_user_data['not_logged_in_uid'] || $user->uid == $fb_user_data['logged_in_uid']) {
     // Should we even keep data for users who have not added???
-    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=NULL WHERE apikey='%s' AND fbu=%d",
+    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=0 WHERE apikey='%s' AND fbu=%d",
                        time(), $fb->api_client->session_key, $fb->session_expires,
                        $fb_app->apikey, fb_facebook_user($fb));
     
@@ -262,11 +262,12 @@ function fb_user_fb($op, $data, &$return) {
     
     if ($event_type == FB_APP_EVENT_POST_AUTHORIZE) {
       // User has authorized us to know some details about her.
-      db_query("REPLACE INTO {fb_user_app} (apikey, fbu, uid, added, session_key, session_key_expires, time_cron) VALUES ('%s', %d, %d, 1, '%s', %d, %d)",
+      db_query("REPLACE INTO {fb_user_app} (apikey, fbu, uid, added, session_key, session_key_expires, time_cron, time_access) VALUES ('%s', %d, %d, 1, '%s', %d, %d, %d)",
                $fb_app->apikey, fb_facebook_user($fb),
-               $user->uid,
+               $user->uid ? $user->uid : 0,
                $fb->api_client->session_key, $fb->session_expires,
-               0 // time_cron
+               0, // time_cron
+               time() // time_access
       );
     }
     else if ($event_type == FB_APP_EVENT_POST_REMOVE) {
@@ -323,7 +324,7 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
     $form['fb_app_data']['fb_user']['require_login'] = 
       array('#type' => 'radios',
             '#title' => t('Require Login'),
-            '#description' => t('If some of your canvas pages are visible to the public at large, allow anyone.  You will have to call Facebook\'s require_login() on pages that require more information about the user.<br />Allow only logged-in users if you want Drupal for Facebook to call require_login() on every page.'),
+            '#description' => t('If some of your canvas (or connect) pages are visible to the public at large, allow anyone.  You will have to call Facebook\'s require_login() on pages that require more information about the user.<br />Allow only logged-in users if you want Drupal for Facebook to call require_login() on every page.'),
             '#options' => 
             array(FB_USER_OPTION_ALLOW_ANON => t('Allow anyone'),
                   FB_USER_OPTION_REQUIRE_LOGIN => t('Allow logged-in users'),
@@ -354,7 +355,7 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
             '#default_value' => isset($fb_user_data['map_account']) ? $fb_user_data['map_account'] : FB_USER_OPTION_MAP_ALWAYS,
             '#required' => TRUE,
       );
-    
+
     $form['fb_app_data']['fb_user']['unique_account'] =
       array('#type' => 'checkbox',
             '#title' => t('Make Account Mapping Unique (experimental, not recommended)'),
@@ -950,4 +951,3 @@ function fb_user_token_values($type = 'all', $object = NULL) {
   }
   return $values;
 }
-
