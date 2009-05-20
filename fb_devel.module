@@ -278,5 +278,39 @@ function fb_devel_info() {
   return $form;
 }
 
+function fb_devel_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'view') {
+    if (user_access('administer users') && user_access('access devel information')) {
+      $account->content['fb_devel'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Drupal for Facebook Devel'),
+        '#description' => t('Information from facebook API, visible only to administrators.'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+        '#weight' => 99,
+      );
+      foreach (fb_get_all_apps() as $app) {
+        $account->content['fb_devel'][$app->label] = array(
+          '#type' => 'fieldset',
+          '#title' => $app->title,
+        );
+        if ($fbu = fb_get_fbu($account, $app)) {
+          $fb = fb_api_init($app);
+          $info = fb_users_getInfo(array($fbu), $fb, TRUE);
+          $account->content['fb_devel'][$app->label]['info'] = array(
+            '#type' => 'markup',
+            '#value' => dprint_r($info[0], 1),
+          );
+        }
+        else {
+          $account->content['fb_devel'][$app->label]['info'] = array(
+            '#type' => 'markup',
+            '#value' => t('No mapping to a facebook account.'),
+          );
+        }
+      }
+    }
+  }
+}
 
 ?>
