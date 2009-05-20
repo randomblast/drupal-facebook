@@ -33,6 +33,9 @@ function fb_user_schema() {
                             'session_key_expires' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => FALSE, ),
           ),
           'primary key' => array('apikey', 'fbu'),
+          'unique keys' => array(
+            'apikey_uid' => array('apikey', 'uid'),
+          ),
     );
   
   return $schema;
