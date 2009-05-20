@@ -203,20 +203,19 @@ function fb_permission_form_alter(&$form, $state, $id) {
  */
 function fb_permission_fb($op, $data, &$return) {
   if ($op == FB_APP_OP_EVENT) {
-    dpm($data, "fb_permission_fb($op)");
-    watchdog('XXX', "fb_permission_fb($op) " . session_id() . " cookies " . dprint_r($_COOKIE, 1) . " request " . dprint_r($_REQUEST, 1));
-
-    // User has authorized the application.
-    $fb_app = $data['fb_app'];
-    $fb_app_data = fb_app_get_data($fb_app);
-    $fb_permission_data = $fb_app_data['fb_permission'];
-    
-    if (is_array($fb_permission_data['prompt'])) {
-      foreach ($fb_permission_data['prompt'] as $key => $value) {
-        if ($value) {
-          // http://wiki.developers.facebook.com/index.php/JS_API_M_FB.Connect.ShowPermissionDialog
-          $js = "FB.Connect.showPermissionDialog('$key')";
-          fb_connect_init_js($js); // Add javascript to the next page.
+    if ($data['event_type'] == FB_APP_EVENT_POST_AUTHORIZE) {
+      // User has authorized the application.
+      $fb_app = $data['fb_app'];
+      $fb_app_data = fb_app_get_data($fb_app);
+      $fb_permission_data = $fb_app_data['fb_permission'];
+      
+      if (is_array($fb_permission_data['prompt'])) {
+        foreach ($fb_permission_data['prompt'] as $key => $value) {
+          if ($value) {
+            // http://wiki.developers.facebook.com/index.php/JS_API_M_FB.Connect.ShowPermissionDialog
+            $js = "FB.Connect.showPermissionDialog('$key')";
+            fb_connect_init_js($js); // Add javascript to the next page.
+          }
         }
       }
     }
