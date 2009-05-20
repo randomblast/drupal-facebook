@@ -744,10 +744,13 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
                                                     'profile_update_time',
                                                     'proxied_email',
                                                     'status',
-                                                    ));
+                                                    'email_hashes',
+                                              ));
       // Update cache with recent results.
-      foreach($infos as $info) {
-        $_SESSION['fb'][$fb->api_key]['userinfo'][$info['uid']] = $info;
+      if (is_array($infos)) {
+        foreach($infos as $info) {
+          $_SESSION['fb'][$fb->api_key]['userinfo'][$info['uid']] = $info;
+        }
       }
     }
 
