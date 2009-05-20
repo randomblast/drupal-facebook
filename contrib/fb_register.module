@@ -1,0 +1,202 @@
+<?php
+
+/**
+ * @file Register User features
+ *
+ * http://wiki.developers.facebook.com/index.php/Linking_Accounts_and_Finding_Friends
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ * 
+ * Add our settings to each Facebook Application form.
+ */
+function fb_register_form_alter(&$form, &$form_state, $form_id) {
+  // Add our settings to the fb_app edit form.
+  if (is_array($form['fb_app_data'])) {
+    $node = $form['#node'];
+    $fb_app_data = fb_app_get_data($node->fb_app);
+    $fb_register_data = $fb_app_data['fb_register'];
+    
+    $form['fb_app_data']['fb_register'] = array('#type' => 'fieldset',
+                                                '#title' => t('Register Users'),
+                                                '#tree' => TRUE,
+                                                '#collapsible' => TRUE,
+                                                '#collapsed' => TRUE,
+    );
+    $form['fb_app_data']['fb_register']['register_users'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Register Local Users on Facebook'),
+      '#description' => t('Use <a target=_blank href=http://wiki.developers.facebook.com/index.php/Connect.registerUsers>Connect.registerUsers</a> to help map local accounts to Facebook accounts.  This will share information about your users with Facebook.'),
+      '#default_value' => $fb_register_data['register_users'],
+    );
+  }
+  
+}
+
+/**
+ * Implementation of hook_cron().
+ *
+ * Register users with Facebook during cron jobs.
+ */
+function fb_register_cron() {
+  $all_apps = fb_get_all_apps(); // All applications
+  $apps = array(); // The apps we register users for.
+  // Our bookkeeping is simplified by working with all apps as a unit.
+  // With this scheme we may re-register users, but we will not miss any.
+  // Most sites have only one app, the repeated registration is a non-issue.
+  foreach ($all_apps as $app) {
+    $fb_app_data = fb_app_get_data($app);
+    $fb_register_data = $fb_app_data['fb_register'];
+    if (is_array($fb_register_data) && $fb_register_data['register_users']) {
+      $apps[$app->api_key] = $app;
+    }
+  }
+  if (count($apps)) {
+    $cache = cache_get('fb_register_cron');
+    if (!$cache) {
+      $cache = new stdClass();
+      $cache->data = array('app_list' => '',
+                           'last_uid' => 0);
+    }
+    $app_list = implode(',', array_keys($apps));
+    if ($app_list == $cache->data['app_list']) {
+      // App list has not changed, keep going where last cron job left off.
+      $last_uid = $cache->data['last_uid'];
+    }
+    else {
+      // App list has changed.  Re-register all users.
+      $last_uid = 0;
+    }
+
+    // Get the next batch of users to register.
+    $limit = max(variable_get('fb_register_limit', 100), 1000); // Facebook's limit is 1000
+    $result = db_query("SELECT uid, mail from {users} WHERE uid > %d ORDER BY uid LIMIT %d, %d",
+                       $last_uid,
+                       0, $limit);
+    while ($account = db_fetch_object($result)) {
+      if ($account->mail) {
+        $hash = fb_register_email_hash($account->mail);
+        $register_data[] = array(
+          'email_hash' => $hash,
+          'account_url' => url('user/' . $account->uid, array('absolute' => TRUE)),
+        );
+        db_query("DELETE FROM {fb_register} WHERE uid=%d",
+                 $account->uid);
+        db_query("INSERT INTO {fb_register} (uid, email_hash) VALUES (%d, '%s')",
+                 $account->uid, $hash);
+      }
+      // Remember for next cron job
+      $last_uid = max($last_uid, $account->uid);
+    }
+    
+    if (count($register_data)) {
+      foreach ($apps as $app) {
+        $fb = fb_api_init($app);
+        $success_data = $fb->api_client->connect_registerUsers(json_encode($register_data));
+        if (fb_verbose()) {
+          watchdog('fb_register', '%application sent %num_sent email hashes to Facebook.  %num_returned were successfully registered.',
+                   array('%application' => $app->title,
+                         '%num_sent' => count($register_data),
+                         '%num_returned' => count($success_data),
+                   ));
+        }
+      }
+    }
+    // Remember for next cron job.
+    cache_set('fb_register_cron', array('last_uid' => $last_uid,
+                                        'app_list' => $app_list),
+              'cache', CACHE_PERMANENT);
+  }
+}
+
+/**
+ * Implementation of hook_user().
+ * 
+ * Register users whenever an email address may have changed.
+ */
+function fb_register_user($op, &$edit, &$account, $category = NULL) {
+  if ($op == 'delete') {
+    db_query("DELETE FROM {fb_register} WHERE uid = %d",
+             $account->uid);
+  }
+  else if ($op == 'insert' || $op == 'update') {
+    // Re-register on update, as mail address may have changed.
+    // Register on insert is optional.
+    if ($edit['mail']) {
+      $hash = fb_register_email_hash($edit['mail']);
+      $register_data = array(
+        array('email_hash' => $hash,
+              'account_url' => url('user/' . $account->uid, array('absolute' => TRUE)),
+        )
+      );
+      db_query("DELETE FROM {fb_register} WHERE uid = %d",
+               $account->uid);
+      db_query("INSERT INTO {fb_register} (uid, email_hash) VALUES (%d, '%s')",
+               $account->uid, $hash);
+      $apps = fb_get_all_apps();
+      foreach ($apps as $app) {
+        $fb_app_data = fb_app_get_data($app);
+        $fb_register_data = $fb_app_data['fb_register'];
+        if (is_array($fb_register_data) && $fb_register_data['register_users']) {
+          $fb = fb_api_init($app);
+          $success_data = $fb->api_client->connect_registerUsers(json_encode($register_data));
+          if (fb_verbose()) {
+            watchdog('fb_register', '%application sent email hash for !user.  Facebook returned %num_returned successfully registered.',
+                     array('%application' => $app->title,
+                           '!user' => l($edit['name'], 'user/' . $account->uid),
+                           '%num_returned' => count($success_data),
+                     ));
+          }
+        }
+      }
+    }
+  }
+}
+
+
+
+/**
+ * Implementation of hook_fb().  Here we customize the behavior of
+ * Drupal for Facebook.
+ *
+ * Here we detect whether the user has previously been registered.  If
+ * so, we map the facebook account to our local account.
+ */
+function fb_register_fb($op, $data, &$return) {
+  if ($op == FB_APP_OP_EVENT) {
+    if ($data['event_type'] == FB_APP_EVENT_POST_AUTHORIZE) {
+      // User has authorized the application.
+      $fbu = fb_facebook_user();
+      $info = fb_users_getInfo(array($fbu));
+      if (is_array($info[0]['email_hashes'])) {
+        $result = db_query("SELECT * FROM {fb_register} WHERE email_hash IN ('%s')",
+                           implode("','", $info[0]['email_hashes']));
+        if ($d = db_fetch_object($result)) {
+          // We found a mapping to a local user.
+          $account = user_load(array('uid' => $d->uid));
+          list($module, $authname) = _fb_user_get_authmap($data['fb_app'], $fbu);
+          user_set_authmaps($account, array($module => $authname));
+          if (fb_verbose()) {
+            watchdog('fb_register',
+                     'Mapping facebook %fbu to local account !user',
+                     array('%fbu' => $fbu,
+                           '!user' => l($account->name, 'user/'.$account->uid),
+                     ));
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Compute email hash as specified in http://wiki.developers.facebook.com/index.php/Connect.registerUsers
+ */
+function fb_register_email_hash($mail) {
+  $mail = strtolower(trim($mail));
+  $crc32 = sprintf('%u', crc32($mail));
+  $md5 = md5($mail);
+  $hash = $crc32 . '_' . $md5;
+  return $hash;
+}
