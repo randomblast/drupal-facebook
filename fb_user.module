@@ -142,7 +142,7 @@ function fb_user_fb($op, $data, &$return) {
           watchdog("fb_user", "fb_user_fb changing user to $account->uid");
           $user = $account; // change the global user
         }
-	else {
+	else if ($user->uid != $account->uid) {
 	  watchdog('fb_user', 'fb_user encountered something it cannot handle.  The current user, !user1 is logged in.  But the facebook user id %fbu is associated with another user, !user2',
                    array('!user1' => theme('username', $user),
                          '!user2' => theme('username', $account),
