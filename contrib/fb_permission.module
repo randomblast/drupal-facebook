@@ -9,6 +9,9 @@ function fb_permission_perm() {
   return array('edit own extended permissions');
 }
 
+/**
+ * Helper function for menu item access check.
+ */
 function fb_permission_access_own($account, $perm) {
   if (fb_facebook_user())
     return ($GLOBALS['user']->uid == $account->uid && user_access($perm));

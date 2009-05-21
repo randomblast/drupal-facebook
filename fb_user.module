@@ -436,6 +436,19 @@ function fb_user_get_proxied_email($fbu, $fb_app) {
   return $mail;
 }
 
+
+/**
+ * Helper function for menu item access check.
+ */
+function fb_user_access_own($account, $perm, $allow_admin) {
+  if ($GLOBALS['user']->uid == $account->uid && user_access($perm)) {
+    return TRUE;
+  }
+  else if ($allow_admin) {
+    return user_access('administer users');
+  }
+}
+
 /**
  * Implementation of hook_user.
  */
@@ -488,14 +501,13 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   
   // Add tabs on user edit pages to manage maps between local accounts and facebook accounts.
   if ($op == 'categories') {
-    if (user_access('administer users') ||
-        (user_access('delete own fb_user authmap') && $user->uid == $account->uid)) {
-      // A tab for administrators
-      $items[] = array('name' => 'fb_user',
-                       'title' => t('Facebook Applications'),
-                       'weight' => 1,
-      );
-    }
+    // A tab allowing authmaps to be changed.
+    $items[] = array('name' => 'fb_user',
+                     'title' => t('Facebook Applications'),
+                     'access callback' => 'fb_user_access_own',
+                     'access arguments' => array(1, 'delete own fb_user authmap', TRUE),
+                     'weight' => 1,
+    );
     return $items;
   }
   else if ($op == 'form' && $category == 'fb_user') {
@@ -550,9 +562,10 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
         );
         if ($info[$shared_fbu]) {
           $data = $info[$shared_fbu][0];
-          $fb_link = l($data['name'], 'http://www.facebook.com/profile.php', NULL, 'id='.$data['uid']);
+          $fb_link = l($data['name'], 'http://www.facebook.com/profile.php',
+                       array('query' => array('id' => $data['uid'])));
           
-          $form['map'][$shared_module]['#description'] .= t('Local account (!username) corresponds to !profile_page on Facebook.com.',
+          $form['map'][$shared_module]['#description'] .= t('Local account !username corresponds to !profile_page on Facebook.com.',
                                                               array('!username' => theme('username', $account),
                                                                     '!profile_page' => $fb_link));
         }
