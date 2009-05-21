@@ -135,8 +135,8 @@ function fb_feed_template_page($node) {
         }
     } 
     catch (Exception $e) {
-      dpm($fb, "fb");
-      dpm($fb->api_client, "api_client");
+      //dpm($fb, "fb");
+      //dpm($fb->api_client, "api_client");
       fb_log_exception($e, t('Failed to get template bundles.'));
       drupal_set_message(t('This page may show more information if you configure an infinite session or Facebook Connect.'));
     }
@@ -533,7 +533,13 @@ function fb_feed_show_dialog($label, $tokens, $options) {
   if (!isset($_SESSION['fb_feed_dialogs']))
     $_SESSION['fb_feed_dialogs'] = array();
   
-  $template = fb_feed_get_template_by_label($label);
+  // Accept either label or template as first param.
+  if (is_object($label)) {
+    $template = $label;
+  }
+  else {
+    $template = fb_feed_get_template_by_label($label);
+  }
  
   // Change token data structure.
   if (is_object($tokens) && is_array($tokens->tokens)) {
@@ -634,6 +640,18 @@ function fb_feed_action_info() {
       'user' => array('insert', 'update', 'delete', 'login', 'logout', 'custom'),                                      
     ),
   );
+  $items['fb_feed_action_show_dialog'] = array(
+    'type' => 'fb_feed_action_show_dialog',
+    'description' => t('Facebook Feed: show dialog'),
+    'configurable' => TRUE,
+    // Include 'custom' so third-party modules can define their own triggers.
+    'hooks' => array(
+      'nodeapi' => array('delete', 'insert', 'update', 'view', 'custom'),
+      'comment' => array('delete', 'insert', 'update', 'view', 'custom'),
+      'user' => array('insert', 'update', 'delete', 'login', 'logout', 'custom'),                                      
+    ),
+  );
+  
   
   return $items;
 }
@@ -648,6 +666,7 @@ function fb_feed_get_template_options() {
 }
 
 function fb_feed_action_publish_form($values) {
+  drupal_set_message(t('Note that Facebook recommends showFeedDialog over publishUserAction.  Consider using the show feed dialog action instead.'));
   // Allow user to choose amoung all available templates.
   $options = fb_feed_get_template_options();
   $form['description'] = array('#value' => t('Note that this action will only succeed when executed from a Facebook canvas page when the user is logged in, or on non-canvas pages when the local user has authorized offline access.  These are privacy restrictions enforced by the Facebook API.'));
@@ -680,10 +699,10 @@ function fb_feed_action_publish_validate($form_id, $values) {
   // TODO
 }
 
-function fb_feed_action_publish_submit($form_id, $values) {
+function fb_feed_action_publish_submit($form_id, $state) {
   $items = array();
   foreach (array('fb_feed_template_nid', 'token_enable') as $key) {
-    $items[$key] = $values[$key];
+    $items[$key] = $state['values'][$key];
   }
   return $items;
 }
@@ -796,6 +815,124 @@ function fb_feed_action_publish(&$context, $values = array()) {
   }
 
 }
+
+
+// show feed dialog action
+
+function fb_feed_action_show_dialog_form($values) {
+  // Allow user to choose from all available templates.
+  $options = fb_feed_get_template_options();
+  $form['description'] = array(
+    '#value' => t('Note that this action will only succeed when executed from a Facebook canvas page or Facebook Connect page when the user is logged in.  These are privacy restrictions enforced by the Facebook API.'));
+  $form['fb_feed_template_nid'] = array(
+    '#type' => 'select',
+    '#title' => t('Template'),
+    '#default_value' => $values['fb_feed_template_nid'],
+    '#options' => $options,
+    '#description' => t('Which template will we be using?'),
+    '#required' => TRUE,
+  );
+  
+  $form['token_enable'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Use token replacement'),
+    '#default_value' => $values['token_enable'],
+    '#description' => t('Use token module for template substitution.'),
+  );
+  
+  $form['user_message_prompt'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Prompt'),
+    '#description' => t('The label (which could be in the form of a question) that appears above the text box on the Feed form next to the Facebook-provided question, "What\'s on your mind?".'),
+    '#default_value' => $values['user_message_prompt'],
+  );
+  
+  $form['hook_help'] = array(
+    '#type' => 'markup',
+    '#value' => t('In addition to token replacement, <em>drupal_alter(\'fb_feed_show_dialog\', ...)</em> will be called before fb_feed_show_dialog.  This hook gives your custom module an opportunity to change any values before they are passed to Facebook\'s API.'),
+    '#prefix' => '<p>',
+    '#suffix' => '</p>',
+  );
+  return $form;
+}
+
+function fb_feed_action_show_dialog_validate($form_id, $values) {
+  // TODO
+}
+
+function fb_feed_action_show_dialog_submit($form_id, $state) {
+  $items = array();
+  foreach (array('fb_feed_template_nid', 'token_enable', 'user_message_prompt') as $key) {
+    $items[$key] = $state['values'][$key];
+  }
+  return $items;
+}
+
+function fb_feed_action_show_dialog(&$context, $values = array()) {
+  // Get the objects we're acting upon.
+  $objects = array();
+  if ($values['hook'] == 'nodeapi') {
+    $objects['node'] = $values['node'];
+  }
+  else if ($values['hook'] == 'comment') {
+    $objects['comment'] = $values['comment'];
+    $objects['node'] = node_load($values['comment']->nid);
+  }
+  else if ($values['hook'] == 'user') {
+    $account = $values['user'];
+    $objects['user'] = $account;
+  }
+  
+  // Get the template
+  $template = node_load($values['fb_feed_template_nid']);
+  // TODO: Sanity check that bundle has been registered with Facebook.
+  // And the app
+  $fb_app = fb_get_app(array('nid' => $template->fb_app_nid));
+  $objects['fb_app'] = $fb_app;
+  // TODO: Sanity check that apikeys match.
+  
+  // Params we will pass to alter hook, then to fb_feed_show_dialog
+  $params = array(
+    'template' => $template,
+    'tokens' => array(),
+    'options' => array(
+      'user_message_prompt' => $values['user_message_prompt'],
+    ),
+    'cancel' => FALSE, // Allow alter hook to cancel dialog.
+  );
+  
+  if ($values['token_enable']) {
+    // Use tokens for every kind of object we know about
+    foreach (array('node', 'comment', 'user', 'fb_app') as $type) {
+      if ($objects[$type]) {
+        $toks = token_get_values($type, $objects[$type], FALSE, $options);
+        //watchdog('fb_feed_debug', "token_get_values($type) returned " . dprint_r($toks, 1));
+        if ($toks && is_array($toks->tokens)) {
+          foreach ($toks->tokens as $i => $key)
+            $params['tokens'][$key] = $toks->values[$i];
+        }
+      }
+    }
+  }
+  
+  
+  // Invoke a hook so that other modules have a chance to modify the params before we pass them to facebook.
+  drupal_alter('fb_feed_show_dialog', $params,
+               array('context' => $context,
+                     'objects' => $objects));
+  
+  if (!$params['cancel']) {
+    fb_feed_show_dialog($params['template'], $params['tokens'], $params['options']);
+  }
+  
+}
+
+
+
+
+
+
+
 
 /**
  * Implementation of hook_fb_feed
