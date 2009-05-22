@@ -80,6 +80,6 @@ function fb_app_update_6202() {
   // canvas is too important, let's support it.
   $ret = array();
   db_add_field($ret, 'fb_app', 'canvas', array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ));
-  drupal_set_message(t('Further action required!  Edit and save each of your Facebook Applications nodes.  Even if you have made no changes, you must do this for each application which supports canvas pages.  Sorry for the inconvenience.'));
+  drupal_set_message(t('If any of your Facebook Applications support canvas pages, go to those applications, click edit and submit.  This must be done manually.  Sorry for the inconvenience.'));
   return $ret;
 }
