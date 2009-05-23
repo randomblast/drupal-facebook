@@ -1,0 +1,8 @@
+name = Friend Features
+description = Blocks for showing and inviting friends
+package = Drupal for Facebook Contrib
+core = 6.x
+dependencies[] = fb
+dependencies[] = fb_form
+dependencies[] = fb_app
+
