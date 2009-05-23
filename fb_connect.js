@@ -44,12 +44,31 @@ function fb_connect_init() {
 Drupal.behaviors.fb_connect = function() {
     // Support for easy fbml popup markup which degrades when javascript not enabled.
     // Markup is subject to change.  Currently...
-    // <div class=fb_connect_fbml_popup><a title="POPUP TITLE">LINK MARKUP</a><fb:SOME FBML>...</fb:SOME FBML></div>
-    $('div.fb_connect_fbml_popup').show().children().
-	bind('click', function(e) {
-	    popup = new FB.UI.FBMLPopupDialog($(this).attr('title'), $(this).next().html());
-	    popup.set_placement(FB.UI.PopupPlacement.topCenter);
-	    popup.show();
-	    e.preventDefault();
-	}).next().wrap('<div style="display: none;">');
+    // <div class=fb_connect_fbml_popup_wrap><a title="POPUP TITLE">LINK MARKUP</a><div class=fb_connect_fbml_popup><fb:SOME FBML>...</fb:SOME FBML><div></div>
+
+  $('div.fb_connect_fbml_popup').prev().each(
+    function() {
+      this.fbml_popup = $(this).next().html();
+      this.fbml_popup_width = parseInt($(this).next().attr('width'));
+      this.fbml_popup_height = parseInt($(this).next().attr('height'));
+      //alert("stored fbml_popup markup: " + this.fbml_popup); // debug
+      $(this).next().remove(); // Remove FBML so facebook does not expand it.
+    })
+  // Handle clicks on the link element.
+  .bind('click', 
+        function (e) {
+          //alert('Clicked!  Will show ' + this.fbml_popup); // debug
+          popup = new FB.UI.FBMLPopupDialog($(this).attr('title'), this.fbml_popup);
+          if (this.fbml_popup_width) {
+            popup.setContentWidth(this.fbml_popup_width);
+          }
+          if (this.fbml_popup_height) {
+            popup.setContentHeight(this.fbml_popup_height);
+          }
+          popup.set_placement(FB.UI.PopupPlacement.topCenter);
+          popup.show();
+          e.preventDefault();      
+        })
+  .parent().show();
+  
 }

@@ -42,6 +42,20 @@ function fb_connect_receiver() {
 }
 
 /**
+ * Returns an apikey, if the current page has facebook connect enabled.
+ */
+function fb_connect_current_apikey() {
+  // TODO: return false on canvas pages
+  if ($GLOBALS['fb_connect_apikey'])
+    // Learned apikey from cookies.
+    return $GLOBALS['fb_connect_apikey'];
+  else if ($apikey = variable_get('fb_connect_primary_apikey', NULL)) {
+    // Primary connect app.
+    return $apikey;
+  }
+}
+
+/**
  * Prepare for fbConnect use.  Because a single Drupal might support
  * multiple apps, we don't know in advance which is the fbConnect app.
  * Theoretically, it might be possible to simultaneously use multiple
@@ -543,10 +557,23 @@ function fb_connect_theme() {
         'fbu' => NULL,
        ),
     ),
+    'fb_connect_fbml_popup' => array(
+      'arguments' => array('elements' => NULL),
+    ),
   );
 }
 
 function theme_fb_connect_fbml_username($orig_username, $object, $fbu) {
   return '<span class=fb_connect_hide>'.$orig_username.'</span><span class=fb_connect_show style="display:none"><a href="'. url('user/' . $object->uid) . '"><fb:name linked=false useyou=false uid=' . $fbu . '></fb:name></a></span>';  
 }
-?>
+
+function theme_fb_connect_fbml_popup($elem) {
+  // Hide this markup until javascript shows it.
+  $t = '<div class="fb_connect_fbml_popup_wrap" style="display:none;" ' . ">\n";
+  
+  $t .= '<a href="#" title="' . check_plain($elem['#title']) . '">' . check_plain($elem['#link_text']) .'</a>';
+  $t .= '<div class="fb_connect_fbml_popup" ' . drupal_attributes($elem['#attributes']) . '>';
+  $t .= $elem['#children'];
+  $t .= "</div></div>\n";
+  return $t;
+}
