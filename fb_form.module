@@ -193,6 +193,8 @@ function fb_form_multi_add_invite_form() {
  * not produce a full form (i.e. never use
  * drupal_get_form('fb_form_request_form')).  The caller is expected to fill
  * out the rest of the form before returning it for use with drupal_get_form.
+ *
+ * DEPRECATED
  */
 function fb_form_request_form($config = array()) {
   global $fb, $fb_app; // only works on canvas pages.
@@ -474,7 +476,13 @@ function fb_form_theme() {
     'fb_form_multi_friend_selector' => array(
       'arguments' => array('elements' => NULL),
     ),
-    'fb_form_request_form' => array(
+    'fb_form_requestform' => array(
+      'arguments' => array('elements' => NULL),
+    ),
+    'fb_form_req_choice' => array(
+      'arguments' => array('elements' => NULL),
+    ),
+    'fb_form_serverfbml' => array(
       'arguments' => array('elements' => NULL),
     ),
   );
@@ -485,16 +493,40 @@ function theme_fb_form_multi_friend_selector($elements) {
   return $output;
 }
 
-function theme_fb_form_request_form($elements) {
+function theme_fb_form_requestform($elements) {
+  // content attribute is special.
+  if (is_array($elements['#attributes']['content'])) {
+    $elements['#attributes']['content'] = drupal_render($elements['#attributes']['content']);
+  }
   $output = "<fb:request-form " . drupal_attributes($elements['#attributes']) . ">". $elements['#children'] . "</fb:request-form>\n";
   return $output;
 }
 
-/**
- * Helper function allows alter hooks to wrap serverfbml on connect pages.
- */
-function fb_form_serverfbml_wrap(&$elements) {
-  $elements['#prefix'] = '<fb:serverfbml><script type="text/fbml">' . $elements['#prefix'];
-  $elements['#suffix'] .= '</script></fb:serverfbml>';
+function theme_fb_form_req_choice($elements) {
+  // This special tag has no children
+  $output = "<fb:req-choice " . drupal_attributes($elements['#attributes']) . " />\n";
+  return $output;
 }
 
+function theme_fb_form_serverfbml($elements) {
+  $output = '<fb:serverfbml><script type="text/fbml">' . drupal_attributes($elements['#attributes']) . $elements['#children'] . "</script></fb:serverfbml>\n";
+  return $output;
+}
+
+
+function fb_form_multi_selector($attrs = array()) {
+  $element = array('#type' => 'fb_form_multi_friend_selector',
+                   '#attributes' => $attrs,
+  );
+  return $element;
+}
+
+/**
+ * Helper function to build fb_form_request_form element.
+ */
+function fb_form_requestform($attrs = array()) {
+  $element = array('#type' => 'fb_form_requestform',
+                   '#attributes' => $attrs,
+  );
+  return $element;
+}
