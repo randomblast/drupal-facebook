@@ -540,41 +540,45 @@ function fb_feed_show_dialog($label, $tokens, $options) {
   else {
     $template = fb_feed_get_template_by_label($label);
   }
- 
-  // Change token data structure.
-  if (is_object($tokens) && is_array($tokens->tokens)) {
-    foreach ($tokens->tokens as $i => $key) {
-      $fb_tokens[$key] = $tokens->values[$i];
+
+  if ($template) {
+    // Change token data structure.
+    if (is_object($tokens) && is_array($tokens->tokens)) {
+      foreach ($tokens->tokens as $i => $key) {
+        $fb_tokens[$key] = $tokens->values[$i];
+      }
     }
+    else {
+      $fb_tokens = $tokens;
+    }
+  
+  
+    if (!isset($_SESSION['fb_feed_dialogs'][$template->apikey])) {
+      $_SESSION['fb_feed_dialogs'][$template->apikey] = array();
+    }
+    
+    $_SESSION['fb_feed_dialogs'][$template->apikey][] = array(
+      'fb_feed_nid' => $template->nid,
+      'apikey' => $template->apikey,
+      'bundle_id' => $template->bundle_id,
+      'tokens' => $fb_tokens,
+      'options' => $options,
+    );
   }
   else {
-    $fb_tokens = $tokens;
+    // TODO: log error.
   }
-  
-  
-  if (!isset($_SESSION['fb_feed_dialogs'][$template->apikey])) {
-    $_SESSION['fb_feed_dialogs'][$template->apikey] = array();
-  }
-  
-  $_SESSION['fb_feed_dialogs'][$template->apikey][] = array(
-    'fb_feed_nid' => $template->nid,
-    'apikey' => $template->apikey,
-    'bundle_id' => $template->bundle_id,
-    'tokens' => $fb_tokens,
-    'options' => $options,
-  );
 }
 
 function fb_feed_fb($op, $data, &$return) {
   if ($op == FB_OP_CONNECT_JS_INIT) {
     //$return[] = "alert('fb_feed_fb!');";
-    
+
     if (isset($_SESSION['fb_feed_dialogs']) && 
         isset($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey])) {
       // Use javascript to publish feed messages
       foreach ($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey] as $d) {
         // http://wiki.developers.facebook.com/index.php/JS_API_M_FB.Connect.ShowFeedDialog
-
         $args = array($d['bundle_id']);
         if ($d['tokens'])
           $args[] = json_encode($d['tokens']);
@@ -589,6 +593,9 @@ function fb_feed_fb($op, $data, &$return) {
           if (isset($d['options'][$key])) {
             if (in_array($key, array('require_connect', 'callback')))
               $args[] = $d['options'][$key]; // no json_encode
+            else if ($key == 'user_message' && is_string($d['options'][$key])) {
+              $args[] = '{value:' . json_encode($d['options'][$key]) . '}';
+            }
             else
               $args[] = json_encode($d['options'][$key]);
           } else
@@ -596,6 +603,8 @@ function fb_feed_fb($op, $data, &$return) {
         }
         $return[] = "FB.Connect.showFeedDialog(" . implode(',', $args) . ");";
       }
+      //dpm($return, 'fb_feed_fb debug');
+
       // remove displayed items from session
       unset($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey]);
     }
@@ -869,28 +878,8 @@ function fb_feed_action_show_dialog_submit($form_id, $state) {
 }
 
 function fb_feed_action_show_dialog(&$context, $values = array()) {
-  // Get the objects we're acting upon.
-  $objects = array();
-  if ($values['hook'] == 'nodeapi') {
-    $objects['node'] = $values['node'];
-  }
-  else if ($values['hook'] == 'comment') {
-    $objects['comment'] = $values['comment'];
-    $objects['node'] = node_load($values['comment']->nid);
-  }
-  else if ($values['hook'] == 'user') {
-    $account = $values['user'];
-    $objects['user'] = $account;
-  }
-  
   // Get the template
   $template = node_load($values['fb_feed_template_nid']);
-  // TODO: Sanity check that bundle has been registered with Facebook.
-  // And the app
-  $fb_app = fb_get_app(array('nid' => $template->fb_app_nid));
-  $objects['fb_app'] = $fb_app;
-  // TODO: Sanity check that apikeys match.
-  
   // Params we will pass to alter hook, then to fb_feed_show_dialog
   $params = array(
     'template' => $template,
@@ -900,6 +889,29 @@ function fb_feed_action_show_dialog(&$context, $values = array()) {
     ),
     'cancel' => FALSE, // Allow alter hook to cancel dialog.
   );
+  
+  // Get the objects we're acting upon.
+  $objects = array();
+  if ($values['hook'] == 'nodeapi') {
+    $objects['node'] = $values['node'];
+    $params['options']['user_message'] = check_plain($objects['node']->body);
+  }
+  else if ($values['hook'] == 'comment') {
+    $objects['comment'] = $values['comment'];
+    $objects['node'] = node_load($values['comment']->nid);
+    $params['options']['user_message'] = check_plain($objects['comment']->comment);
+  }
+  else if ($values['hook'] == 'user') {
+    $account = $values['user'];
+    $objects['user'] = $account;
+  }
+  
+  // TODO: Sanity check that bundle has been registered with Facebook.
+  // And the app
+  $fb_app = fb_get_app(array('nid' => $template->fb_app_nid));
+  $objects['fb_app'] = $fb_app;
+  // TODO: Sanity check that apikeys match.
+  
   
   if ($values['token_enable']) {
     // Use tokens for every kind of object we know about
@@ -920,7 +932,7 @@ function fb_feed_action_show_dialog(&$context, $values = array()) {
   drupal_alter('fb_feed_show_dialog', $params,
                array('context' => $context,
                      'objects' => $objects));
-  
+
   if (!$params['cancel']) {
     fb_feed_show_dialog($params['template'], $params['tokens'], $params['options']);
   }
