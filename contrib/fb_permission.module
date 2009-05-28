@@ -213,12 +213,16 @@ function fb_permission_fb($op, $data, &$return) {
       $fb_permission_data = $fb_app_data['fb_permission'];
       
       if (is_array($fb_permission_data['prompt'])) {
+        $perms = array();
         foreach ($fb_permission_data['prompt'] as $key => $value) {
           if ($value) {
-            // http://wiki.developers.facebook.com/index.php/JS_API_M_FB.Connect.ShowPermissionDialog
-            $js = "FB.Connect.showPermissionDialog('$key')";
-            fb_connect_init_js($js); // Add javascript to the next page.
+            $perms[] = $key;
           }
+        }
+        if (count($perms)) {
+          // http://wiki.developers.facebook.com/index.php/JS_API_M_FB.Connect.ShowPermissionDialog
+          $js = "FB.Connect.showPermissionDialog('" . implode(',', $perms) . "')";
+          fb_connect_init_js($js); // Add javascript to the next page.
         }
       }
     }
