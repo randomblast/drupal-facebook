@@ -46,7 +46,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       return;
 
     // Our blocks use current application
-    global $fb, $fbu;
+    global $fb, $fb_app;
 
     if ($delta == FB_FRIEND_DELTA_INVITE_PAGE) {
       // TODO: support canvas pages, in addition to connect pages.
@@ -86,8 +86,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       drupal_alter('fb_friend_invite_page_wrap', $xfbml);
       
       $content = drupal_render($xfbml);
-      dpm($xfbml);
-      dpm($content);
+
       return array('subject' => t('Invite friends to visit this page'),
                    'content' => $content,
       );
@@ -160,7 +159,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
         // Get list of friends who have authorized this app.
         $rs = $fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 AND uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)");
         
-        if (isset($rs)) {
+        if (isset($rs) && is_array($rs)) {
           foreach ($rs as $friend_data) {
             $friend_fbu = $friend_data['uid'];
             // TODO: make size and markup configurable
