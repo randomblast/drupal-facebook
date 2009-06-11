@@ -513,6 +513,78 @@ function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   }
 }
 
+
+/**
+ * Implementation of hook_theme_registry_alter().
+ *
+ * Override theme functions for things that can be displayed using
+ * XFBML.  Currently overriding username and user_picture.  We rename
+ * the original entries, as we will use them for users without
+ * javascript enabled.
+ *
+ * This hook is not well documented.  Who knows what its supposed to
+ * return?  No doubt this will need updating with each new version of
+ * Drupal.
+ */
+function fb_connect_theme_registry_alter(&$theme_registry) {
+  // Re-register the original theme function under a new name.
+  $theme_registry['fb_connect_username_orig'] = $theme_registry['username'];
+  // Override theme username
+  $theme_registry['username'] = array(
+    'arguments' => array('object' => NULL),
+    'function' => 'fb_connect_theme_username_override',
+  );
+
+  // Re-register the original theme function under a new name.
+  $theme_registry['fb_connect_user_picture_orig'] = $theme_registry['user_picture'];
+  // Override theme username
+  $theme_registry['user_picture'] = array(
+    'arguments' => array('account' => NULL),
+    'function' => 'fb_connect_theme_user_picture_override',
+  );
+  
+}
+
+/**
+ * Our replacement for theme('user_picture', ...)
+ */
+function fb_connect_theme_user_picture_override($account) {
+
+  // First learn the Facebook id
+  if ($account->fbu) {
+    $fbu = $account->fbu;
+  }
+  else if ($pos = strpos($account->name, '@facebook')) {
+    // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
+    
+    $fbu = substr($account->name, 0, $pos);
+  }
+  else {
+    // Experimental.  This can be expensive on pages with many comments or nodes!
+    //$fbu = fb_get_fbu($account->uid);
+  }
+
+  $orig = theme('fb_connect_user_picture_orig', $account); // Markup without fb_connect.
+  if (!isset($fbu) || !$fbu)
+    $output = $orig;
+  else {
+    $output = theme('fb_connect_fbml_user_picture', $orig, $account, $fbu);
+  }
+
+  return $output;
+  
+}
+
+/**
+ * Our replacement for theme('username', ...)
+ */
+function fb_connect_theme_username_override($object) {
+  // TODO: does this function need to account for canvas pages?  Or can we assume every canvas page theme will override theme_username on its own?
+
+  // Theme the username with XFBML, using original username as backup.
+  return fb_connect_fbml_username($object, theme('fb_connect_username_orig', $object));
+}
+
 /**
  * Helper function for themes to display the username.
  */
@@ -546,7 +618,10 @@ function fb_connect_fbml_username($object, $orig_username = NULL) {
 
 
 /**
- * Implements hook_theme.
+ * Implements hook_theme().
+ *
+ * We use theme function for XFBML username and picture so that the
+ * markup can be relatively easily customized.
  */
 function fb_connect_theme() {
   return array(
@@ -554,6 +629,13 @@ function fb_connect_theme() {
       'arguments' => array( 
         'orig_username' => NULL,
         'object' => NULL,
+        'fbu' => NULL,
+       ),
+    ),
+    'fb_connect_fbml_user_picture' => array(
+      'arguments' => array( 
+        'orig' => NULL,
+        'account' => NULL,
         'fbu' => NULL,
        ),
     ),
@@ -565,6 +647,16 @@ function fb_connect_theme() {
 
 function theme_fb_connect_fbml_username($orig_username, $object, $fbu) {
   return '<span class=fb_connect_hide>'.$orig_username.'</span><span class=fb_connect_show style="display:none"><a href="'. url('user/' . $object->uid) . '"><fb:name linked=false useyou=false uid=' . $fbu . '></fb:name></a></span>';  
+}
+
+function theme_fb_connect_fbml_user_picture($orig, $account, $fbu) {
+  $output = ''; // Build the markup.
+  // First, the markup if javascript is disabled, degrade gracefully.
+  if ($orig)
+    $output .= '<span class=fb_connect_hide>'.$orig.'</span>';
+  // Next markup that will be made visible by javascript.
+  $output .= '<span class="fb_connect_show" style="display:none"><div class="picture"><a href="'.url('user/' . $account->uid).'"><fb:profile-pic uid='.$fbu.' linked=false></fb:profile-pic></a></div></span>';
+  return $output;
 }
 
 function theme_fb_connect_fbml_popup($elem) {
