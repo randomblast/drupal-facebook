@@ -248,7 +248,7 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
       $fb->set_user($fbu, $session);
     }
     else if ($fbu && $fbu == $fb->get_loggedin_user()) {
-      // Canvas page, current user is logged in already.
+      // Canvas page or Connect page, current user is logged in already.
       // Nothing to do here.
     }
     else if ($fbu == FB_FBU_NO_SESSION) {
@@ -419,16 +419,20 @@ function fb_get_all_apps() {
 }
 
 /**
- * A convenience method for returning a list of facebook friends.  This should
- * work efficiently in canvas pages for finding friends of the current user.
- * In other cases it tries to work, but will be an expensive operation and
- * only succeed when the user has created an infinite session.
+ * A convenience method for returning a list of facebook friends.  
+ *
+ * This should work efficiently in canvas pages for finding friends of
+ * the current user.  In other cases it tries to work, but will be an
+ * expensive operation and only succeed when the user is logged in via
+ * Connect, or has created an infinite session.
  * 
  * @return: an array of facebook ids
  */
 function fb_get_friends($fbu, $fb_app = NULL) {
   static $cache = array();
-  
+  if (!$fb_app)
+    $fb_app = $GLOBALS['fb_app'];
+
   // Facebook only allows us to query the current user's friends, so let's try
   // to log in as that user.  It will only actually work if they are the
   // current user of a canvas page, or they've signed up for an infinite
