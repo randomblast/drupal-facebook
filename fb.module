@@ -6,6 +6,7 @@ define('FB_HOOK', 'fb');
 
 // Ops for hook_fb.
 define('FB_OP_GET_APP', 'get_app'); // Load data from a known app
+define('FB_OP_GET_ALL_APPS', 'get_all_apps'); // Load data about all apps
 
 define('FB_OP_CURRENT_APP', 'current_app'); // determine active app in canvas page or facebook connect
 define('FB_OP_INITIALIZE', 'init'); // 
