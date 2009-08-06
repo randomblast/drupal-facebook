@@ -573,7 +573,7 @@ function fb_canvas_process($output, $add_target = TRUE) {
       $replacements[] = '<fb:name uid=$1 linked=false ifcantsee="$1@facebook" useyou=false />';
       
     }
-    else {
+    else if (fb_canvas_is_iframe()) {
       // In iframe
       // Add target=_top so that entire pages do not appear within an iframe.
       // TODO: make these pattern replacements more sophisticated, detect whether target is already set.
