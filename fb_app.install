@@ -43,9 +43,9 @@ function fb_app_schema() {
   );
   $schema['fb_app_block'] = array(
     'fields' => array(
-      'nid' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+      'nid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
       'delta' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, ),
-      'format' => array('type' => 'int', 'length' => 11, 'default' => 0, ),
+      'format' => array('type' => 'int', 'default' => 0, ),
       'body' => array('type' => 'text', 'size' => 'big', 'not null' => TRUE, ),
     ),
     'primary key' => array('nid', 'delta'),

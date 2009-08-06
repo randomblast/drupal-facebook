@@ -21,16 +21,16 @@ function fb_user_uninstall() {
 
 
 function fb_user_schema() {
-  $schema['fb_user_app'] = 
+  $schema['fb_user_app'] =
     array('fields' => array('apikey' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
-                            'fbu' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'fbu' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
                             'uid' => array('type' => 'int', 'size' => 'normal', 'not null' => TRUE, ),
-                            'added' => array('type' => 'int', 'length' => 4, 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'added' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
                             'proxied_email' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
-                            'time_cron' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
-                            'time_access' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'time_cron' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'time_access' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
                             'session_key' => array('type' => 'varchar', 'length' => 255, 'not null' => FALSE, ),
-                            'session_key_expires' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => FALSE, ),
+                            'session_key_expires' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE, ),
           ),
           'primary key' => array('apikey', 'fbu'),
           'unique keys' => array(

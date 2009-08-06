@@ -11,7 +11,7 @@ function fb_register_uninstall() {
 function fb_register_schema() {
   $schema['fb_register'] = array(
     'fields' => array(
-      'uid' => array('type' => 'int', 'length' => 11, 'unsigned' => TRUE, 'not null' => TRUE),
+      'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
       'email_hash' => array('type' => 'varchar', 'length' => 255),
     ),
     'primary_key' => array('uid'),

@@ -1,22 +1,39 @@
 <?php
-function fb_feed_install() {
-  switch ($GLOBALS['db_type']) {
-    case 'mysql':
-    case 'mysqli':
-      db_query("
-CREATE TABLE IF NOT EXISTS {fb_feed_template} (
-nid int(11) unsigned NOT NULL,
-fb_app_nid int(11) unsigned NOT NULL,
-label varchar(128) NOT NULL,
-apikey varchar(128) NOT NULL,
-bundle_id BIGINT UNSIGNED NOT NULL,
-fb_feed_data longtext,
-PRIMARY KEY (nid),
-UNIQUE KEY (label)
-) /*!40100 DEFAULT CHARACTER SET UTF8 */;
-");
-  }
 
+/**
+ * hook_install()
+ */
+function fb_feed_install() {
+  // Create tables.
+  drupal_install_schema('fb_feed');
+}
+
+/**
+ * hook_uninstall()
+ */
+function fb_feed_uninstall() {
+  // Remove tables.
+  drupal_uninstall_schema('fb_feed');
+}
+
+function fb_feed_schema() {
+  $schema['fb_feed_template'] = array(
+    'description' => 'Main FB_APP table',
+    'fields' => array(
+      'nid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
+      'fb_app_nid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
+      'label' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+      'apikey' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
+      'bundle_id' => array('type' => 'int', 'size' => 'big', 'unsigned' => TRUE, 'not null' => TRUE, ),
+      'fb_feed_data' => array('type' => 'text', 'size' => 'big', ),
+    ),
+    'unique keys' => array(
+      'apikey' => array('label'),
+    ),
+    'primary key' => array('nid'),
+  );
+
+  return $schema;
 }
 
 /**
