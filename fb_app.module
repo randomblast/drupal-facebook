@@ -166,7 +166,7 @@ function fb_app_form(&$node, &$param) {
                                    '#title' => t('Label'),
                                    '#required' => TRUE,
                                    '#default_value' => $node->fb_app->label,
-                                   '#description' => t('Used behind the scenes, for naming roles, styles, etc.  Use no spaces or weird characters.'),
+                                   '#description' => t('Used behind the scenes, for naming roles, styles, etc.  Use no spaces or weird characters.<br/>Working with multiple copies of a site (i.e. development, staging, production)?  Use the <strong>same</strong> label for each.  Node id and apikey will change from server to server, but the label remains the same.'),
   );
   $form['fb_app']['apikey'] = array('#type' => 'textfield',
                                     '#title' => t('API Key'),
