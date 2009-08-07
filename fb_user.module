@@ -126,7 +126,7 @@ function fb_user_fb($op, $data, &$return) {
     // or could be they clicked a fbConnect link.
     
     $fbu = $data['fbu']; // The user id on facebook.
-    
+
     // Remember the original uid
     $original_uid = $user->uid;
     
@@ -458,18 +458,18 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   
   // If form posted from an FBML canvas page, we learn the app and fbu from the post.
   // TODO: do we need additional validation here? (i.e. an fb_api_init to confirm the facebook params?)
-  if ($_REQUEST['fb_sig']) {
+  if (!empty($_REQUEST['fb_sig'])) {
     //watchdog('debug', dprint_r($_REQUEST, 'fb_user_user request'));
     $fb_app = fb_get_app(array('apikey' => $_REQUEST['fb_sig_api_key']));
     $fbu = $_REQUEST['fb_sig_user'];
   }
-  else if ($GLOBALS['fb']) {
+  else if (!empty($GLOBALS['fb'])) {
     // Post from iframe, or facebook connect page, or canvas page.
     $fbu = fb_facebook_user();
     $fb_app = $GLOBALS['fb_app'];
   }
   
-  if ($fb_app && $op == 'load' && $account->uid) {
+  if (!empty($fb_app) && $op == 'load' && $account->uid) {
     if (!$account->mail) {
       // Use proxied email, if facebook app is active and user uses it.
       // TODO: confirm drupal never saves proxied address to users.mail.
@@ -478,7 +478,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     }
   }
 
-  if ($fb_app && $op == 'insert' || $op == 'login') {
+  if (!empty($fb_app) && $op == 'insert' || $op == 'login') {
     // A facebook user has logged in.  We can map the two acounts together.
     $fb_app_data = fb_app_get_data($fb_app);
     $fb_user_data = $fb_app_data['fb_user']; // our configuration
