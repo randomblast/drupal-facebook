@@ -23,7 +23,7 @@ function fb_user_uninstall() {
 function fb_user_schema() {
   $schema['fb_user_app'] =
     array('fields' => array('apikey' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
-                            'fbu' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
+                            'fbu' => array('type' => 'int', 'size' => 'big', 'not null' => TRUE, ),
                             'uid' => array('type' => 'int', 'size' => 'normal', 'not null' => TRUE, ),
                             'added' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
                             'proxied_email' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
@@ -85,6 +85,23 @@ function fb_user_update_6002() {
   $ret[] = update_sql("ALTER TABLE {fb_user_app} CHANGE session_key session_key varchar(255)");
   // Allow NULL
   $ret[] = update_sql("ALTER TABLE {fb_user_app} CHANGE session_key_expires session_key_expires int(11)");
+  return $ret;
+}
+
+function fb_user_update_6004() {
+  $ret = array();
+
+  // Increase FBU to 64 bit as per announcement at http://developers.facebook.com/news.php?blog=1&story=226
+  db_drop_primary_key($ret, 'fb_user_app');
+  db_change_field($ret, 'fb_user_app', 'fbu', 'fbu', array(
+    'type' => 'int',
+    'size' => 'big',
+    'not null' => TRUE
+  ),
+  array(
+    'primary key' => array('apikey', 'fbu')
+  ));
+
   return $ret;
 }
 ?>
