@@ -170,8 +170,7 @@ function fb_register_fb($op, $data, &$return) {
       $fbu = fb_facebook_user();
       $info = fb_users_getInfo(array($fbu));
       if (is_array($info[0]['email_hashes'])) {
-        $result = db_query("SELECT * FROM {fb_register} WHERE email_hash IN ('%s')",
-                           implode("','", $info[0]['email_hashes']));
+        $result = db_query("SELECT * FROM {fb_register} WHERE email_hash IN (".db_placeholders($info[0]['email_hashes'], 'varchar').")", $info[0]['email_hashes']);
         if ($d = db_fetch_object($result)) {
           // We found a mapping to a local user.
           $account = user_load(array('uid' => $d->uid));
