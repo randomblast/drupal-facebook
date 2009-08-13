@@ -262,12 +262,19 @@ function fb_user_fb($op, $data, &$return) {
     
     if ($event_type == FB_APP_EVENT_POST_AUTHORIZE) {
       // User has authorized us to know some details about her.
-      db_query("REPLACE INTO {fb_user_app} (apikey, fbu, uid, added, session_key, session_key_expires, time_cron, time_access) VALUES ('%s', %d, %d, 1, '%s', %d, %d, %d)",
-               $fb_app->apikey, fb_facebook_user($fb),
+      $fbu = fb_facebook_user($fb);
+      $proxied_email = fb_user_get_proxied_email($fbu, $fb_app);
+      
+      // If user has authorized then later removed, there will be a row we can replace
+      db_query("DELETE FROM {fb_user_app} WHERE apikey = '%s' AND fbu = %d", $fb_app->apikey, $fbu);
+      
+      db_query("INSERT INTO {fb_user_app} (apikey, fbu, uid, added, session_key, session_key_expires, time_cron, time_access, proxied_email) VALUES ('%s', %d, %d, 1, '%s', %d, %d, %d, '%s')",
+               $fb_app->apikey, $fbu,
                $user->uid ? $user->uid : 0,
                $fb->api_client->session_key, $fb->session_expires,
                0, // time_cron
-               time() // time_access
+               time(), // time_access
+               $proxied_email
       );
     }
     else if ($event_type == FB_APP_EVENT_POST_REMOVE) {
