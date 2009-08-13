@@ -453,7 +453,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
         $content = $defaults['user_not_connected']['body'];
       } else if ($GLOBALS['user']->uid == 1) {
         $subject = $defaults['user_not_connected']['title'];
-        $content = '<em>' . t('This block would normally show a Facebook Connect button.  This feature is disabled, because you are logged in as user #1.') . '</em>';
+        $content = '<em>' . t('This block would normally show a Facebook Connect button.  This feature is disabled for security because you are logged in as user #1.') . '</em>';
       } else {
         $subject = $defaults['anon_not_connected']['title'];
         $content = $defaults['anon_not_connected']['body'];
