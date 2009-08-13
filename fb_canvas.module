@@ -526,7 +526,9 @@ function fb_canvas_process($output, $add_target = TRUE) {
     $page_type = fb_settings(FB_SETTINGS_PAGE_TYPE);
     $nid = $fb_app->nid;
     $base_before_rewrite = '';
-    $base = $base_path . fb_settings_url_rewrite_outbound($base_before_rewrite, NULL, NULL);  // short URL with rewrite applied.
+    $rewrite_options = array();
+    $base = $base_path . fb_url_alter_outbound($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.
+
     if (fb_canvas_is_fbml()) {
       //dpm($output, "before fb_canvas_process");
       // We're producing FBML for a canvas page
