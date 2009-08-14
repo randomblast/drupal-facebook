@@ -347,6 +347,29 @@ function fb_canvas_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   }
 }
 
+
+/**
+ * Implementation of hook_footer().
+ *
+ * Invoke FB_OP_CANVAS_FBJS_INIT, allowing other modules to insert
+ * FBJS to the current page.
+ */
+function fb_canvas_footer($main = 0) {
+  if (fb_canvas_is_fbml()) {
+    // Add FBJS only to FBML pages.
+    global $fb, $fb_app;
+    $data = array('fb' => $fb, 'fb_app' => $fb_app);
+    $extra = fb_invoke(FB_OP_CANVAS_FBJS_INIT, $data, array());
+    //dpm($extra, "FB_OP_CANVAS_FBJS_INIT returning"); // XXX
+    if (count($extra)) {
+      $extra_js = implode("\n", $extra);
+      fb_add_js('', ''); // prime javascript
+      drupal_add_js($extra_js, 'inline', 'fbml');
+    }
+  }
+}
+
+
 function fb_canvas_is_fbml() {
   global $fb, $fb_app;
   if ($fb && $fb_app) {

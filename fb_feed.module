@@ -3,13 +3,13 @@
 /**
  * @file
  * 
- * Helpers for Facebook feeds (http://wiki.developers.facebook.com/index.php/New_Design_Feed_Wall)
+ * Helpers for Facebook feeds
+ * (http://wiki.developers.facebook.com/index.php/New_Design_Feed_Wall)
  */
 
-define('FB_FEED_LINES_PER_BUNDLE', 3);
-define('FB_FEED_SHORTS_PER_BUNDLE', 3);
-define('FB_FEED_FULLS_PER_BUNDLE', 1); // Facebook allows only 1
-
+// Facebook used to support multiple messages per bundle, now only one.
+define('FB_FEED_LINES_PER_BUNDLE', 1);
+define('FB_FEED_SHORTS_PER_BUNDLE', 1);
 
 define('FB_FEED_NODE_TYPE_TEMPLATE', 'fb_feed_template');
 
@@ -244,7 +244,7 @@ function fb_feed_form(&$node, &$param) {
                          '#title' => t('Label'),
                          '#required' => TRUE,
                          '#default_value' => $node->label,
-                         '#description' => t('Used to refer to this template programmatically.  Use only alphanumeric characters.  Make each label unique.'),
+                         '#description' => t('Used to refer to this template programmatically.  Use only alphanumeric characters.<br/>When hosting an application on both dev and production servers, use the same labels.  Bundle ids, apikeys and so on must change between servers, so custom code must rely on this label.  On any single server, each label must be unique.'),
                          '#weight' => -5,
   );
 
@@ -283,7 +283,9 @@ function fb_feed_form(&$node, &$param) {
   
   $form['fb_feed_data']['example'] =
     array('#type' => 'markup',
-          '#value' => t('Here\'s an example that produces a message like "<em>User Name</em> wrote about <em>something</em> on <em>application</em>," where <em>something</em> is the title of a node:<br/><em>{*actor*} wrote about {*title*} on {*fb-app-title*}</em>'),
+          '#value' => t('Here\'s an example that produces a message like "<em>User Name</em> wrote about <em>something</em> on <em>application</em>," where <em>something</em> is the title of a node:<br/><em>{*actor*} wrote about {*fb-feed-canvas-node-link*} on {*fb-feed-canvas-app-link*}</em>'),
+          '#prefix' => '<p>',
+          '#suffix' => '</p>',
     );
 
   $form['fb_feed_data']['line'] = array('#type' => 'fieldset',
@@ -328,39 +330,32 @@ function fb_feed_form(&$node, &$param) {
   }
   $form['fb_feed_data']['short'][0]['template_title']['#title'] = t('Primary short template title');
   $form['fb_feed_data']['short'][0]['template_body']['#title'] = t('Primary short template body');
-  
-  $form['fb_feed_data']['full'] = array('#type' => 'fieldset',
-                                         '#title' => t('Full template'),
-                                         '#description' => t(''),
-                                         '#collapsible' => TRUE,
-  );
-  $form['fb_feed_data']['full']['template_title'] = 
-    array('#type' => 'textfield',
-          '#title' => t('Full template title'),
-          '#default_value' => $node->fb_feed_data['full']['template_title'],
-    );
-  $form['fb_feed_data']['full']['template_body'] = 
-    array('#type' => 'textarea',
-          '#title' => t('Full template body'),
-          '#default_value' => $node->fb_feed_data['full']['template_body'],
-          '#rows' => 8,
-    );
 
-  // TODO: If token module enabled
-  $form['token_help'] = array('#type' => 'fieldset',
-                              '#collapsible' => TRUE,
-                              '#collapsed' => FALSE,
-                              '#title' => t("Token help"),
-                              '#description' => t('Facebook uses the special token {*actor*} for the user performing an action, and {*target*} when the action applies to one (or more) of actor\'s friends.  Otherwise, It is recommended to name your tokens as you would with the token module.  Remember that in Facebook templates you use {*<em>token</em>*} syntax.'),
-  );
-  foreach (array('node', 'comment', 'user', 'fb_app') as $type) {
-    $form['token_help'][$type] =
-      array('#type' => 'fieldset',
-            '#collapsible' => TRUE,
-            '#collapsed' => TRUE,
-            '#title' => t("!type tokens", array('!type' => $type)),
-            '#description' => theme('token_help', $type, "{*", "*}"),
-      );
+
+  // TODO: add action links http://wiki.developers.facebook.com/index.php/Feed.registerTemplateBundle
+
+  if (module_exists('token')) {
+    $form['token_help'] = array('#type' => 'fieldset',
+                                '#collapsible' => TRUE,
+                                '#collapsed' => FALSE,
+                                '#title' => t("Token help"),
+                                '#description' => t('Facebook uses the special token <em>{*actor*}</em> for the user performing an action.  Another special token is <em>{*target*}</em>, which should only be used by expert users, as Facebook often fails to publish messages with the <em>{*target*}</em> token.'),
+    );
+    $form['token_help']['warning'] = array(
+      '#type' => 'markup',
+      '#value' => t('<strong>Bugs in FBJS may prevent token substitution from working on canvas pages.</strong>  Facebook Connect pages are OK, but problems have been reported on FBML canvas pages when publishing messages with token substitution.'),
+      '#prefix' => '<p>',
+      '#suffix' => '</p>',
+    );
+    foreach (array('node', 'comment', 'user', 'fb_app') as $type) {
+      $form['token_help'][$type] =
+        array('#type' => 'fieldset',
+              '#collapsible' => TRUE,
+              '#collapsed' => TRUE,
+              '#title' => t("!type tokens", array('!type' => $type)),
+              '#description' => theme('token_help', $type, "{*", "*}"),
+        );
+    }
   }
 
 
@@ -570,70 +565,80 @@ function fb_feed_show_dialog($label, $tokens, $options) {
   }
 }
 
+/**
+ * Implementation of hook_fb().
+ */
 function fb_feed_fb($op, $data, &$return) {
-  if ($op == FB_OP_CONNECT_JS_INIT) {
-    //$return[] = "alert('fb_feed_fb!');";
-
+  if ($op == FB_OP_CONNECT_JS_INIT || $op == FB_OP_CANVAS_FBJS_INIT) {
+    // This is our chance to add feed dialog to the current page.
+    
     if (isset($_SESSION['fb_feed_dialogs']) && 
         isset($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey])) {
       // Use javascript to publish feed messages
       foreach ($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey] as $d) {
-        // http://wiki.developers.facebook.com/index.php/JS_API_M_FB.Connect.ShowFeedDialog
-        $args = array($d['bundle_id']);
-        if ($d['tokens'])
-          $args[] = json_encode($d['tokens']);
-        foreach (array('target_ids' => 'null', 
-                       'body_general' => 'null',
-                       'story_size' => 'null',
-                       'require_connect' => 'null',
-                       'callback' => 'null',
-                       'user_message_prompt' => 'null',
-                       'user_message' => 'null',
-                 ) as $key => $default) {
-          if (isset($d['options'][$key])) {
-            if (in_array($key, array('require_connect', 'callback')))
-              $args[] = $d['options'][$key]; // no json_encode
-            else if ($key == 'user_message' && is_string($d['options'][$key])) {
-              $args[] = '{value:' . json_encode($d['options'][$key]) . '}';
-            }
-            else
-              $args[] = json_encode($d['options'][$key]);
-          } else
-            $args[] = $default;
+        
+        // Note that FB.Connect.ShowFeedDialog and Facebook.showFeedDialog take different parameters.  Thanks, facebook!
+        
+        if ($op == FB_OP_CONNECT_JS_INIT) {
+          // http://wiki.developers.facebook.com/index.php/JS_API_M_FB.Connect.ShowFeedDialog
+          $args = array($d['bundle_id']);
+          foreach (array('template_data' => '{}',
+                         'target_ids' => 'null', 
+                         'body_general' => 'null',
+                         'story_size' => 'null',
+                         'require_connect' => 'null',
+                         'callback' => 'null',
+                         'user_message_prompt' => 'null',
+                         'user_message' => 'null',
+                   ) as $key => $default) {
+            if (isset($d['options'][$key])) {
+              if (in_array($key, array('require_connect', 'callback')))
+                $args[] = $d['options'][$key]; // no json_encode
+              else if ($key == 'user_message' && is_string($d['options'][$key])) {
+                $args[] = '{value:' . json_encode($d['options'][$key]) . '}';
+              }
+              else
+                $args[] = json_encode($d['options'][$key]);
+            } else
+              $args[] = $default;
+          }
+          $return[] = "FB.Connect.showFeedDialog(" . implode(',', $args) . ");";
         }
-        $return[] = "FB.Connect.showFeedDialog(" . implode(',', $args) . ");";
+        else if ($op == FB_OP_CANVAS_FBJS_INIT) {
+          // http://wiki.developers.facebook.com/index.php/Facebook.showFeedDialog
+          $args = array($d['bundle_id']);
+          foreach (array('template_data' => 'null',
+                         'body_general' => 'null',
+                         'target_id' => 'null',  // note target_id int
+                         'continuation' => 'null',
+                         'user_message_prompt' => 'null',
+                         'user_message' => 'null',
+                   ) as $key => $default) {
+            if (isset($d['options'][$key])) {
+              if (in_array($key, array('continuation')))
+                $args[] = $d['options'][$key]; // no json_encode
+              else if ($key == 'user_message' && is_string($d['options'][$key])) {
+                $args[] = '{value:' . json_encode($d['options'][$key]) . '}';
+              }
+              else
+                $args[] = json_encode($d['options'][$key]);
+            } else
+              $args[] = $default;
+          }
+          dpm($args, "Facebook.showFeedDialog args");
+          dpm($d, "Facebook.showFeedDialog data");
+          $return[] = "Facebook.showFeedDialog(" . implode(",\n", $args) . ");";
+          
+        }
       }
       //dpm($return, 'fb_feed_fb debug');
-
+      
       // remove displayed items from session
       unset($_SESSION['fb_feed_dialogs'][$data['fb_app']->apikey]);
     }
   }
 }
 
-function fb_feed_init() {
-  // insert FBJS to show feed dialog.  Ideally this would be done right before a page is rendered, not in init.
-  // In Drupal 6 this code should be moved to a preprocess_page hook.
-
-  global $fb, $fb_app;
-  if ($fb && $fb->in_fb_canvas()) {
-    if (isset($_SESSION['fb_feed_dialogs'][$fb_app->apikey])) {
-      foreach ($_SESSION['fb_feed_dialogs'][$fb_app->apikey] as $d) {
-        // calling http://wiki.developers.facebook.com/index.php/Facebook.showFeedDialog
-        $args = array($d['bundle_id']);
-        if ($d['tokens'])
-          $args[] = json_encode($d['tokens']);
-        foreach (array('body_general', 'target_id') as $key) {
-          if ($d['options'][$key])
-            $args[] = json_encode($d['options'][$key]);          
-        }
-        $js = "Facebook.showFeedDialog(" . implode(',', $args) . ");";
-        drupal_add_js($js, 'inline', 'fbml', FALSE, FALSE);
-      }
-      unset($_SESSION['fb_feed_dialogs'][$fb_app->apikey]);
-    }
-  }
-}
 
 //// Feed Actions
 function fb_feed_action_info() {
@@ -846,13 +851,13 @@ function fb_feed_action_show_dialog_form($values) {
     '#type' => 'checkbox',
     '#title' => t('Use token replacement'),
     '#default_value' => $values['token_enable'],
-    '#description' => t('Use token module for template substitution.'),
+    '#description' => t('Use token module for template substitution. <br/><strong>Bugs in FBJS may cause cryptic errors when publishing feed dialogs on canvas pages.</strong>  This feature will work with Facebook Connect.  On FBML canvas pages your mileage may vary.  If problems arise, leave this unchecked and implement hook_fb_feed_show_dialog_alter() instead.'),
   );
   
   $form['user_message_prompt'] = array(
     '#type' => 'textfield',
     '#title' => t('Prompt'),
-    '#description' => t('The label (which could be in the form of a question) that appears above the text box on the Feed form next to the Facebook-provided question, "What\'s on your mind?".'),
+    '#description' => t('The label (which could be in the form of a question) that appears above the text box on the Feed form next to the Facebook-provided default, "Write Something..."'),
     '#default_value' => $values['user_message_prompt'],
   );
   
@@ -921,7 +926,7 @@ function fb_feed_action_show_dialog(&$context, $values = array()) {
         //watchdog('fb_feed_debug', "token_get_values($type) returned " . dprint_r($toks, 1));
         if ($toks && is_array($toks->tokens)) {
           foreach ($toks->tokens as $i => $key)
-            $params['tokens'][$key] = $toks->values[$i];
+            $params['options']['template_data'][$key] = $toks->values[$i];
         }
       }
     }
@@ -932,7 +937,7 @@ function fb_feed_action_show_dialog(&$context, $values = array()) {
   drupal_alter('fb_feed_show_dialog', $params,
                array('context' => $context,
                      'objects' => $objects));
-
+  
   if (!$params['cancel']) {
     fb_feed_show_dialog($params['template'], $params['tokens'], $params['options']);
   }
@@ -986,6 +991,74 @@ function fb_feed_get_template_by_label($label) {
   $result = db_query("SELECT fbf.*, n.title FROM {fb_feed_template} fbf INNER JOIN {node} n ON n.nid = fbf.nid WHERE n.status=1 AND fbf.label='%s'",
                      $label);
   return db_fetch_object($result);
+}
+
+/**
+ * Implementation of hook_fb_feed_show_dialog_alter()
+ * 
+ * This is called before a feed dialog is shown.  Here we provide some
+ * of the most commonly used tokens.
+ *
+ */
+function fb_feed_fb_feed_show_dialog_alter(&$params, $data) {
+  // TODO: this function is canvas-centric.  Need to add Facebook Connect support.
+
+  // Uncomment the dpm() function to see what's getting passed to this function.  Useful when implementing/debugging.
+  //dpm(func_get_args(), "fb_feed_fb_feed_show_dialog_alter");
+  
+  // Due to bugs in facebook's FBJS, we can't rely on token substitution.  So we must provide values for all our feed template tokens here.
+  
+  if ($fb_app = $data['objects']['fb_app']) {
+    if ($fb_app->canvas) {
+      $params['options']['template_data']['fb-feed-canvas-app-link'] = l($fb_app->title,
+                                                       'http://apps.facebook.com/'.$fb_app->canvas);
+    }
+    
+    // Image TODO
+    /**
+    $params['options']['template_data']['images'] = array(
+      array('src' => IMAGE URL HERE XXX
+            'href' => 'http://apps.facebook.com/' . $fb_app->canvas,
+      ),
+    );
+    **/
+    // $data['objects']['node'] is set if the Action was triggered by a node event.
+    if ($node = $data['objects']['node']) {
+      if ($fb_app->canvas) {
+        $params['options']['template_data']['fb-feed-canvas-node-link'] = l($node->title,
+                                                                           'http://apps.facebook.com/'.$fb_app->canvas . '/node/' . $node->nid);
+      }
+      $params['options']['template_data']['fb-feed-node-teaser'] = check_plain($node->teaser);
+      
+      // Add some text which the user can edit...
+      $params['options']['user_message'] = check_plain($node->teaser);
+    }
+    
+    // $data['objects']['comment'] is set if the Action was triggered by a comment event.
+    // Optionally add a target, the facebook user id of the original poster.
+    // Note that facebook will not publish a message when target and actor are the same person!
+    if ($comment = $data['objects']['comment']) {
+      // Add some text which the user can edit...
+      $params['options']['user_message'] = check_plain($comment->comment);
+
+      // Facebook's {*target*} token is extremely unreliable.  Here's a rough approximation.
+      $target_fbu = fb_get_fbu($node->uid);
+      if ($target_fbu) {
+        $params['options']['template_data']['fb-feed-node-author'] = "<fb:name uid=$target_fbu></fb:name>";
+      }
+      /** TARGETS ARE EXTREMELY TRICKY IN FACEBOOK.  RECOMMEND NEVER USING!
+      $target_fbu = fb_get_fbu($node->uid);
+      if ($target_fbu) {
+        $params['options']['target_id'] = $target_fbu;
+        }
+      **/
+    }
+    
+  }
+  
+  // If the code in this function determines that the template should not be published, simply set $params['cancel'] = TRUE.
+
+  //dpm($params, "fb_feed_fb_feed_show_dialog_alter returning");
 }
 
 ?>

@@ -24,7 +24,8 @@ define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has aut
 define('FB_OP_SET_PROPERTIES', 'set_props'); // build props for admin.setAppProperties
 define('FB_OP_LIST_PROPERTIES', 'list_props'); // list of known properties for admin.getAppProperties
 
-define ('FB_CONNECT_OP_JS_INIT', 'fb_connect_js_init'); // A chance to customize fbConnect javascript
+define('FB_OP_CONNECT_JS_INIT', 'fb_connect_js_init'); // A chance to customize fbConnect javascript
+define('FB_OP_CANVAS_FBJS_INIT', 'fb_canvas_js_init'); // A chance to customize FBJS.
 
 // node_access realms (belongs here?)
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
