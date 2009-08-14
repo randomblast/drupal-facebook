@@ -1,7 +1,7 @@
 <?php
 
 function fb_devel_menu() {
-  $items['fb/debug'] = array(
+  $items['fb/devel'] = array(
     'page callback' => 'fb_devel_page',
     'type' => MENU_CALLBACK,
     'access callback' => TRUE, /* TODO: restrict access */
