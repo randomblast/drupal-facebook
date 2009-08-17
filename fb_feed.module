@@ -290,7 +290,7 @@ function fb_feed_form(&$node, &$param) {
 
   $form['fb_feed_data']['line'] = array('#type' => 'fieldset',
                                         '#title' => t('One-line templates'),
-                                        '#description' => t('Note that all one-line templates must begin with the {*actor*} token.'),
+                                        '#description' => t('Note that one-line templates must begin with the {*actor*} token.'),
                                         '#collapsible' => TRUE,
   );
   $i = 0;
@@ -302,7 +302,7 @@ function fb_feed_form(&$node, &$param) {
       );
     $i++;
   }
-  $form['fb_feed_data']['line'][0]['#title'] = t('Primary one-line template');
+  $form['fb_feed_data']['line'][0]['#title'] = t('One-line template');
   $form['fb_feed_data']['line'][0]['#required'] = TRUE;
   
   
@@ -310,7 +310,7 @@ function fb_feed_form(&$node, &$param) {
   
   $form['fb_feed_data']['short'] = array('#type' => 'fieldset',
                                          '#title' => t('Short templates'),
-                                         '#description' => t('Note that each title must begin with the {*actor*} token.'),
+                                         '#description' => t('Note that titles must begin with the {*actor*} token.'),
                                          '#collapsible' => TRUE,
   );
   $i = 0;
@@ -328,8 +328,8 @@ function fb_feed_form(&$node, &$param) {
       );
     $i++;
   }
-  $form['fb_feed_data']['short'][0]['template_title']['#title'] = t('Primary short template title');
-  $form['fb_feed_data']['short'][0]['template_body']['#title'] = t('Primary short template body');
+  $form['fb_feed_data']['short'][0]['template_title']['#title'] = t('Short template title');
+  $form['fb_feed_data']['short'][0]['template_body']['#title'] = t('Short template body');
 
 
   // TODO: add action links http://wiki.developers.facebook.com/index.php/Feed.registerTemplateBundle
