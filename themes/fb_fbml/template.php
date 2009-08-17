@@ -1,7 +1,7 @@
 <?php
 
-function fb_fbml_preprocess_page() {
-  dpm(func_get_args(), 'fb_fbml_preprocess_page');
+function fb_fbml_preprocess_pageXXX() {
+  //dpm(func_get_args(), 'fb_fbml_preprocess_page');
 }
 
 function fb_fbml_page($content, $show_blocks = TRUE, $show_messages = TRUE) {
@@ -163,57 +163,55 @@ function fb_fbml_regions() {
 //// tabs
 function fb_fbml_menu_local_task($link, $active = FALSE) {
   global $_fb_fbml_state;
-
+  
   if ($_fb_fbml_state == 'tabs') {
-	if ($active) {
-	  $link = str_replace('selected="false"', 'selected="true"', $link);
-	}
-	return $link;
+    if ($active) {
+      $link = str_replace('selected="false"', 'selected="true"', $link);
+    }
+    return $link;
   } 
   else
-	return theme_menu_local_task($link, $active);
+    return theme_menu_local_task($link, $active);
 }
 
 function fb_fbml_menu_item_link($link) {
   global $_fb_fbml_state;
-
+  
   if ($_fb_fbml_state == 'tabs') {
-	// Theme an FBML tab
-	$output .= "<fb:tab-item href=\"".url($link['href'])."\" title=\"".$link['title']."\" selected=\"false\">".$item['title']."</fb:tab-item>\n";
-	return $output;
+    // Theme an FBML tab
+    $output .= "<fb:tab-item href=\"".url($link['href'])."\" title=\"".$link['title']."\" selected=\"false\">".$item['title']."</fb:tab-item>\n";
+    return $output;
   }
   else
-	return theme_menu_item_link($link, $active);
+    return theme_menu_item_link($link, $active);
 }
 
 function fb_fbml_menu_local_tasks() {
   global $fb;
-  // Because menu.inc's navigation of the menu tree is too complicated
-  // to understand, or reproduce here, we need to maintain state as the
-  // menu tree is navigated.
-  global $_fb_fbml_state;
-  $_fb_fbml_state = 'argh';
+
+  // menu.inc generates the local task (tab) markup in a convoluted and inflexible way.  Because of this we generate markup with <fb:tab-item ...> for the secondary links.  Here we use replacement to "fix" this.
 
   if ($fb && $fb->in_fb_canvas()) {
     $output = '';
     
-    $_fb_fbml_state = 'primary';
     if ($primary = menu_primary_local_tasks()) {
       $output .= "<fb:tabs>\n". $primary ."</fb:tabs>\n";
     }
-
-    $_fb_fbml_state = 'secondary';
     
     if ($secondary = menu_secondary_local_tasks()) {
-      // TODO: use fbml for secondary tabs
+      // replace fb:tab-items with list items
+      $pattern = '|<fb:tab-item href="([^"]*)" title="([^"]*)"([^>]*)></fb:tab-item>|';
+      $replace = '<li $3><a href="$1">$2</a></li>';
+      $secondary = preg_replace($pattern, $replace, $secondary);
+      
       $output .= "<ul class=\"tabs secondary\">\n". $secondary ."</ul>\n";
     }
-    $_fb_fbml_state = NULL;
     
   }
   else {
     $output = theme_menu_local_tasks();
   }
+  
   return $output;
 }
 
