@@ -142,11 +142,17 @@
 	}
 
   fieldset {
-    margin: 0 0 10px 0;
-    padding: 0px 10px 20px 10px;
+    margin: 10px 0px 0px 0;
+    padding: 0px 0px 0px 0px;
   }
   fieldset.collapsible legend {
     font-weight: bold;
+  }
+  fieldset.collapsed {
+    padding: 0px;
+  }
+  fieldset > div {
+    margin: 10px 10px 10px 10px;
   }
 
   /* Give some links the facebook button look */
@@ -170,11 +176,12 @@
 
   th {
   text-align: center;
+  padding: 5px 5px;
   }
 
   td {
   margin: 0;
-  padding: 0px;
+  padding: 5px 10px;
   border: 1px solid #cccccc;
   }
   
@@ -293,7 +300,6 @@ ul.inline li {
 
 /* forums */
 td.topics, td.posts {text-align: center;}
-th {padding: 0 2px;}
 
 /* make tabs align with header and content padding */
 .left_tabs {padding-left: 20px;}
