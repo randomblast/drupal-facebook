@@ -625,8 +625,7 @@ function fb_feed_fb($op, $data, &$return) {
             } else
               $args[] = $default;
           }
-          dpm($args, "Facebook.showFeedDialog args");
-          dpm($d, "Facebook.showFeedDialog data");
+
           $return[] = "Facebook.showFeedDialog(" . implode(",\n", $args) . ");";
           
         }
@@ -1010,8 +1009,9 @@ function fb_feed_fb_feed_show_dialog_alter(&$params, $data) {
   
   if ($fb_app = $data['objects']['fb_app']) {
     if ($fb_app->canvas) {
-      $params['options']['template_data']['fb-feed-canvas-app-link'] = l($fb_app->title,
-                                                       'http://apps.facebook.com/'.$fb_app->canvas);
+      $params['options']['template_data']['fb-feed-canvas-app-link'] = 
+        l($fb_app->title,
+          'http://apps.facebook.com/'.$fb_app->canvas);
     }
     
     // Image TODO
@@ -1025,10 +1025,12 @@ function fb_feed_fb_feed_show_dialog_alter(&$params, $data) {
     // $data['objects']['node'] is set if the Action was triggered by a node event.
     if ($node = $data['objects']['node']) {
       if ($fb_app->canvas) {
-        $params['options']['template_data']['fb-feed-canvas-node-link'] = l($node->title,
-                                                                           'http://apps.facebook.com/'.$fb_app->canvas . '/node/' . $node->nid);
+        $params['options']['template_data']['fb-feed-canvas-node-link'] = 
+          l($node->title,
+            'http://apps.facebook.com/'.$fb_app->canvas . '/node/' . $node->nid);
       }
-      $params['options']['template_data']['fb-feed-node-teaser'] = check_plain($node->teaser);
+      $params['options']['template_data']['fb-feed-node-teaser'] = 
+        check_plain($node->teaser);
       
       // Add some text which the user can edit...
       $params['options']['user_message'] = check_plain($node->teaser);
@@ -1040,7 +1042,7 @@ function fb_feed_fb_feed_show_dialog_alter(&$params, $data) {
     if ($comment = $data['objects']['comment']) {
       // Add some text which the user can edit...
       $params['options']['user_message'] = check_plain($comment->comment);
-
+      
       // Facebook's {*target*} token is extremely unreliable.  Here's a rough approximation.
       $target_fbu = fb_get_fbu($node->uid);
       if ($target_fbu) {
