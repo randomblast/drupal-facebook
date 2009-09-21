@@ -18,9 +18,27 @@ define('FB_USER_OPTION_CREATE_LOGIN', 2);
 define('FB_USER_OPTION_MAP_NEVER', 1);
 define('FB_USER_OPTION_MAP_ALWAYS', 2);
 
-
+/**
+ * Implementation of hook_perm().
+ */
 function fb_user_perm() {
   return array('delete own fb_user authmap');
+}
+
+/**
+ * Returns configuration for this module, on a per-app basis.
+ */
+function _fb_user_get_config($fb_app) {
+  $fb_app_data = fb_app_get_data($fb_app);
+  $fb_user_data = $fb_app_data['fb_user'] ? $fb_app_data['fb_user'] : array();
+
+  // Merge in defaults
+  $fb_user_data += array(
+    'require_login' => FB_USER_OPTION_ALLOW_ANON,
+    'create_account' => FB_USER_OPTION_CREATE_LOGIN,
+    'map_account' => FB_USER_OPTION_MAP_ALWAYS,
+  );
+  return $fb_user_data;
 }
 
 /**
@@ -47,8 +65,7 @@ function _fb_user_track($fb, $fb_app, $user) {
   // infinite session, and we can actually log in as them during cron.
 
   // In special cases, do not modify the uid column.
-  $fb_app_data = fb_app_get_data($fb_app);
-  $fb_user_data = $fb_app_data['fb_user']; // our configuration
+  $fb_user_data = _fb_user_get_config($fb_app);
   
   if (!$user->uid || $user->uid == $fb_user_data['not_logged_in_uid'] || $user->uid == $fb_user_data['logged_in_uid']) {
     // Should we even keep data for users who have not added???
@@ -94,9 +111,11 @@ function fb_user_fb($op, $data, &$return) {
   $fb = $data['fb'];
 
   global $user;
-  $fb_app_data = fb_app_get_data($fb_app);
-  $fb_user_data = $fb_app_data['fb_user']; // our configuration
-  
+
+  if ($fb_app) {
+    $fb_user_data = _fb_user_get_config($fb_app);
+  }
+
   if ($op == FB_OP_INITIALIZE) {
     // Here we ask facebook to prompt the user to authorize the app.
     if (fb_user_authentication_is_required($fb_app)) {
@@ -107,10 +126,10 @@ function fb_user_fb($op, $data, &$return) {
     // Observe special rules for canvas page users without local accounts
     if (!$user->uid && !_fb_user_special_page() && !$_REQUEST['form_id']) {
       if ($fbu = fb_facebook_user($fb) && fb_api_check_session($fb) && !$fb->api_client->users_isAppUser()) {
-        $uid = $fb_app_data['fb_user']['logged_in_uid'];
+        $uid = $fb_user_data['logged_in_uid'];
       }
       else {
-        $uid = $fb_app_data['fb_user']['not_logged_in_uid'];        
+        $uid = $fb_user_data['fb_user']['not_logged_in_uid'];        
       }
       if ($uid) {
         watchdog("fb_user", "fb_user_fb changing user to $uid"); // debug
@@ -154,7 +173,7 @@ function fb_user_fb($op, $data, &$return) {
 	// There is no account associated with the facebook id.
 	// If the user is not anonymous, we can make an association now.
 	if ($user->uid != 0 &&
-	    $user->uid != $fb_app_data['fb_user']['logged_in_uid']) {
+	    $user->uid != $fb_user_data['logged_in_uid']) {
 	  if ($fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS) {
 	    list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
 	    user_set_authmaps($user, array($module => $authname));  // is this right?
@@ -297,8 +316,7 @@ function fb_user_fb($op, $data, &$return) {
  * rule.
  */
 function fb_user_authentication_is_required($fb_app) {
-  $fb_app_data = fb_app_get_data($fb_app);
-  $fb_user_data = $fb_app_data['fb_user']; // our configuration
+  $fb_user_data = _fb_user_get_config($fb_app);
   
   if ($fb_user_data['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN) {
     // The application is configured to require login on all canvas pages.
@@ -318,8 +336,7 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (is_array($form['fb_app_data'])) {
     $node = $form['#node'];
-    $fb_app_data = fb_app_get_data($node->fb_app);
-    $fb_user_data = $fb_app_data['fb_user'];
+    $fb_user_data = _fb_user_get_config($node->fb_app);
     
     $form['fb_app_data']['fb_user'] = array('#type' => 'fieldset',
                                             '#title' => t('Facebook user settings'),
@@ -336,7 +353,7 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
             array(FB_USER_OPTION_ALLOW_ANON => t('Allow anyone'),
                   FB_USER_OPTION_REQUIRE_LOGIN => t('Allow logged-in users'),
             ),
-            '#default_value' => isset($fb_user_data['require_login']) ? $fb_user_data['require_login'] : FB_USER_OPTION_ALLOW_ANON,
+            '#default_value' => $fb_user_data['require_login'],
             '#required' => TRUE,
       );
     
@@ -348,7 +365,7 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
             '#options' => array(FB_USER_OPTION_CREATE_NEVER => t('Never (user/register page will still work)'),
                                 FB_USER_OPTION_CREATE_LOGIN => t('If user has logged in'),
             ),
-            '#default_value' => isset($fb_user_data['create_account']) ? $fb_user_data['create_account'] : FB_USER_OPTION_CREATE_LOGIN,
+            '#default_value' => $fb_user_data['create_account'],
             '#required' => TRUE,
       );
 
@@ -359,7 +376,7 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
             '#options' => array(FB_USER_OPTION_MAP_NEVER => t('Never map accounts'),
                                 FB_USER_OPTION_MAP_ALWAYS => t('Map account when both local uid and Facebook id are known'),
             ),
-            '#default_value' => isset($fb_user_data['map_account']) ? $fb_user_data['map_account'] : FB_USER_OPTION_MAP_ALWAYS,
+            '#default_value' => $fb_user_data['map_account'],
             '#required' => TRUE,
       );
 
@@ -487,8 +504,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
 
   if (!empty($fb_app) && $op == 'insert' || $op == 'login') {
     // A facebook user has logged in.  We can map the two acounts together.
-    $fb_app_data = fb_app_get_data($fb_app);
-    $fb_user_data = $fb_app_data['fb_user']; // our configuration
+    $fb_user_data = _fb_user_get_config($fb_app);
     if ($fbu &&
         $fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS) {
       list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
@@ -526,8 +542,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     // map scheme.
     $result = _fb_app_query_all();
     while ($fb_app = db_fetch_object($result)) {
-      $fb_app_data = fb_app_get_data($fb_app);
-      $fb_user_data = $fb_app_data['fb_user']; // our configuration
+      $fb_user_data = _fb_user_get_config($fb_app);
       
       $fbu = _fb_user_get_fbu($account->uid, $fb_app);
       
@@ -633,8 +648,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
  * data structure necessary for Drupal's authmap api.
  */
 function _fb_user_get_authmap($fb_app, $fbu) {
-  $fb_app_data = fb_app_get_data($fb_app);
-  $fb_user_data = $fb_app_data['fb_user']; // our configuration
+  $fb_user_data = _fb_user_get_config($fb_app);
   $app_specific = $fb_user_data['unique_account'];
   // map fbu to uid, include apikey if user is app_specific
   if ($app_specific) {
@@ -831,8 +845,7 @@ function _fb_user_get_fbu($uid, $fb_app) {
     }
   }
   // Return either the global or the app-specific mapping, depending on the app configuration.
-  $fb_app_data = fb_app_get_data($fb_app);
-  $fb_user_data = $fb_app_data['fb_user']; // our configuration
+  $fb_user_data = _fb_user_get_config($fb_app);
   if ($fb_user_data['unique_account'])
     // Return the app-specific mapping
     return $cache[$uid][$fb_app->apikey];
