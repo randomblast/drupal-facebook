@@ -49,9 +49,6 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
     global $fb, $fb_app;
 
     if ($delta == FB_FRIEND_DELTA_INVITE_PAGE) {
-      // TODO: support canvas pages, in addition to connect pages.
-      fb_connect_require_feature('XFBML');
-
       $page_url = url($_GET['q'], array('absolute' => TRUE));
       // Build the alterable data structure.
       // http://wiki.developers.facebook.com/index.php/Fb:request-form
@@ -78,15 +75,26 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       // Allow third-party to modify the form
       drupal_alter('fb_friend_invite_page', $fbml);
       
-      // Wrap in serverfbml for connect pages.
-      $xfbml = array('#type' => 'fb_form_serverfbml',
-                     'fbml' => $fbml);
-      
+      if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
+        // TODO: support canvas pages, in addition to connect pages.
+        $xfbml = array(
+          'fbml' => $fbml,
+        );
+      }
+      else {
+        // Render in Facebook Connect page.
+        fb_connect_require_feature('XFBML');
+        
+        // Wrap in serverfbml for connect pages.
+        $xfbml = array('#type' => 'fb_form_serverfbml',
+                       'fbml' => $fbml);
+      }
+
       // Allow third-party to modify wrapper
       drupal_alter('fb_friend_invite_page_wrap', $xfbml);
       
       $content = drupal_render($xfbml);
-
+      
       return array('subject' => t('Invite friends to visit this page'),
                    'content' => $content,
       );
