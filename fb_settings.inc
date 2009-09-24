@@ -1,6 +1,6 @@
 <?php
-  // The URL will look something like fb_cb/NID/fb_cb_type/TYPE
-  // In the future, there may be additional parameters, like spoofing a session for anonymous visitors.
+// The URL prefix will look something like fb_cb/NID.
+// Or in avanced cases fb_cb/NID/fb_cb_type/TYPE, or even fb_cb/NID/fb_sess/SESSION.
 define('FB_SETTINGS_APP_NID', 'fb_cb');
 define('FB_SETTINGS_PAGE_TYPE', 'fb_cb_type');
 define('FB_SETTINGS_SESSION_KEY', 'fb_sess');
@@ -9,14 +9,14 @@ define('FB_SETTINGS_SESSION_KEY', 'fb_sess');
 if (!is_array($conf))
   $conf = array();
 
-// This allows us to test whether this file has been included
+// This allows us to test whether this file has been included.
 $conf['fb_settings_check'] = TRUE;
 
 // Ensure unique session for facebook app.
 $conf['session_inc'] = dirname(__FILE__) . '/fb_session.inc';
 
 if ($nid = _fb_settings_parse(FB_SETTINGS_APP_NID))
-  // We're providing a canvas page.
+  // We're providing a canvas page or connect callback.
 
   if (isset($_REQUEST['fb_sig']) && isset($_REQUEST['fb_sig_in_canvas'])) {
   // It's a facebook callback to an FBML page.
@@ -31,22 +31,11 @@ if ($nid = _fb_settings_parse(FB_SETTINGS_APP_NID))
   // TODO: find a way to make this configurable.  I.e. to support iframe apps.
   $conf['admin_theme'] = 'fb_fbml';
   
-  // Filters will behave differently on facebook, so we cannot share the cache_filter table.
-  /*** NO LONGER NECESSARY XXX
-  if (!is_array($db_prefix))
-	if (isset($db_prefix)) 
-	  $db_prefix = array('default' => $db_prefix);
-	else
-	  $db_prefix = array();
-  if (!isset($db_prefix['cache_filter']))
-	$db_prefix['cache_filter'] = 'fb_';
-  ***/
-
-  // Worth considering: use db_prefix to give facebook, or each app,
-  // it's own set of users.
-  
 }
 
+/**
+ * Helper function to learn values prefixed to URL.
+ */
 function fb_settings($key, $value = NULL) {
   static $cache = array();
   if (isset($value)) {
@@ -61,7 +50,11 @@ function fb_settings($key, $value = NULL) {
 function _fb_settings_url_rewrite_prefixes() {
   static $prefixes;
   if (!isset($prefixes)) {
-    $prefixes = array(FB_SETTINGS_APP_NID, FB_SETTINGS_PAGE_TYPE, FB_SETTINGS_SESSION_KEY);
+    $prefixes = array(
+      FB_SETTINGS_APP_NID, 
+      FB_SETTINGS_PAGE_TYPE, 
+      FB_SETTINGS_SESSION_KEY,
+    );
   }
   return $prefixes;
 }
@@ -81,7 +74,7 @@ function _fb_settings_parse($key) {
       $i = 0;
       while (isset($args[$i]) && isset($args[$i+1])) {
 	if ($args[$i] == $key)
-	  // Found the value we're interested in
+	  // Found the value we're interested in.
 	  return $args[$i+1];
 	$i = $i + 2;
       }

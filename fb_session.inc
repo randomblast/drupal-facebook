@@ -2,10 +2,10 @@
 
 /**
  * Here we override Drupal's session management.  Actually, we try not
- * to change things, unless we're servicing a facebook app.  So we
- * include drupal's session.inc at the end of this file.  But first we
- * detect whether we're handling a facebook app and if so we do a few
- * special things.
+ * to change things, unless we're servicing a facebook app.  We
+ * include drupal's session.inc at the end of this file so that
+ * default behavior will take place.  But first we detect whether
+ * we're handling a facebook app and if so we do a few special things.
  *
  * We need to handle several cases: FBML canvas pages, iframe canvas
  * pages, and facebook connect pages.
@@ -13,7 +13,8 @@
  * In the FBML case, the request comes from facebook, not the user's
  * browser.  So we can't set cookies.  Instead we look to $_REQUEST
  * for facebook's session key.  If found, we muck with $_COOKIE
- * variables so that session.inc will do reasonable things.
+ * variables so that session.inc, when we include it later, will do
+ * reasonable things.
  *
  * One weak point is FBML canvas pages where the user is not logged
  * in.  In this case facebook gives us no session state info.  This is
