@@ -1,5 +1,6 @@
 <?php print $styles; /* Styles for FBML pages */ ?>
 <?php print $fbjs; /* Javascript for FBML pages */ ?>
+<fb:title><?php print $title?></fb:title>
 
 <div class="page-wrap <?php print $body_classes?>">
 <div id="canvas-header" class="header">
