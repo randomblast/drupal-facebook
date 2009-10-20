@@ -41,12 +41,23 @@ function fb_connect_init() {
     $('.fb_connect_hide').hide();
 }
 
-Drupal.behaviors.fb_connect = function() {
-    // Support for easy fbml popup markup which degrades when javascript not enabled.
-    // Markup is subject to change.  Currently...
-    // <div class=fb_connect_fbml_popup_wrap><a title="POPUP TITLE">LINK MARKUP</a><div class=fb_connect_fbml_popup><fb:SOME FBML>...</fb:SOME FBML><div></div>
+Drupal.behaviors.fb_connect = function(context) {
+  // Tell Facebook to parse any XFBML elements found in the context.
+  FB_RequireFeatures(['XFBML'], function() {
+      $(context).each(function() {
+          if ($(this).html()) {
+            var elem = $(this).get(0);
+            //alert('fb_connect: ' + elem + $(elem).html()); // debug
+            FB.XFBML.Host.parseDomElement(elem);
+          }
+        });
+    });
+  
 
-  $('div.fb_connect_fbml_popup').prev().each(
+  // Support for easy fbml popup markup which degrades when javascript not enabled.
+  // Markup is subject to change.  Currently...
+  // <div class=fb_connect_fbml_popup_wrap><a title="POPUP TITLE">LINK MARKUP</a><div class=fb_connect_fbml_popup><fb:SOME FBML>...</fb:SOME FBML><div></div>
+  $('.fb_connect_fbml_popup:not(.fb_connect_fbml_popup-processed)', context).addClass('fb_connect_fbml_popup-processed').prev().each(
     function() {
       this.fbml_popup = $(this).next().html();
       this.fbml_popup_width = parseInt($(this).next().attr('width'));
