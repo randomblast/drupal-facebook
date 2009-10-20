@@ -666,7 +666,7 @@ function theme_fb_connect_fbml_popup($elem) {
   // Hide this markup until javascript shows it.
   $t = '<div class="fb_connect_fbml_popup_wrap" style="display:none;" ' . ">\n";
   
-  $t .= '<a href="#" title="' . check_plain($elem['#title']) . '">' . check_plain($elem['#link_text']) .'</a>';
+  $t .= '<a href="#" title="' . check_plain($elem['#title']) . '" ' . drupal_attributes($elem['#link_attributes']) . '>' . check_plain($elem['#link_text']) .'</a>';
   $t .= '<div class="fb_connect_fbml_popup" ' . drupal_attributes($elem['#attributes']) . '>';
   $t .= $elem['#children'];
   $t .= "</div></div>\n";
