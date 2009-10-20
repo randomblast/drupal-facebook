@@ -81,6 +81,28 @@ function fb_devel_fb($op, $data, &$return) {
       }
       watchdog('fb_devel', $message);      
     }
+
+    // server URL sanity check
+    // This is an expensive test, because it invokes api_client.
+    $props = $fb->api_client->admin_getAppProperties(array('connect_url', 'callback_url'));
+
+    foreach ($props as $prop => $url) {
+      if ($url && (strpos($url, $GLOBALS['base_url']) === FALSE)) {
+        $message = t('The Facebook Application labeled %label has a suspicious %prop.  The value is %value, while something starting with %url was expected.  Consider editing !nodelink.',
+                     array('%label' => $fb_app->label,
+                           '%prop' => $prop,
+                           '%value' => $url,
+                           '%url' => $GLOBALS['base_url'],
+                           '!nodelink' => l($fb_app->title, 'node/'.$fb_app->nid . '/edit'),
+                     ));
+        
+        if (user_access('access administration pages')) {
+          drupal_set_message($message, 'error');
+        }
+        watchdog('fb_devel', $message);      
+      }
+    }
+
   }
   
   else if ($op == FB_APP_OP_EVENT) {
