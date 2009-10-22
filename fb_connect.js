@@ -1,46 +1,4 @@
 
-// Global to keep track of connected state.  Better than facebook's 'reloadIfSessionStateChanged' option.
-var fb_connect_fbu = null;
-
-function fb_connect_on_connected(fbu) {
-    //alert("fb_connect_on_connected " + fbu + " settings fbu is " + Drupal.settings.fb_connect.fbu + " fb_connect_fbu is " + fb_connect_fbu);
-    if (fb_connect_fbu === 0 || Drupal.settings.fb_connect.fbu != fbu) {
-	// We've gone from not connected to connected.
-	window.location.reload();
-    }
-    fb_connect_fbu = fbu;
-}
-
-function fb_connect_on_not_connected() {
-    //alert("fb_connect_on_not_connected, settings fbu is " + Drupal.settings.fb_connect.fbu);
-    if (fb_connect_fbu > 0 || Drupal.settings.fb_connect.fbu > 0) {
-	// This code will not be reached if fb_connect_logout_onclick (below) calls logoutAndRedirect.
-	// alert("fb_connect_on_not_connected, reloading... ");
-	// We've gone from connected to not connected.
-	window.location.reload();
-    }
-    fb_connect_fbu = 0;
-}
-
-function fb_connect_login_onclick() {
-    // This will execute before the user fills out the login form.
-    // More important is fb_connect_on_connected, above.
-}
-
-function fb_connect_logout_onclick() {
-    FB.ensureInit(function() {
-	//alert('logout and redirect to ' + Drupal.settings.fb_connect.front_url);
-	FB.Connect.logoutAndRedirect(Drupal.settings.fb_connect.front_url);
-    });
-}
-
-// This function called after fbConnect is initialized
-function fb_connect_init() {
-    // Use show and hide to degrade gracefully when javascript not enabled.
-    $('.fb_connect_show').show();
-    $('.fb_connect_hide').hide();
-}
-
 Drupal.behaviors.fb_connect = function(context) {
   // Tell Facebook to parse any XFBML elements found in the context.
   FB_RequireFeatures(['XFBML'], function() {
@@ -49,10 +7,17 @@ Drupal.behaviors.fb_connect = function(context) {
             var elem = $(this).get(0);
             //alert('fb_connect: ' + elem + $(elem).html()); // debug
             FB.XFBML.Host.parseDomElement(elem);
+
+            // Respect fb_connect classes on new content.
+            $('.fb_connect_show', context).show();
+            $('.fb_connect_hide', context).hide();
           }
         });
     });
   
+  // Respond to connected events
+  $(document).bind('fb_connect_status', FB_Connect.statusHandle);
+
 
   // Support for easy fbml popup markup which degrades when javascript not enabled.
   // Markup is subject to change.  Currently...
@@ -82,4 +47,61 @@ Drupal.behaviors.fb_connect = function(context) {
         })
   .parent().show();
   
+};
+
+
+// The following functions help us keep track of when a user is logged into Facebook Connect.
+FB_Connect = function(){};
+
+// Global to keep track of connected state.  Better than facebook's 'reloadIfSessionStateChanged' option.
+FB_Connect.fbu = null;
+
+FB_Connect.statusHandle = function(e, data) {
+  if (data.changed) {
+    // Status has changed, user has logged in or logged out.
+    window.location.reload();
+  }
 }
+
+
+FB_Connect.on_connected = function(fbu) {
+  //alert("FB_Connect.on_connected " + fbu + " settings fbu is " + Drupal.settings.fb_connect.fbu + " FB_Connect.fbu is " + FB_Connect.fbu);
+  var status = {'changed': false, 'fbu': fbu};
+  if (FB_Connect.fbu === 0 || Drupal.settings.fb_connect.fbu != fbu) {
+    status.changed = true;
+  }
+  FB_Connect.fbu = fbu;
+  $.event.trigger('fb_connect_status', status);
+}
+
+FB_Connect.on_not_connected = function() {
+  //alert("FB_Connect.on_not_connected, settings fbu is " + Drupal.settings.fb_connect.fbu);
+  var status = {'changed': false, 'fbu': 0};
+  if (FB_Connect.fbu > 0 || Drupal.settings.fb_connect.fbu > 0) {
+    // This code will not be reached if fb_connect_logout_onclick (below) calls logoutAndRedirect.
+    // We've gone from connected to not connected.
+    status.changed = true;
+  }
+  FB_Connect.fbu = 0;
+  $.event.trigger('fb_connect_status', status);
+}
+
+FB_Connect.login_onclick = function() {
+  // This will execute before the user fills out the login form.
+  // More important is FB_Connect.on_connected, above.
+}
+
+FB_Connect.logout_onclick = function() {
+  FB.ensureInit(function() {
+      //alert('logout and redirect to ' + Drupal.settings.fb_connect.front_url);
+      FB.Connect.logoutAndRedirect(Drupal.settings.fb_connect.front_url);
+    });
+}
+
+// This function called after fbConnect is initialized
+FB_Connect.init = function() {
+  // Use show and hide to degrade gracefully when javascript not enabled.
+  $('.fb_connect_show').show();
+  $('.fb_connect_hide').hide();
+}
+

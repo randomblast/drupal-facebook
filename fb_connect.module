@@ -122,8 +122,8 @@ function fb_connect_fb($op, $data, &$return) {
         _fb_connect_add_js();
         fb_connect_require_feature('XFBML', $fb_app);
         // fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
-        fb_connect_init_option('ifUserConnected', "{fb_connect_on_connected}", $fb_app);
-        fb_connect_init_option('ifUserNotConnected', "{fb_connect_on_not_connected}", $fb_app);
+        fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
+        fb_connect_init_option('ifUserNotConnected', "{FB_Connect.on_not_connected}", $fb_app);
       }
     }
   }
@@ -325,7 +325,7 @@ function fb_connect_footer($is_front) {
       $output .= "
   FB.ensureInit(function()
     {
-      fb_connect_init();
+      FB_Connect.init();
       {$extra_js}
     });
 ";
@@ -359,16 +359,16 @@ function _fb_connect_block_login_defaults() {
   return array('anon_not_connected' => array(
                  'title' => t('Facebook Connect'),
                  'body' => t('Facebook users login here. !button',
-                             array('!button' => "<fb:login-button onclick='fb_connect_login_onclick();'></fb:login-button>")),
+                             array('!button' => "<fb:login-button onclick='FB_Connect.login_onclick();'></fb:login-button>")),
                ),
                'user_not_connected' => array(
                  'title' => t('Facebook Connect'),
                  'body' => t('Link your account with Facebook. !button',
-                             array('!button' => "<fb:login-button onclick='fb_connect_login_onclick();'></fb:login-button>")),
+                             array('!button' => "<fb:login-button onclick='FB_Connect.login_onclick();'></fb:login-button>")),
                ),
                'connected' => array(
                  'title' => t('Facebook Connect'),
-                 'body' => "<fb:profile-pic uid=!fbu></fb:profile-pic><fb:login-button onclick='fb_connect_logout_onclick();' autologoutlink=true></fb:login-button>",
+                 'body' => "<fb:profile-pic uid=!fbu></fb:profile-pic><fb:login-button onclick='FB_Connect.logout_onclick();' autologoutlink=true></fb:login-button>",
                ),
   );
 }
