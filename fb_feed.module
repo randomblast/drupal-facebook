@@ -10,11 +10,16 @@
 // Facebook used to support multiple messages per bundle, now only one.
 define('FB_FEED_LINES_PER_BUNDLE', 1);
 define('FB_FEED_SHORTS_PER_BUNDLE', 1);
+define('FB_FEED_ACTION_LINKS_PER_BUNDLE', 3);
 
 define('FB_FEED_NODE_TYPE_TEMPLATE', 'fb_feed_template');
 
 define('FB_FEED_HOOK', 'fb_feed');
 define('FB_FEED_OP_TOKEN_ALTER', 'fb_feed_token_alter');
+
+function fb_feed_init() {
+  drupal_add_js(drupal_get_path('module', 'fb_feed') . '/fb_feed.js');
+}
 
 function fb_feed_menu() {
   $items = array();
@@ -313,6 +318,7 @@ function fb_feed_form(&$node, &$param) {
                                          '#description' => t('Note that titles must begin with the {*actor*} token.'),
                                          '#collapsible' => TRUE,
   );
+
   $i = 0;
   while ($i < FB_FEED_SHORTS_PER_BUNDLE) {
     $form['fb_feed_data']['short'][$i]['template_title'] = 
@@ -331,6 +337,31 @@ function fb_feed_form(&$node, &$param) {
   $form['fb_feed_data']['short'][0]['template_title']['#title'] = t('Short template title');
   $form['fb_feed_data']['short'][0]['template_body']['#title'] = t('Short template body');
 
+
+  $i = 0;
+  while ($i < FB_FEED_ACTION_LINKS_PER_BUNDLE) {
+    $form['fb_feed_data']['action_links'][$i] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Additional Action Link'),
+      '#description' => t('For additional information, see <a target=_blank href="!href">Action Links</a>.',
+                          array('!href' => 'http://wiki.developers.facebook.com/index.php/Action_Links')),
+      '#collapsible' => TRUE,
+      '#collapsed' => $node->fb_feed_data['action_links'][$i]['text'] ? FALSE : TRUE,
+    );
+    $form['fb_feed_data']['action_links'][$i]['text'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Text'),
+      '#default_value' => $node->fb_feed_data['action_links'][$i]['text'],
+    );
+    $form['fb_feed_data']['action_links'][$i]['href'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Href'),
+      '#default_value' => $node->fb_feed_data['action_links'][$i]['href'],
+    );
+    $i++;
+  }
+  $form['fb_feed_data']['action_links'][0]['#title'] = t('First Action Link');
+  $form['fb_feed_data']['action_links'][0]['#collapsed'] = FALSE;
 
   // TODO: add action links http://wiki.developers.facebook.com/index.php/Feed.registerTemplateBundle
 
@@ -389,10 +420,17 @@ function fb_feed_register_template($node) {
       if ($node->fb_feed_data['full']['template_title'])
         $full = $node->fb_feed_data['full'];
       
+      $action_links = $node->fb_feed_data['action_links'];
+      foreach ($action_links as $i => $data) {
+        if (!$data['text'] || !$data['href']) {
+          unset($action_links[$i]);
+        }
+      }
+
       if ($fb) {
         try {
           $bundle_id = 
-            $fb->api_client->feed_registerTemplateBundle($lines, $shorts, $full);
+            $fb->api_client->feed_registerTemplateBundle($lines, $shorts, $full, $action_links);
         }
         catch (Exception $e) {
           fb_log_exception($e, t('Error attempting to register template bundle.'), $fb);
@@ -497,6 +535,7 @@ function fb_feed_view($node, $teaser=FALSE, $page=FALSE) {
     drupal_set_message(t('The template shown must be registered with Facebook before it can be used.'), 'error');
   
   $items = array(t('Application') => l($fb_app->title, 'node/'.$fb_app->nid),
+                 t('Label') => $node->label,
                  t('Template Bundle ID') => $node->bundle_id ? $node->bundle_id : '<em>'.t('Template bundle not registered') . '</em>',
   );
   $items[t('One-line templates')] = implode("<br />\n", 
@@ -564,6 +603,22 @@ function fb_feed_show_dialog($label, $tokens, $options) {
     // TODO: log error.
   }
 }
+
+/**
+ * Get the data for one or more feed dialogs.  Use this function in
+ * ajax callbacks, where you want to publish dialog(s) in response to
+ * javascript events.  Json encode the result, and pass it to
+ * Fb_Feed.show_feed_dialog().
+ */
+function fb_feed_get_show_dialog_data($fb_app = null) {
+  if (!$fb_app)
+    $fb_app = $GLOBALS['fb_app'];
+
+  $data = $_SESSION['fb_feed_dialogs'][$fb_app->apikey];
+  unset($_SESSION['fb_feed_dialogs'][$fb_app->apikey]);
+  return $data;
+}
+
 
 /**
  * Implementation of hook_fb().
