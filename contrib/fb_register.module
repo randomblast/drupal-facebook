@@ -70,7 +70,7 @@ function fb_register_cron() {
     }
 
     // Get the next batch of users to register.
-    $limit = max(variable_get('fb_register_limit', 100), 1000); // Facebook's limit is 1000
+    $limit = min(variable_get('fb_register_limit', 100), 1000); // Facebook's limit is 1000
     $result = db_query("SELECT uid, mail from {users} WHERE uid > %d ORDER BY uid LIMIT %d, %d",
                        $last_uid,
                        0, $limit);
