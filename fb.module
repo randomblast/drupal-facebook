@@ -715,9 +715,6 @@ function fb_log_exception($e, $text = '', $fb = NULL) {
  * results in the session, so calls do not always require hitting Facebook's
  * servers.
  *
- * Particularly useful when displaying user info on iframe canvas pages, where
- * <fb:user> tags are not available.
- *
  * @param $oids
  * Array of facebook object IDs.  In this case they should each be a user id.
  */
@@ -889,6 +886,32 @@ function fb_url_alter_inbound(&$result, $path, $path_language){
   }
   
   $result = $path;
+}
+
+/**
+ * This function will be replaced, hopefully, by format_username in D7.
+ *
+ * See http://drupal.org/node/192056
+ */
+function fb_format_username($account) {
+  $name = !empty($account->name) ? $account->name : variable_get('anonymous', t('Anonymous'));
+  drupal_alter('username', $name, $account);
+  return $name;
+}
+
+/**
+ * hook_username_alter().
+ *
+ * Return a user's facebook name, instead of local username.
+ */
+function fb_username_alter(&$name, $account) {
+  //dpm(func_get_args(), "fb_username_alter($name)");
+  if ($account->fbu && ($name == $account->fbu . '@facebook')) {
+    $info = fb_users_getInfo(array($account->fbu));
+    if ($info[0]['name']) {
+      $name = $info[0]['name']b_;
+    }
+  }
 }
 
 ?>
