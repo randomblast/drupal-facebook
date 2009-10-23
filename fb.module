@@ -909,7 +909,7 @@ function fb_username_alter(&$name, $account) {
   if ($account->fbu && ($name == $account->fbu . '@facebook')) {
     $info = fb_users_getInfo(array($account->fbu));
     if ($info[0]['name']) {
-      $name = $info[0]['name']b_;
+      $name = $info[0]['name'];
     }
   }
 }
