@@ -41,18 +41,30 @@ function fb_connect_js_cb() {
  * this static page be in the same place as the app's callback URL.
  * So we have to make a Drupal callback for what would otherwise be a
  * simple file.
+ *
+ * Supports SSL, http://wiki.developers.facebook.com/index.php/Facebook_Connect_Via_SSL.
  */
 function fb_connect_receiver() {
-  $output = '
+  global $facebook_config;
+  
+  $src_suffix = $facebook_config['debug'] 
+    ? '.debug'
+    : '' ;
+  
+  $src = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') 
+    ? "https://ssl.connect.facebook.com/js/api_lib/v0.4/XdCommReceiver$src_suffix.js" 
+    : "http://static.ak.connect.facebook.com/js/api_lib/v0.4/XdCommReceiver$src_suffix.js" ;
+  
+  $output = <<<HTML
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" >
 <body>
   <!-- Drupal for Facebook cross-domain receiver. -->
   <!-- http://wiki.developers.facebook.com/index.php/Cross_Domain_Communication_Channel -->
-  <script src="http://static.ak.connect.facebook.com/js/api_lib/v0.4/XdCommReceiver.debug.js" type="text/javascript"></script>
+  <script src="$src" type="text/javascript"></script>
 </body>
 </html>
-';
+HTML;
   print $output;
   die(); // prevent Drupal from writing anything else.
 }
@@ -312,6 +324,11 @@ function fb_connect_footer($is_front) {
     return;
   
   global $base_path;
+
+  $fb_feature_src = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') 
+    ? "https://ssl.connect.facebook.com/js/api_lib/v0.4/FeatureLoader.js.php" 
+    : "http://static.ak.connect.facebook.com/js/api_lib/v0.4/FeatureLoader.js.php" ;
+  
   $feature_data = fb_connect_require_feature();
   $option_data = fb_connect_init_option();
   
@@ -327,9 +344,9 @@ function fb_connect_footer($is_front) {
       // Hack!  What's the way to json_encode a function name?
       $options = str_replace('"{', '', $options);
       $options = str_replace('}"', '', $options);
-
+      
       // drupal_add_js cannot add external javascript, so we use hook_footer instead.
-      $output = '<script src="http://static.ak.connect.facebook.com/js/api_lib/v0.4/FeatureLoader.js.php" type="text/javascript"></script>';
+      $output = '<script src="'.$fb_feature_src.'" type="text/javascript"></script>';
       $output .= "\n";
       $feature_list = '["' . implode('","', $features) . '"]';
       // Put together the URL for the receiver.  The prefix must be identical to the apps connect URL.
@@ -374,7 +391,7 @@ function fb_connect_get_connect_url($fb_app) {
   
   // In regular pages, we need to add the suffix.
   $url = $base_url . '/' . $suffix;
-
+  
   return $url;
 }
 
