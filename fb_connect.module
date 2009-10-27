@@ -192,9 +192,20 @@ function fb_connect_user($op, &$edit, &$account, $category = NULL) {
 	if ($fb && $fb->api_client->session_key) {
 	  // Log out of facebook
 	  $session_key = $fb->api_client->session_key;
+
+          // Figure out where to send the user.
+          if ($_REQUEST['destination']) {
+            $next = url($_REQUEST['destination'], array('absolute' => TRUE));
+            // It pains me to muck with $_REQUEST['destination'], but facebook's weak-ass API leaves us little choice.
+            unset($_REQUEST['destination']);
+          }
+          else {
+            $next = url('<front>', array('absolute' => TRUE));
+          }
+          
 	  // http://forum.developers.facebook.com/viewtopic.php?id=21879
 	  // Use next parameter to expire session.
-	  drupal_goto("http://www.facebook.com/logout.php?app_key={$fb_app->apikey}&session_key={$session_key}&next=" . url('<front>', array('absolute' => TRUE)));
+	  drupal_goto("http://www.facebook.com/logout.php?app_key={$fb_app->apikey}&session_key={$session_key}&next=" . $next);
 	}
       } catch (Exception $e) {
 	fb_log_exception($e, t('Failed to log out of fbConnect session'));
