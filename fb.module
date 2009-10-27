@@ -814,7 +814,7 @@ function fb_verbose() {
  */
 if (!function_exists('custom_url_rewrite_inbound')) {
   function custom_url_rewrite_inbound(&$result, $path, $path_language) {
-    fb_url_alter_inbound($result, $path, $path_language);
+    fb_url_inbound_alter($result, $path, $path_language);
   }
 }
 
@@ -823,14 +823,14 @@ if (!function_exists('custom_url_rewrite_inbound')) {
  */
 if (!function_exists('custom_url_rewrite_outbound')) {
   function custom_url_rewrite_outbound(&$path, &$options, $original_path) {
-    fb_url_alter_outbound($path, $options, $original_path);
+    fb_url_outbound_alter($path, $options, $original_path);
   }
 }
 
 /**
- * Implementation of hook_url_alter_outbound().
+ * Implementation of hook_url_outbound_alter().
  */
-function fb_url_alter_outbound(&$path, &$options, $original_path) {
+function fb_url_outbound_alter(&$path, &$options, $original_path) {
   //dpm(func_get_args(), 'fb_settings_url_rewrite_outbound');
   $pre = '';
   
@@ -845,12 +845,12 @@ function fb_url_alter_outbound(&$path, &$options, $original_path) {
 }
 
 /**
- * Implementation of hook_url_alter_inbound().
+ * Implementation of hook_url_inbound_alter().
  *
  * Rewrite URLs for facebook canvas pages, and connect callbacks.
  * 
  */
-function fb_url_alter_inbound(&$result, $path, $path_language){
+function fb_url_inbound_alter(&$result, $path, $path_language){
   //$origpath = $path;
   //watchdog('fb_settings', "fb_settings_url_rewrite_inbound($result, $path, $path_language)", array(), WATCHDOG_DEBUG);
   

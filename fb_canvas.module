@@ -550,7 +550,7 @@ function fb_canvas_process($output, $add_target = TRUE) {
     $nid = $fb_app->nid;
     $base_before_rewrite = '';
     $rewrite_options = array();
-    $base = $base_path . fb_url_alter_outbound($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.
+    $base = $base_path . fb_url_outbound_alter($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.
 
     if (fb_canvas_is_fbml()) {
       //dpm($output, "before fb_canvas_process");
