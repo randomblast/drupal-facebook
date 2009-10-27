@@ -67,7 +67,7 @@ function fb_ahah_bind_form( $form ) {
   if ($fb && $fb->api_client->added && function_exists('ahah_forms_scan_form_children')) {
     $bindings = array();	
     ahah_forms_scan_form_children( $form, $form['#id'],  $bindings );
-    //drupal_set_message( "After Scan: Wrapper Bindings = " . dprint_r( $bindings, TRUE ) ); 
+    //drupal_set_message( "After Scan: Wrapper Bindings = " . print_r( $bindings, TRUE ) ); 
     
     if( count( $bindings ) > 0 ) {
       if (!$one_time_only) {
@@ -237,7 +237,7 @@ function theme_fb_form_request($element) {
 
 // Because the fb:request-form includes its own buttons, including the particularly annoying skip button, this submit callback is not used.  Will probably delete it.  If I can't make it work properly.
 function fb_form_multi_add_invite_form_submit() {
-  //watchdog('fb_debug', 'fb_form_multi_add_invite_form_submit' . dprint_r(func_get_args(), 1));
+  //watchdog('fb_debug', 'fb_form_multi_add_invite_form_submit' . print_r(func_get_args(), 1));
   //return "foo/bar";
 }
 

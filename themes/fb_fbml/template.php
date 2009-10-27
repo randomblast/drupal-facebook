@@ -144,7 +144,7 @@ function fb_fbml_preprocess(&$vars, $hook) {
     if ($fbu = fb_get_fbu($vars['uid']))
       $vars['picture'] = '<div class="picture"><fb:profile-pic uid="'.$fbu.'" linked="yes" size="'.$size.'" /></div>';
     
-    //drupal_set_message("node vars: " . dprint_r($vars, 1));
+    //drupal_set_message("node vars: " . print_r($vars, 1));
   }
 }
 

@@ -334,9 +334,10 @@ function fb_facebook_user($fb = NULL) {
   
   $fbu = $fb->get_loggedin_user();
   if ($fb->api_client->error_code) {
-    watchdog('fb', 'Failed to get Facebook user id.', array(), WATCHDOG_ERROR);
-    if (function_exists('dprint_r'))
-      watchdog('fb', 'Failed to get Facebook user id.  detail:' . dprint_r($_REQUEST, 1), array(), WATCHDOG_ERROR);
+    if (fb_verbose()) {
+      watchdog('fb', 'Failed to get Facebook user id.  detail: !detail',
+               array('!detail' => print_r($_REQUEST, 1)), WATCHDOG_ERROR);
+    }
   }
   return $fbu;
 }

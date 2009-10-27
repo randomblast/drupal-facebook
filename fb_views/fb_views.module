@@ -104,7 +104,7 @@ function fb_views_views_style_plugins() {
   }
 
 function theme_views_fb_discussion($view, $nodes, $type) {
-  //drupal_set_message("theme_views_fb_discussion, type is '$type'" . dprint_r($view, 1) . dprint_r($nodes, 1));  // debug
+  //drupal_set_message("theme_views_fb_discussion, type is '$type'" . print_r($view, 1) . dprint_r($nodes, 1));  // debug
   
   if ($type == 'page') {
     // use tablesort code to generate the sort links.
@@ -183,7 +183,7 @@ function theme_fb_discussion_nodes($view, $items = array()) {
 
 
 function theme_views_fb_teasers($view, $nodes, $type) {
-  //drupal_set_message("theme_views_fb_teasers, type is '$type'" . dprint_r($view, 1) . dprint_r($nodes, 1));  // debug
+  //drupal_set_message("theme_views_fb_teasers, type is '$type'" . print_r($view, 1) . dprint_r($nodes, 1));  // debug
 
   // If were displaying in a block, its most likely the profile page, where
   // all styles have to be inline.  So here we do our best to mimic the

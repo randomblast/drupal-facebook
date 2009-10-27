@@ -199,7 +199,7 @@ function fb_user_fb($op, $data, &$return) {
 					  array('app_specific' => $fb_user_data['unique_account'],
 						'roles' => array($fb_user_data['new_user_rid'] => TRUE),
                                           ));
-	watchdog('fb_user', t("Created new user !username for application %app" . dprint_r(array('session_name' => session_name(), 'session_id' => session_id()), 1),
+	watchdog('fb_user', t("Created new user !username for application %app" . print_r(array('session_name' => session_name(), 'session_id' => session_id()), 1),
 			      array('!username' => theme('username', $user),
 				    '%app' => $fb_app->label)));
 	
@@ -483,7 +483,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   // If form posted from an FBML canvas page, we learn the app and fbu from the post.
   // TODO: do we need additional validation here? (i.e. an fb_api_init to confirm the facebook params?)
   if (!empty($_REQUEST['fb_sig'])) {
-    //watchdog('debug', dprint_r($_REQUEST, 'fb_user_user request'));
+    //watchdog('debug', print_r($_REQUEST, 'fb_user_user request'));
     $fb_app = fb_get_app(array('apikey' => $_REQUEST['fb_sig_api_key']));
     $fbu = $_REQUEST['fb_sig_user'];
   }

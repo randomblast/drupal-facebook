@@ -833,7 +833,7 @@ function fb_feed_action_publish(&$context, $values = array()) {
       foreach (array('node', 'comment', 'user', 'fb_app') as $type) {
         if ($objects[$type]) {
           $toks = token_get_values($type, $objects[$type], FALSE, $options);
-          //watchdog('fb_feed_debug', "token_get_values($type) returned " . dprint_r($toks, 1));
+          //watchdog('fb_feed_debug', "token_get_values($type) returned " . print_r($toks, 1));
           if ($toks && is_array($toks->tokens)) {
             foreach ($toks->tokens as $i => $key)
               $params['tokens'][$key] = $toks->values[$i];
@@ -858,7 +858,7 @@ function fb_feed_action_publish(&$context, $values = array()) {
       watchdog('fb_feed', "Publish user action, app is %app, bundle is %bundle_id, params are !params.",
                array('%app' => $fb_app->title,
                      '%bundle_id' => $template->bundle_id,
-                     '!params' => dprint_r($params, 1)));
+                     '!params' => print_r($params, 1)));
     }
     if (is_array($params['tokens']) && $params['do_publish']) {
       if (is_array($params['target_ids']))
@@ -977,7 +977,7 @@ function fb_feed_action_show_dialog(&$context, $values = array()) {
     foreach (array('node', 'comment', 'user', 'fb_app') as $type) {
       if ($objects[$type]) {
         $toks = token_get_values($type, $objects[$type], FALSE, $options);
-        //watchdog('fb_feed_debug', "token_get_values($type) returned " . dprint_r($toks, 1));
+        //watchdog('fb_feed_debug', "token_get_values($type) returned " . print_r($toks, 1));
         if ($toks && is_array($toks->tokens)) {
           foreach ($toks->tokens as $i => $key)
             $params['options']['template_data'][$key] = $toks->values[$i];
