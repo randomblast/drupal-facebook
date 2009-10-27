@@ -7,16 +7,31 @@
  * Note that Facebook connect will work properly only with themes that are
  * Facebook Connect aware.
  */
-
 function fb_connect_menu() {
   $items = array();
-  
+
+  // Cross-domain receiver.
   $items['fb_connect/receiver'] = array(
     'page callback' => 'fb_connect_receiver',
     'type' => MENU_CALLBACK,
     'access callback' => TRUE,
   );
+
+  // Ajax helper
+  $items['fb_connect/js'] = array(
+    'page callback' => 'fb_connect_js_cb',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+
   return $items;
+}
+
+function fb_connect_js_cb() {
+  $extra = fb_invoke(FB_OP_CONNECT_JS_INIT, $data, array());
+  $extra_js = implode("\n", $extra);
+  print $extra_js;
+  exit();
 }
 
 /**
@@ -275,7 +290,6 @@ function fb_connect_init_js($js = NULL) {
   }
   
   return $cache->data;
-  
 }
 
 /**
