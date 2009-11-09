@@ -76,7 +76,8 @@ FB_Connect.execute_javascript = function() {
 FB_Connect.on_connected = function(fbu) {
   //alert("FB_Connect.on_connected " + fbu + " settings fbu is " + Drupal.settings.fb_connect.fbu + " FB_Connect.fbu is " + FB_Connect.fbu);
   var status = {'changed': false, 'fbu': fbu};
-  if (FB_Connect.fbu === 0 || Drupal.settings.fb_connect.fbu != fbu) {
+  if ((FB_Connect.fbu === 0 || Drupal.settings.fb_connect.fbu != fbu) &&
+      Drupal.settings.fb_connect.in_iframe != 1) {
     status.changed = true;
   }
   FB_Connect.fbu = fbu;
@@ -86,7 +87,8 @@ FB_Connect.on_connected = function(fbu) {
 FB_Connect.on_not_connected = function() {
   //alert("FB_Connect.on_not_connected, settings fbu is " + Drupal.settings.fb_connect.fbu);
   var status = {'changed': false, 'fbu': 0};
-  if (FB_Connect.fbu > 0 || Drupal.settings.fb_connect.fbu > 0) {
+  if ((FB_Connect.fbu > 0 || Drupal.settings.fb_connect.fbu > 0) &&
+      Drupal.setings.fb_connect.in_iframe != 1){
     // This code will not be reached if fb_connect_logout_onclick (below) calls logoutAndRedirect.
     // We've gone from connected to not connected.
     status.changed = true;

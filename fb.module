@@ -835,7 +835,7 @@ function fb_url_outbound_alter(&$path, &$options, $original_path) {
   $pre = '';
   
   // Prefix each known value to the URL
-  foreach (array_reverse(_fb_settings_url_rewrite_prefixes()) as $prefix) {
+  foreach (_fb_settings_url_rewrite_prefixes() as $prefix) {
     if ($value = fb_settings($prefix))
       $pre .= $prefix . '/'. $value . '/';
   }

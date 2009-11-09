@@ -169,6 +169,10 @@ function fb_connect_fb($op, $data, &$return) {
 
 }
 
+/**
+ * This wrapper function around drupal_add_js() ensures that our
+ * settings are added once and only once when needed.
+ */
 function _fb_connect_add_js() {
   static $just_once;
   if (!isset($just_once)) {
@@ -180,6 +184,8 @@ function _fb_connect_add_js() {
     drupal_add_js(array('fb_connect' => array(
                           'front_url' => url('<front>'),
                           'fbu' => $fbu,
+                          // Is there a better way to keep track of iframe?
+                          'in_iframe' => $_REQUEST['fb_sig_in_iframe'],
                         ),
                   ), 'setting');
     drupal_add_js($base . '/fb_connect.js');

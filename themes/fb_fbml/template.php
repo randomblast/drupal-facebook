@@ -1,9 +1,16 @@
 <?php
 
-function fb_fbml_preprocess_pageXXX() {
-  //dpm(func_get_args(), 'fb_fbml_preprocess_page');
-}
-
+/**
+ * Ideally, we would not have to implement fb_fbml_page() to override
+ * theme('page', ...), but we do because Drupal's menu (tab) theme
+ * functions are impossible to override effectively on their own.
+ * 
+ * This function is a bit of a hack.  And has the bad drawback (in D6)
+ * that our fb_fbml_preprocess() is not called by theme(), so that we
+ * have to do more hacking to support iframe pages.  In short, with
+ * each new version of Drupal, check to see whether we can get rid of
+ * this function.
+ */
 function fb_fbml_page($content, $show_blocks = TRUE, $show_messages = TRUE) {
   $variables = array('template_files' => array(),
 		     'content' => $content,
@@ -33,7 +40,12 @@ function fb_fbml_page($content, $show_blocks = TRUE, $show_messages = TRUE) {
   // Now our own preprocessing
   fb_fbml_preprocess($variables, $hook);
   
-  $template_file = path_to_theme() . '/page.tpl.php';
+  if (function_exists('fb_canvas_is_iframe') && fb_canvas_is_iframe()) {
+    $template_file = path_to_theme() . '/iframe.tpl.php';
+  }
+  else {
+    $template_file = path_to_theme() . '/page.tpl.php';
+  }
   $output = theme_render_template($template_file, $variables);
   
   if (function_exists('fb_canvas_process')) {

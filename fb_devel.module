@@ -10,9 +10,16 @@ function fb_devel_menu() {
   $items['fb/devel/fbu'] = array(
     'page callback' => 'fb_devel_fbu_page',
     'type' => MENU_CALLBACK,
-    'access' => TRUE,
+    'access callback' => TRUE,
   );
-  
+
+  // Return some info for debugging AHAH problems
+  $items['fb/devel/js'] = array(
+    'page callback' => 'fb_devel_js',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+
   return $items;
 }
 
@@ -114,7 +121,7 @@ function fb_devel_fb($op, $data, &$return) {
     $message .= dprint_r($data, 1);
     $message .= dprint_r($_REQUEST,1);
     watchdog('fb_devel', $message);
-  }
+ }
   
   else if ($op == FB_OP_CANVAS_EXIT && $data['fb'] && $return) {
     watchdog('fb_devel', 'Drupal is redirecting a canvas page, destination is %destination.', array('%destination' => $return));
@@ -204,9 +211,59 @@ function fb_devel_fbu_page($fbu = NULL) {
   return $output;
 }
 
+
+/**
+ * Provide some information for testing AHAH and AJAX scenarios.
+ */
+function fb_devel_js() {
+  $data = '<pre>';
+
+  $data .= "session_name() = " . session_name() . "\n";
+  $data .= "session_id() = " . session_id() . "\n";
+  $data .= "REQUEST: " . dprint_r($_REQUEST, 1) . "\n";
+  $data .= "SESSION: " . dprint_r($_SESSION, 1) . "\n";
+  $data .= '</pre>';
+
+  print drupal_json(array('status' => TRUE, 'data' => $data));
+  exit();
+}
+
+function fb_devel_form_alter(&$form, $form_state, $form_id) {
+  static $count;
+  $count++;
+
+  if (fb_verbose() == 'extreme') { // most people will not want this...
+    $form['fb_devel'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Drupal for Facebook Devel'),
+      '#description' => t('For debugging ahah problems......'),
+      '#collapsible' => TRUE,
+      '#collapsed' => FALSE,
+    );
+    $form['fb_devel']['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('fb_devel'),
+      '#ahah' => array(
+        'event' => 'click',
+        'path' => 'fb/devel/js',
+        'wrapper' => "fb_devel_wrapper$count",
+        'method' => 'replace',
+        'effect' => 'fade',
+        'progress' => array('type' => 'bar', 'message' => 'XXX'),
+      ),
+    );
+    $form['fb_devel']['wrap'] = array(
+      '#type' => 'markup',
+      '#value' => "<div id=fb_devel_wrapper$count>This is the wrapper.</div>",
+    );
+  }
+}
+
 function fb_devel_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {
+    // Provide two copies of same block, for iframe scenarios.
     $items[0]['info'] = t('Facebook Devel Page Info');
+    $items[1]['info'] = t('Facebook Devel Page Info 2');
     return $items;
   }
   else if ($op == 'view') {

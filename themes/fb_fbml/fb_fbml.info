@@ -8,4 +8,5 @@ regions[header] = Canvas Header
 regions[right] = Canvas Right
 regions[content_footer] = Content Footer
 regions[canvas_footer] = Canvas Footer
+regions[iframe_footer] = Iframe Footer
 
