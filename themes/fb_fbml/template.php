@@ -220,10 +220,9 @@ function fb_fbml_menu_local_tasks() {
     
     if ($secondary = menu_secondary_local_tasks()) {
       // replace fb:tab-items with list items
-      $pattern = '|<fb:tab-item href="([^"]*)" title="([^"]*)"([^>]*)></fb:tab-item>|';
-      $replace = '<li $3><a href="$1">$2</a></li>';
+      $pattern = '|<fb:tab-item href="([^"]*)" title="([^"]*)"([^>]*)>([^<]*)</fb:tab-item>|';
+      $replace = '<li $3><a href="$1">$4</a></li>';
       $secondary = preg_replace($pattern, $replace, $secondary);
-      
       $output .= "<ul class=\"tabs secondary\">\n". $secondary ."</ul>\n";
     }
     
