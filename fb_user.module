@@ -107,8 +107,8 @@ function _fb_user_track($fb, $fb_app, $user) {
  * Implementation of hook_fb.
  */
 function fb_user_fb($op, $data, &$return) {
-  $fb_app = $data['fb_app'];
-  $fb = $data['fb'];
+  $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
+  $fb = isset($data['fb']) ? $data['fb'] : NULL;
 
   global $user;
 
@@ -124,14 +124,14 @@ function fb_user_fb($op, $data, &$return) {
   }
   else if ($op == FB_OP_POST_INIT) {
     // Observe special rules for canvas page users without local accounts
-    if (!$user->uid && !_fb_user_special_page() && !$_REQUEST['form_id']) {
+    if (!$user->uid && !_fb_user_special_page() && !isset($_REQUEST['form_id'])) {
       if ($fbu = fb_facebook_user($fb) && fb_api_check_session($fb) && !$fb->api_client->users_isAppUser()) {
         $uid = $fb_user_data['logged_in_uid'];
       }
-      else {
+      else if (isset($fb_user_data['fb_user'])) {
         $uid = $fb_user_data['fb_user']['not_logged_in_uid'];        
       }
-      if ($uid) {
+      if (isset($uid)) {
         watchdog("fb_user", "fb_user_fb changing user to $uid"); // debug
         $user = user_load(array('uid' => $uid));
       }
@@ -149,7 +149,8 @@ function fb_user_fb($op, $data, &$return) {
     // Remember the original uid
     $original_uid = $user->uid;
     
-    if ($user->fbu != $fbu && fb_api_check_session($fb)) {
+    if ((!isset($user->fbu) || $user->fbu != $fbu) && 
+        fb_api_check_session($fb)) {
       // Try the application-specific account.
       $account = user_external_load("$fbu-$fb_app->apikey@facebook.com");
       if (!$account)
@@ -334,7 +335,7 @@ function fb_user_authentication_is_required($fb_app) {
 
 function fb_user_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
-  if (is_array($form['fb_app_data'])) {
+  if (isset($form['fb_app_data'])) {
     $node = $form['#node'];
     $fb_user_data = _fb_user_get_config($node->fb_app);
     
@@ -423,7 +424,8 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
     // On user/edit, hide proxied email
     if (isset($form['account']) && isset($form['account']['mail'])) {
       $account = $form['_account']['#value'];
-      if ($form['account']['mail']['#default_value'] == $account->fb_user_proxied_mail) {
+      if (isset($account->fb_user_proxied_mail) &&
+          ($form['account']['mail']['#default_value'] == $account->fb_user_proxied_mail)) {
         unset($form['account']['mail']['#default_value']);
       } 
     }
@@ -485,7 +487,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   if (!empty($_REQUEST['fb_sig'])) {
     //watchdog('debug', print_r($_REQUEST, 'fb_user_user request'));
     $fb_app = fb_get_app(array('apikey' => $_REQUEST['fb_sig_api_key']));
-    $fbu = $_REQUEST['fb_sig_user'];
+    $fbu = isset($_REQUEST['fb_sig_user']) ? $_REQUEST['fb_sig_user'] : NULL;
   }
   else if (!empty($GLOBALS['fb'])) {
     // Post from iframe, or facebook connect page, or canvas page.
@@ -828,16 +830,16 @@ function fb_user_get_local_friends($fbu = NULL, $fb_app = NULL) {
 function _fb_user_get_fbu($uid, $fb_app) {
   static $cache = array();
 
-  if (!$cache[$uid]) {  
+  if (!isset($cache[$uid])) {
     $cache[$uid] = array();
     // Look up this user in the authmap
     $result = db_query("SELECT * FROM {authmap} WHERE uid=%d AND authname LIKE '%@facebook.com'", $uid);
-    while (!$fbu && $data = db_fetch_object($result)) {
+    while (!isset($fbu) && $data = db_fetch_object($result)) {
       // get the part before the '@'
       $substr = substr($data->authname, 0, strpos($data->authname, '@'));
       // then split at the '-'
       $parts = explode('-', $substr);
-      if ($parts[1])
+      if (isset($parts[1]))
         // $parts[1] is app id
         $cache[$uid][$parts[1]] = $parts[0];
       else
@@ -849,7 +851,7 @@ function _fb_user_get_fbu($uid, $fb_app) {
   if ($fb_user_data['unique_account'])
     // Return the app-specific mapping
     return $cache[$uid][$fb_app->apikey];
-  else
+  else if (isset($cache[$uid]['global']))
     // Return the global mapping
     return $cache[$uid]['global'];
 }

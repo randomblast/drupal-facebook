@@ -62,11 +62,12 @@ function fb_canvas_block($op = 'list', $delta = 0, $edit = array()) {
  * Implementation of hook_fb.
  */
 function fb_canvas_fb($op, $data, &$return) {
-  $fb = $data['fb'];
-  $fb_app = $data['fb_app'];
+  $fb = isset($data['fb']) ? $data['fb'] : NULL;
+  $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   
   if ($op == FB_OP_CURRENT_APP) {
-    if ($apikey = $_REQUEST[FB_APP_REQ_API_KEY]) {
+    if (isset($_REQUEST[FB_APP_REQ_API_KEY]) &&
+        ($apikey = $_REQUEST[FB_APP_REQ_API_KEY])) {
       // If facebook has passed the app key, let's use that.
       $fb_app = fb_get_app(array('apikey' => $apikey));
     }
@@ -186,7 +187,7 @@ function fb_canvas_fb($op, $data, &$return) {
  */
 function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
-  if (is_array($form['fb_app_data'])) {
+  if (isset($form['fb_app_data']) && is_array($form['fb_app_data'])) {
     $node = $form['#node'];
     $fb_app_data = fb_app_get_data($node->fb_app);
     $fb_canvas_data = $fb_app_data['fb_canvas'];
@@ -296,7 +297,7 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
 								   '#type' => 'hidden');
       
       // We need to make sure the action goes to our domain and not apps.facebook.com, so here we tweak the form action.
-      $form['fb_canvas_form_handler']['#action_old'] = $form['action'];
+      $form['fb_canvas_form_handler']['#action_old'] = isset($form['action']) ? $form['action'] : NULL;
       if ($form['#action'] == '') {
 	$form['#action'] = $_GET['q'];
       }
@@ -309,7 +310,7 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
     // makes things look terrible in FBML.  It only works when javascript is
     // enabled and it should have been implemented to degrade gracefully, but
     // it wasn't.
-    if ($form['body_field']) {
+    if (isset($form['body_field'])) {
       unset($form['body_field']['teaser_js']);
       unset($form['body_field']['teaser_include']);            
     }
@@ -392,7 +393,7 @@ function fb_canvas_handling_form() {
   global $fb;
   
   // Test whether a form has been submitted via facebook canvas page.
-  if ($fb && $_REQUEST['form_id'] && $_REQUEST['_fb_handling_form'])
+  if ($fb && isset($_REQUEST['form_id']) && isset($_REQUEST['_fb_handling_form']))
     return TRUE;
 }
 

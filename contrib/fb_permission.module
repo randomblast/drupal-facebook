@@ -210,7 +210,7 @@ function fb_permission_fb($op, $data, &$return) {
   if ($op == FB_APP_OP_EVENT) {
     if ($data['event_type'] == FB_APP_EVENT_POST_AUTHORIZE) {
       // User has authorized the application.
-      $fb_app = $data['fb_app'];
+      $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
       $fb_app_data = fb_app_get_data($fb_app);
       $fb_permission_data = $fb_app_data['fb_permission'];
       

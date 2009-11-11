@@ -36,11 +36,12 @@ function fb_form_menu() {
  */
 function fb_form_form_alter(&$form, &$form_state, $form_id) {
   /* Drupal allows no clean way to set $form['#type'], so we hack... */
-  if ($type = $form['#fb_form_type_hack']) {
+  if (isset($form['#fb_form_type_hack']) &&
+      ($type = $form['#fb_form_type_hack'])) {
     $form['#type'] = $type;
     unset($form['#fb_form_type_hack']);
   }
-
+  
   // Support for ahah (see ahah_forms.module)
   if (function_exists('fb_canvas_is_fbml') &&
       fb_canvas_is_fbml()) {
@@ -489,7 +490,9 @@ function fb_form_theme() {
 }
 
 function theme_fb_form_multi_friend_selector($elements) {
-  $output = "<fb:multi-friend-selector " . drupal_attributes($elements['#attributes']) . ">" . $elements['#children'] ."</fb:multi-friend-selector>\n";
+  $output = "<fb:multi-friend-selector " . drupal_attributes($elements['#attributes']) . ">" . 
+    (isset($elements['#children']) ? $elements['#children'] : '') . 
+    "</fb:multi-friend-selector>\n";
   return $output;
 }
 
@@ -498,7 +501,9 @@ function theme_fb_form_requestform($elements) {
   if (is_array($elements['#attributes']['content'])) {
     $elements['#attributes']['content'] = drupal_render($elements['#attributes']['content']);
   }
-  $output = "<fb:request-form " . drupal_attributes($elements['#attributes']) . ">". $elements['#children'] . "</fb:request-form>\n";
+  $output = "<fb:request-form " . drupal_attributes($elements['#attributes']) . ">". 
+    (isset($elements['#children']) ? $elements['#children'] : '') . 
+    "</fb:request-form>\n";
   return $output;
 }
 

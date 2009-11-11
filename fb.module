@@ -26,6 +26,7 @@ define('FB_OP_LIST_PROPERTIES', 'list_props'); // list of known properties for a
 
 define('FB_OP_CONNECT_JS_INIT', 'fb_connect_js_init'); // A chance to customize fbConnect javascript
 define('FB_OP_CANVAS_FBJS_INIT', 'fb_canvas_js_init'); // A chance to customize FBJS.
+define('FB_OP_CANVAS_EXIT', 'fb_op_canvas_exit'); // hook_exit for canvas pages.
 
 // node_access realms (belongs here?)
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
@@ -68,7 +69,8 @@ function fb_init() {
     // because we rely on the fb_... params passed by facebook.
     if (isset($_SESSION['fb_frame_params']) &&
 	$_REQUEST['fb_sig']) {
-      if ($_REQUEST['fb_sig_session_key'] != $_SESSION['fb_frame_params']['session_key']) {
+      if (!isset($_REQUEST['fb_sig_session_key']) ||
+          $_REQUEST['fb_sig_session_key'] != $_SESSION['fb_frame_params']['session_key']) {
 	// The session key from facebook has changed.  Treat this as a new session.
 	$req = array();
 	foreach ($_REQUEST as $key => $val) {
@@ -187,25 +189,33 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
   global $facebook_config;
   $facebook_config['debug'] = variable_get('fb_debug', FALSE); // set TRUE for debug output from FB API
   
-  if (!$cache[$fb_app->apikey]) {
+  if (!isset($cache[$fb_app->apikey])) {
     $cache[$fb_app->apikey] = array();
   }
   $fbu_orig = $fbu;
   
+  // Avoid E_NOTICE errors and keep code below clean.  PHP sux.
+  if (isset($GLOBALS['fb'])) {
+    $global_fb = $GLOBALS['fb'];
+  }
+  else {
+    $global_fb = (object) array('api_key' => NULL);
+  }
+
   // Determine the actual facebook user id to use.
-  if ($GLOBALS['fb'] && $GLOBALS['fb']->api_key == $fb_app->apikey && 
+  if ($global_fb->api_key == $fb_app->apikey && 
       ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY ||
        $fbu == $GLOBALS['fb']->get_loggedin_user())) {
     return $GLOBALS['fb'];
   }
-  else if ($GLOBALS['fb']->api_key == $fb_app->apikey && 
+  else if ($global_fb->api_key == $fb_app->apikey && 
            ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
            && isset($_SESSION['fb_frame_params']) && !$_REQUEST['fb_sig']) {
     $params = $_SESSION['fb_frame_params'];
     $fbu = $params['user'];
     $session = $params['session_key'];
   }
-  else if ($GLOBALS['fb'] && $GLOBALS['fb']->api_key == $fb_app->apikey &&
+  else if ($global_fb->api_key == $fb_app->apikey &&
            $fbu == FB_FBU_CURRENT) {
     // No current user to use, probably anonymous canvas page.
     return $GLOBALS['fb'];
@@ -215,15 +225,16 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
     $data = fb_invoke(FB_OP_GET_INFINITE_SESSION, array('fb_app' => $fb_app,
 							'fb' => $GLOBALS['fb']),
 		      array());
-    $fbu = $data[0];
-    $session = $data[1];
+    if (count($data) && $data[0] && $data[1]) {
+      $fbu = $data[0];
+      $session = $data[1];
+    }
   }
   else if ($fbu != FB_FBU_NO_SESSION) {
     // FB user id passed in.  If we happen to have valid session info for
     // them, we can log in as them.
     $data = fb_invoke(FB_OP_GET_USER_SESSION,
 		      array('fb_app' => $fb_app,
-			    'fb' => $fb,
 			    'fbu' => $fbu),
 		      array());
     
@@ -233,7 +244,7 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
     }
   }
   
-  if (!$cache[$fb_app->apikey][$fbu]) {
+  if (!isset($cache[$fb_app->apikey][$fbu])) {
     // We don't have a cached resource for this app/user combo, so we're going to create one.
     $fb = new Facebook($fb_app->apikey, $fb_app->secret);
 
@@ -246,7 +257,7 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
     }
     
     // If we learned the session, above, use it
-    if ($fbu && $session) {
+    if ($fbu && isset($session)) {
       $fb->set_user($fbu, $session);
     }
     else if ($fbu && $fbu == $fb->get_loggedin_user()) {
@@ -333,7 +344,7 @@ function fb_facebook_user($fb = NULL) {
     return;
   
   $fbu = $fb->get_loggedin_user();
-  if ($fb->api_client->error_code) {
+  if (isset($fb->api_client->error_code)) {
     if (fb_verbose()) {
       watchdog('fb', 'Failed to get Facebook user id.  detail: !detail',
                array('!detail' => print_r($_REQUEST, 1)), WATCHDOG_ERROR);

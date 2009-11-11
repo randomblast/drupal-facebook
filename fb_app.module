@@ -16,15 +16,15 @@ define('FB_APP_OP_EVENT', 'fb_app_event');
  * hook_fb
  */
 function fb_app_fb($op, $data, &$return) {
-  $fb = $data['fb'];
-  $fb_app = $data['fb_app'];
+  $fb = isset($data['fb']) ? $data['fb'] : NULL;
+  $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   
   if ($op == FB_OP_GET_APP) {
     // Load app data, using the criteria passed in
-    if ($data['nid'])
+    if (isset($data['nid']))
       $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE fb.nid=%d and status=1",
                                          $data['nid']));
-    else if ($data['apikey']) {
+    else if (isset($data['apikey'])) {
       $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE apikey='%s' and status=1",
                                          $data['apikey']));
     }
@@ -239,7 +239,7 @@ function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
   fb_app_get_app_properties($fb_app);
   // Perhaps this info should be hidden, unless user can edit node.
   if (user_access('administer fb apps')) {
-    if($fb_app->edit_url) {
+    if(isset($fb_app->edit_url)) {
       $node->content['edit_link'] = array(
         '#value' => '<p>' . t('<a href="!url">Edit this application</a> on Facebook.', array('!url' => $fb_app->edit_url)) . '</p>',
         '#type' => 'markup',
@@ -283,11 +283,11 @@ function theme_fb_app($fb_app) {
     t('Secret') => $fb_app->secret,
   );
   foreach ($props_map as $name => $key) {
-    if ($fb_app->$key)
+    if (isset($fb_app->$key))
       $data[$name] = $fb_app->$key;
   }
 
-  $output .= theme('dl', $data);
+  $output = theme('dl', $data);
   return $output;
 }
 
@@ -408,7 +408,7 @@ function fb_app_delete($node) {
  * Convenience method for other modules to attach data to the fb_app object.
  */
 function fb_app_get_data(&$fb_app) {
-  if (!$fb_app->fb_app_data) {
+  if (!isset($fb_app->fb_app_data)) {
     $fb_app->fb_app_data = unserialize($fb_app->data);
   }
   return $fb_app->fb_app_data;
@@ -472,8 +472,8 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
 }
 
 function theme_fb_app_user_info($fb_app, $info) {
-  if ($info['pic_big'])
-    $output .= '<p><img src="'.$info['pic_big'].'" /></p>';
+  if (isset($info['pic_big']))
+    $output = '<p><img src="'.$info['pic_big'].'" /></p>';
   $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', array('query' => 'id=' . $info['uid']));
   if ($info['is_app_user'])
     $output .= '<p>' . t('!fb_link uses %title',

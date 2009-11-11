@@ -145,6 +145,7 @@ function fb_connect_fb($op, $data, &$return) {
   else if ($op == FB_OP_POST_INIT) {
     if ($apikey = variable_get('fb_connect_primary_apikey', NULL)) {
       if ($data['fb_app']->apikey == $apikey) {
+        $fb_app = $data['fb_app'];
         // Init Facebook javascript for primary app
         _fb_connect_add_js();
         fb_connect_require_feature('XFBML', $fb_app);
@@ -181,11 +182,14 @@ function _fb_connect_add_js() {
       // If here, fb connect cookies are set.
       $fbu = $_COOKIE[$GLOBALS['fb_connect_apikey'] . "_user"];
     }
+    else {
+      $fbu = NULL;
+    }
     drupal_add_js(array('fb_connect' => array(
                           'front_url' => url('<front>'),
                           'fbu' => $fbu,
                           // Is there a better way to keep track of iframe?
-                          'in_iframe' => $_REQUEST['fb_sig_in_iframe'],
+                          'in_iframe' => (isset($_REQUEST['fb_sig_in_iframe']) && $_REQUEST['fb_sig_in_iframe']),
                         ),
                   ), 'setting');
     drupal_add_js($base . '/fb_connect.js');
@@ -248,17 +252,17 @@ function fb_connect_exit($url = NULL) {
  * called.
  */
 function fb_connect_require_feature($feature = NULL, $fb_app = NULL) {
-  if ($feature && !isset($fb_app))
+  if ($feature && !isset($fb_app) && isset($GLOBALS['fb_app']))
     $fb_app = $GLOBALS['fb_app'];
   
   // some features may apply without an app, but for now let's enforce that an app is required.
-  if ($feature && !$fb_app)
+  if ($feature && !isset($fb_app))
     return;
   
   static $features;
   if (!$features)
     $features = array();
-  if ($fb_app && !$features[$fb_app->apikey])
+  if ($fb_app && !isset($features[$fb_app->apikey]))
     $features[$fb_app->apikey] = array('fb_app' => $fb_app,
 				       'features' => array());
   if ($feature)
@@ -278,7 +282,7 @@ function fb_connect_init_option($option = NULL, $value = NULL, $fb_app = NULL) {
   static $options;
   if (!$options)
     $options = array();
-  if ($fb_app && !$options[$fb_app->apikey]) {
+  if ($fb_app && !isset($options[$fb_app->apikey])) {
     $options[$fb_app->apikey] = array();
   }
   
@@ -509,7 +513,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       }
       
       // If user has changed defaults, run filter
-      if ($defaults['format']) {
+      if (isset($defaults['format'])) {
         $subject = check_plain($subject);
         $content = check_markup($content, $defaults['format'], FALSE);
       }
@@ -526,7 +530,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
 
 function fb_connect_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
-  if (is_array($form['fb_app_data'])) {
+  if (isset($form['fb_app_data'])) {
     $node = $form['#node'];
     $fb_app_data = fb_app_get_data($node->fb_app);
     $fb_connect_data = $fb_app_data['fb_connect'];
@@ -603,7 +607,7 @@ function fb_connect_theme_registry_alter(&$theme_registry) {
 function fb_connect_theme_user_picture_override($account) {
 
   // First learn the Facebook id
-  if ($account->fbu) {
+  if (isset($account->fbu)) {
     $fbu = $account->fbu;
   }
   else if ($pos = strpos($account->name, '@facebook')) {
@@ -646,7 +650,7 @@ function fb_connect_fbml_username($object, $orig_username = NULL) {
     $orig_username = theme_username($object);
 
   // First learn the Facebook id
-  if ($object->fbu) {
+  if (isset($object->fbu)) {
     $fbu = $object->fbu;
   }
   else if ($pos = strpos($object->name, '@facebook')) {
@@ -661,7 +665,7 @@ function fb_connect_fbml_username($object, $orig_username = NULL) {
   
   if (isset($fbu) && is_numeric($fbu)) {
     // Display both orig and XFBML, to degrade gracefully.
-    return theme(fb_connect_fbml_username, $orig_username, $object, $fbu);
+    return theme('fb_connect_fbml_username', $orig_username, $object, $fbu);
   }
   else {
     return $orig_username;
@@ -715,7 +719,9 @@ function theme_fb_connect_fbml_popup($elem) {
   // Hide this markup until javascript shows it.
   $t = '<div class="fb_connect_fbml_popup_wrap" style="display:none;" ' . ">\n";
   
-  $t .= '<a href="#" title="' . check_plain($elem['#title']) . '" ' . drupal_attributes($elem['#link_attributes']) . '>' . check_plain($elem['#link_text']) .'</a>';
+  $t .= '<a href="#" title="' . check_plain($elem['#title']) . '" ' . 
+    (isset($elem['#link_attributes']) ? drupal_attributes($elem['#link_attributes']) : '') .
+    '>' . check_plain($elem['#link_text']) .'</a>';
   $t .= '<div class="fb_connect_fbml_popup" ' . drupal_attributes($elem['#attributes']) . '>';
   $t .= $elem['#children'];
   $t .= "</div></div>\n";

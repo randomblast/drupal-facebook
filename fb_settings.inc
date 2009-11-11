@@ -41,7 +41,7 @@ function fb_settings($key, $value = NULL) {
   if (isset($value)) {
     $cache[$key] = $value;
   }
-  return $cache[$key];
+  return isset($cache[$key]) ? $cache[$key] : NULL;
 }
 
 /**

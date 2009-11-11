@@ -73,7 +73,9 @@ function fb_fbml_preprocess(&$vars, $hook) {
       // using the normal syntax, we don't use the normal
       // drupal_get_css() here.
       $css = drupal_add_css();
-      
+      $module_css = '';
+      $theme_css = '';
+
       // Only include stylesheets for FBML
       foreach ($css['fbml'] as $type => $files) {
 	foreach ($files as $file => $preprocess) {
@@ -118,7 +120,7 @@ function fb_fbml_preprocess(&$vars, $hook) {
       $body_classes = array();
       $body_classes[] = ($vars['is_front']) ? 'front' : 'not-front';
       $body_classes[] = ($user->uid > 0) ? 'logged-in' : 'not-logged-in';
-      if ($vars['left'] && $vars['right']) {
+      if (isset($vars['left']) && isset($vars['right'])) {
 	$body_classes[] = 'with-both-sidebars';
       }
       else if ($vars['right']) {
@@ -141,12 +143,15 @@ function fb_fbml_preprocess(&$vars, $hook) {
     }
 
     // TODO: could move this to phptemplate engine.
-    if (count($vars['about']))
+    if (isset($vars['about']))
       $vars['about'] = drupal_render($vars['about']);
-    if (count($vars['children']))
+    else
+      $vars['about'] = NULL;
+
+    if (isset($vars['children']))
       $vars['children'] = drupal_render($vars['children']);
 
-    if ($vars['extra_style'])
+    if (isset($vars['extra_style']))
       $vars['extra_style'] = drupal_render($vars['extra_style']);
 
     if ($vars['teaser'])
@@ -191,11 +196,14 @@ function fb_fbml_menu_item_link($link) {
   
   if ($_fb_fbml_state == 'tabs') {
     // Theme an FBML tab
-    $output .= "<fb:tab-item href=\"".url($link['href'])."\" title=\"".$link['title']."\" selected=\"false\">".$item['title']."</fb:tab-item>\n";
+    $output = "<fb:tab-item href=\"" . 
+      url($link['href']) . 
+      (isset($link['title']) ? "\" title=\"" . $link['title'] : '') .
+      "\" selected=\"false\">".$link['title']."</fb:tab-item>\n";
     return $output;
   }
   else
-    return theme_menu_item_link($link, $active);
+    return theme_menu_item_link($link);
 }
 
 function fb_fbml_menu_local_tasks() {
@@ -235,7 +243,8 @@ function fb_fbml_fieldset($element) {
     
     static $count = 0;
     
-    if ($element['#collapsible']) {
+    if (isset($element['#collapsible']) && 
+        $element['#collapsible']) {
       $id = 'fbml_fieldset_' . $count++;
       $linkattrs = array('clicktotoggle' => $id,
 			 'href' => '#');
@@ -257,10 +266,13 @@ function fb_fbml_fieldset($element) {
     if ($element['#title']) {
       $output .= '<legend>'. $element['#title'] .'</legend>';
     }
-    $output .= '<div class="fieldset-content" ' . drupal_attributes($contentattrs) . '>';
+    $output .= '<div class="fieldset-content" ' . 
+      (isset($contentattrs) ? drupal_attributes($contentattrs) : '') . '>';
     if ($element['#description'])
       $output .= '<div class="description">'. $element['#description'] .'</div>';
-    $output .= $element['#children'] . $element['#value'];
+    $output .= $element['#children'];
+    if (isset($element['#value']))
+      $output .= $element['#value'];
     $output .= "</div></fieldset>\n";
     
   } 
