@@ -8,7 +8,7 @@ class fb_views_handler_filter_friends extends views_handler_filter_boolean_opera
     parent::construct();
     $this->value_value = t('Is friend of the current user');
   }
-
+  
   function query() {
     $fb_app = $GLOBALS['fb_app']; // Set on Canvas and Connect pages.
     
@@ -22,10 +22,9 @@ class fb_views_handler_filter_friends extends views_handler_filter_boolean_opera
         
         if (is_array($friends) && count($friends)) {
           $this->ensure_my_table();
-          $this->query->add_where(0, 'fb_user_app.fbu IN (%s)', implode(',', $friends));
+          $this->query->add_where(0, $this->table_alias . '.fbu IN (%s)', implode(',', $friends));
         }
       }
     }
-    
   }
 }
