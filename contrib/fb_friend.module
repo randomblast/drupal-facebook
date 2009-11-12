@@ -76,8 +76,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       drupal_alter('fb_friend_invite_page', $fbml);
       
       if ($fbml) {
-        if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
-          // TODO: support canvas pages, in addition to connect pages.
+        if (fb_is_fbml_canvas()) {
           $xfbml = array(
             'fbml' => $fbml,
           );
@@ -129,7 +128,8 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       
       // Exclude users who have already installed.
       $rs = $fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)");
-      $arFriends = "";
+      $arFriends = '';
+      $exclude_ids = '';
       //  Build an delimited list of users...
       if ($rs) {
         $exclude_ids .= $rs[0]["uid"];
@@ -148,18 +148,26 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       // Allow third-party to modify the form
       drupal_alter('fb_friend_invite_app', $fbml);
       
-      // Wrap in serverfbml for connect pages.
-      $xfbml = array('#type' => 'fb_form_serverfbml',
-                     'fbml' => $fbml);
-      
-      // Allow third-party to modify wrapper
-      drupal_alter('fb_friend_invite_app_wrap', $xfbml);
-      
-      $content = drupal_render($xfbml);
-      return array('subject' => t('Invite friends to use !site',
-                                  array('!site' => $site_name)),
-                   'content' => $content,
-      );
+      if ($fbml) {
+        if (fb_is_fbml_canvas()) {
+          $xfbml = array(
+            'fbml' => $fbml,
+          );
+        }
+        else {
+          // Wrap in serverfbml for connect pages.
+          $xfbml = array('#type' => 'fb_form_serverfbml',
+                         'fbml' => $fbml);
+        }
+        // Allow third-party to modify wrapper
+        drupal_alter('fb_friend_invite_app_wrap', $xfbml);
+        
+        $content = drupal_render($xfbml);
+        return array('subject' => t('Invite friends to use !site',
+                                    array('!site' => $site_name)),
+                     'content' => $content,
+        );
+      }
     }
     else if ($delta == FB_FRIEND_DELTA_AUTHORIZED) {
       // TODO: handle both connect and canvas pages!
@@ -186,5 +194,4 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
     }
   }
 }
-
 
