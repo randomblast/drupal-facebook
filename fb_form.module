@@ -43,8 +43,7 @@ function fb_form_form_alter(&$form, &$form_state, $form_id) {
   }
   
   // Support for ahah (see ahah_forms.module)
-  if (function_exists('fb_canvas_is_fbml') &&
-      fb_canvas_is_fbml()) {
+  if (fb_is_fbml_canvas()) {
     $form['#after_build'][] =  'fb_ahah_bind_form';
   }
   
@@ -117,8 +116,7 @@ function fb_ahah_bind_form( $form ) {
 function fb_form_invite_page() {
   global $fb, $fb_app;
 
-  if (function_exists('fb_canvas_is_fbml') &&
-      !fb_canvas_is_fbml()) {
+  if (!fb_is_fbml_canvas()) {
     drupal_set_message('Unable to display page.  FBML required.', 'error');
     drupal_not_found();
     exit();
@@ -514,7 +512,9 @@ function theme_fb_form_req_choice($elements) {
 }
 
 function theme_fb_form_serverfbml($elements) {
-  $output = '<fb:serverfbml><script type="text/fbml">' . drupal_attributes($elements['#attributes']) . $elements['#children'] . "</script></fb:serverfbml>\n";
+  $output = '<fb:serverfbml><script type="text/fbml">' . 
+    (isset($element['#attributes']) ? drupal_attributes($elements['#attributes']) : '') . 
+    $elements['#children'] . "</script></fb:serverfbml>\n";
   return $output;
 }
 

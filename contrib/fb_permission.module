@@ -113,14 +113,14 @@ function fb_permission_form_fbml($fb_app, $map) {
   // Add buttons for boxes and info
   $sections = array('profile', 'info');
   foreach ($sections as $section) {
-    if (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml()) {
+    if (fb_is_fbml_canvas()) {
       $form[$section] =
         array('#type' => 'markup',
               '#value' => '<fb:add-section-button section="'.$section.'" />',
         );
     }
   }
-
+  
 
   return $form;
 }

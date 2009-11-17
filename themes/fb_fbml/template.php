@@ -40,7 +40,7 @@ function fb_fbml_page($content, $show_blocks = TRUE, $show_messages = TRUE) {
   // Now our own preprocessing
   fb_fbml_preprocess($variables, $hook);
   
-  if (function_exists('fb_canvas_is_iframe') && fb_canvas_is_iframe()) {
+  if (fb_is_iframe_canvas()) {
     $template_file = path_to_theme() . '/iframe.tpl.php';
   }
   else {
@@ -58,7 +58,7 @@ function fb_fbml_preprocess(&$vars, $hook) {
   global $fb_app, $user;
   
   if ($hook == 'page') {
-    if (function_exists('fb_canvas_is_iframe') && fb_canvas_is_iframe()) {
+    if (fb_is_iframe_canvas()) {
       // Iframe in a canvas
       $vars['template_file'] = 'iframe';
     }
@@ -238,7 +238,7 @@ function fb_fbml_menu_local_tasks() {
 function fb_fbml_fieldset($element) {
   global $fb;
   if (($fb && $fb->in_fb_canvas()) ||
-      (function_exists('fb_canvas_is_fbml') && fb_canvas_is_fbml())) {
+      fb_is_fbml_canvas()) {
     
     static $count = 0;
     

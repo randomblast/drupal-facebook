@@ -60,7 +60,7 @@ function fb_infinite_load($nid) {
   if ($fb_app) {
     // Only allow menu item if infinite session is configured.
     $fb_app_data = fb_app_get_data($fb_app);
-    $fb_infinite_data = $fb_app_data['fb_infinite'];
+    $fb_infinite_data = isset($fb_app_data['fb_infinite']) ? $fb_app_data['fb_infinite'] : array();
     if (isset($fb_infinite_data['key'])) {
       return $fb_app;
     }

@@ -52,7 +52,7 @@ function fb_devel_fb($op, $data, &$return) {
     
     // Theme sanity check
     global $theme; // for debug message
-    if (isset($theme)) {
+    if (isset($theme) && !variable_get('site_offline', FALSE)) {
       $message = t('Drupal for Facebook is unable to override the theme settings.  This is usually because some module causes theme_init() to be invoked before fb_init().  See the !readme.',
                    array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
                          // This link should work with clean URLs
@@ -231,8 +231,8 @@ function fb_devel_js() {
 function fb_devel_form_alter(&$form, $form_state, $form_id) {
   static $count;
   $count++;
-
-  if (fb_verbose() == 'extreme') { // most people will not want this...
+  
+  if (fb_verbose() === 'extreme') { // most people will not want this...
     $form['fb_devel'] = array(
       '#type' => 'fieldset',
       '#title' => t('Drupal for Facebook Devel'),

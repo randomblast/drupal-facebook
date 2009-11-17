@@ -455,7 +455,7 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
 	    fb_log_exception($e, "Failed to get Facebook user info for account $fbu");
 	  }
         }
-        if (count($info)) {
+        if (isset($info) && count($info)) {
           $output = theme('fb_app_user_info', $fb_app, $info[0]);
           
           $items[$fb_app->label] = array('title' => $fb_app->title,
@@ -497,6 +497,7 @@ function fb_app_token_list($type = 'all') {
 }
 
 function fb_app_token_values($type = 'all', $object = NULL) {
+  $values = array();
   if ($type == 'fb_app' && $object) {
     $fb_app = $object;
     $values['fb-app-title'] = $fb_app->title;

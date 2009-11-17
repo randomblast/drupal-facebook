@@ -132,8 +132,13 @@ function fb_user_fb($op, $data, &$return) {
         $uid = $fb_user_data['fb_user']['not_logged_in_uid'];        
       }
       if (isset($uid)) {
-        watchdog("fb_user", "fb_user_fb changing user to $uid"); // debug
-        $user = user_load(array('uid' => $uid));
+        $account = user_load(array('uid' => $uid));
+        // Be careful on maintenance pages.
+        if (!variable_get('site_offline', FALSE) || user_access('administer site configuration', $account)) {
+          $user = $account;
+          if (fb_verbose() === 'extreme')
+            watchdog("fb_user", "fb_user_fb changing user to $uid"); // debug
+        }
       }
     }
     // TODO: is it now necessary to redirect the user back to current page?
@@ -145,7 +150,7 @@ function fb_user_fb($op, $data, &$return) {
     // or could be they clicked a fbConnect link.
     
     $fbu = $data['fbu']; // The user id on facebook.
-
+    
     // Remember the original uid
     $original_uid = $user->uid;
     
@@ -159,8 +164,14 @@ function fb_user_fb($op, $data, &$return) {
       if ($account) {
 	$account->fbu = $fbu;
 	if ($user->uid == 0) {
-          watchdog("fb_user", "fb_user_fb changing user to $account->uid");
-          $user = $account; // change the global user
+
+          // Honoring facebook accounts on admin pages causes problems.
+          if (!variable_get('site_offline', FALSE) || user_access('administer site configuration', $account)) {
+            
+            if (fb_verbose() === 'extreme')
+              watchdog("fb_user", "fb_user_fb changing user to $account->uid");
+            $user = $account; // change the global user
+          }
         }
 	else if ($user->uid != $account->uid) {
 	  watchdog('fb_user', 'fb_user encountered something it cannot handle.  The current user, !user1 is logged in.  But the facebook user id %fbu is associated with another user, !user2',
@@ -190,7 +201,7 @@ function fb_user_fb($op, $data, &$return) {
     }
 
     // Check if the local account needs to be made.
-    if ($user->fbu != fb_facebook_user($fb) && (!_fb_user_special_page()) && fb_api_check_session($fb)) {
+    if (!variable_get('site_offline', FALSE) && $user->fbu != fb_facebook_user($fb) && (!_fb_user_special_page()) && fb_api_check_session($fb)) {
       if (($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_ADD &&
            $fb->api_client->users_isAppUser()) ||
           ($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_LOGIN)) {
@@ -226,9 +237,8 @@ function fb_user_fb($op, $data, &$return) {
       // permissions properly, the user must make the request all over
       // again.  Skip this for the profile tab, as facebook does not allow
       // redirects (or persistent session) there.
-      if (function_exists('fb_canvas_is_fbml') &&
-	  (fb_canvas_is_fbml() || fb_canvas_is_iframe()) &&
-	  (!$_REQUEST['fb_sig_in_profile_tab'])) {
+      if ((fb_is_fbml_canvas() || fb_is_iframe_canvas()) &&
+	  (!isset($_REQUEST['fb_sig_in_profile_tab']) || !$_REQUEST['fb_sig_in_profile_tab'])) {
 	
 	// Redirect to a canvas page
 	$url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), array('absolute' => TRUE)), $fb_app);
@@ -868,6 +878,7 @@ function fb_user_token_list($type = 'all') {
 }
 
 function fb_user_token_values($type = 'all', $object = NULL) {
+  $values = array();
   if ($type == 'fb_app' && $object) {
     $fb_app = $object;
     global $user;

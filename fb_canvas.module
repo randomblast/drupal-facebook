@@ -7,18 +7,6 @@
  * 
  */
 
-function fb_canvas_menu() {
-  $items = array();
-  if ($may_cache) {
-    $items['fb/canvas/session'] = array(
-      'page callback' => 'fb_canvas_session_cb',
-      'type' => MENU_CALLBACK,
-      'access callback' => TRUE,
-    );
-  }
-  return $items;
-}
-
 /**
  * implementation of hook_block
  *
@@ -99,6 +87,11 @@ function fb_canvas_fb($op, $data, &$return) {
     else if (fb_canvas_is_iframe()) {
       $custom_theme = $fb_canvas_data['theme_iframe'];
       $is_canvas = TRUE;
+    }
+
+    // Hack to init the theme before _drupal_maintenance_theme initializes the wrong one.
+    if ($is_canvas && variable_get('site_offline', FALSE)) {
+      $dummy = theme('dummy');
     }
 
     // Special handling for forms, as they are submitted directly to us, not

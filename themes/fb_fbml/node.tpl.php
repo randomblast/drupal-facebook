@@ -5,10 +5,10 @@ if ($sticky)
 if (!$status)
   $class .= " node-unpublished";
 $class .= "\"";
-if ($extra_style)
+if (isset($extra_style))
   $style = "style = \"$extra_style\"";
 ?>
-<div <?php print $class; ?> <?php print $style; ?>>
+<div <?php print $class; ?> <?php if (isset($style)) print $style; ?>>
 
 <?php if ($picture || $page == 0 || $submitted || $about || $terms) { ?>
 <div class="node-header">
@@ -25,8 +25,10 @@ if ($extra_style)
 <div class="footer">
   <?php if ($links) { ?><div class="links"><?php print $links?></div><?php }; ?>
 </div>
+<?php if (isset($children)) { ?>
 <div class="children" id="children_<?php print $node->nid; ?>">
   <?php print $children; ?>
 </div>
+<?php } /* end if children */ ?>
 
 </div>

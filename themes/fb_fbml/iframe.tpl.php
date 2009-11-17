@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="<?php print $language->language; ?>" xml:lang="<?php print $language->language; ?>" xmlns:fb="http://www.facebook.com/2008/fbml">
-  <head>
+  <head><!-- fb_fbml/iframe.tpl.php -->
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<title><?php print $head_title; ?></title>
 	<?php print $head; ?>
@@ -11,7 +11,7 @@
     <div id="page">
 	  <div id="header">
 		        
-		<?php if ($iframe_header): ?>
+          <?php if (isset($iframe_header)): ?>
           <div id="header-blocks">
             <?php print $iframe_header; ?>
           </div>
@@ -72,12 +72,12 @@
       </div>
       <!-- /footer -->
       
-	  <?php if ($closure_region): ?>
+      <?php if (isset($closure_region)): ?>
         <div id="closure-blocks">
           <?php print $closure_region; ?>
         </div>
         <?php endif; ?>
-      <?php print $closure; ?>
+      <?php if (isset($closure)) {print $closure;} ?>
     </div>
     <!-- /page -->
 <!-- http://wiki.developers.facebook.com/index.php/JavaScript_Client_Library -->
