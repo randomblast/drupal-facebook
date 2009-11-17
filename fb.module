@@ -354,6 +354,33 @@ function fb_facebook_user($fb = NULL) {
 }
 
 /**
+ * Determine whether current page is FBML canvas page.
+ */
+function fb_is_fbml_canvas() {
+  if (function_exists('fb_canvas_is_fbml'))
+    // More complex logic if fb_canvas.module enabled.
+    return fb_canvas_is_fbml();
+  else {
+    if (isset($GLOBALS['fb'])) {
+      return $GLOBALS['fb']->in_fb_canvas();
+    }
+  }
+}
+/**
+ * Determine whether current page is iframe canvas page.
+ */
+function fb_is_iframe_canvas() {
+  if (function_exists('fb_canvas_is_iframe'))
+    // More complex logic if fb_canvas.module enabled.
+    return fb_canvas_is_iframe();
+  else {
+    if (isset($GLOBALS['fb'])) {
+      return $GLOBALS['fb']->in_frame();
+    }
+  }
+}
+
+/**
  * Facebook provides a method, users_isAppUser(), which is buggy and
  * unreliable.  So we need to implement our own.
  */
@@ -374,7 +401,7 @@ function fb_get_fbu($uid, $fb_app = NULL) {
     $fb_app = $GLOBALS['fb_app'];
   
   // Accept either a user object or uid passed in.
-  if (is_object($uid) && $uid->fbu)
+  if (is_object($uid) && isset($uid->fbu) && $uid->fbu)
     return $uid->fbu;
   else if (is_object($uid))
     $uid = $uid->uid;
@@ -670,7 +697,7 @@ function fb_report_errors($fb = FB_APP_CURRENT, $message = NULL) {
     $fb = $GLOBALS['fb'];
   }
   if ($fb) {
-    if ($fb->api_client->error_code) {
+    if (isset($fb->api_client->error_code)) {
       $message = t('!message Facebook API error %code (see !link).',
                    array('%code' => $fb->api_client->error_code,
                          '!link' => l(t('error codes'), "http://wiki.developers.facebook.com/index.php/Error_codes"),
