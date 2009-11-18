@@ -1,0 +1,5 @@
+name = DFF Stream
+description = Post to Facebook Streams.
+package = Drupal for Facebook
+dependencies[] = fb
+core = 6.x
