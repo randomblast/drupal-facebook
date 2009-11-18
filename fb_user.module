@@ -248,7 +248,7 @@ function fb_user_fb($op, $data, &$return) {
       }
       else if (!fb_settings(FB_SETTINGS_APP_NID)) {
         // Facebook connect pages (not callback or receiver)
-        $path = $_REQUEST['q'];
+        $path = isset($_REQUEST['q']) ? $_REQUEST['q'] : '<front>';
 	if (fb_verbose())
 	  watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $path to ensure permissions are correct."); // debug
         drupal_goto($path);
