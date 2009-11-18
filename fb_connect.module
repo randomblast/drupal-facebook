@@ -374,6 +374,8 @@ function fb_connect_footer($is_front) {
       //FB.FBDebug.logLevel = 4;
       //FB.FBDebug.isEnabled = true;
 
+      FB.XFBML.Host.autoParseDomTree = false;
+
       FB.init(\"{$fb_app->apikey}\", \"{$receiver}\", {$options});
     });
   });

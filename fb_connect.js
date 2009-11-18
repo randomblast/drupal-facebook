@@ -1,5 +1,11 @@
 
 Drupal.behaviors.fb_connect = function(context) {
+  // Respond to connected events
+  var events = $(document).data('events');
+  if (!events || !events.fb_connect_status) {
+    $(document).bind('fb_connect_status', FB_Connect.statusHandle);
+  }
+
   // Sanity check.  Not sure when this can happen, but if it does we can't expect anything to work.
   if (typeof FB_RequireFeatures == 'undefined') {
     return;
@@ -8,16 +14,14 @@ Drupal.behaviors.fb_connect = function(context) {
   // Tell Facebook to parse any XFBML elements found in the context.
   FB_RequireFeatures(['XFBML'], function() {
       $(context).each(function() {
-          if ($(this).html()) {
-            var elem = $(this).get(0);
-            //alert('fb_connect: ' + elem + $(elem).html()); // debug
-            FB.XFBML.Host.parseDomElement(elem);
-
-            // Respect fb_connect classes on new content.
-            $('.fb_connect_show', context).show();
-            $('.fb_connect_hide', context).hide();
-          }
+          var elem = $(this).get(0);
+          //alert('fb_connect: ' + elem + $(elem).html()); // debug
+          FB.XFBML.Host.parseDomElement(elem);
+          
         });
+      // Respect fb_connect classes on new content.
+      $('.fb_connect_show', context).show();
+      $('.fb_connect_hide', context).hide();
     });
 
   // Support for easy fbml popup markup which degrades when javascript not enabled.
@@ -111,7 +115,6 @@ FB_Connect.logout_onclick = function() {
 
 // This function called after fbConnect is initialized
 FB_Connect.init = function() {
-  // Respond to connected events
-  $(document).bind('fb_connect_status', FB_Connect.statusHandle);
+  $.event.trigger('fb_connect_init', status);
 }
 
