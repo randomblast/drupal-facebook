@@ -546,7 +546,7 @@ function fb_feed_view($node, $teaser=FALSE, $page=FALSE) {
         implode("<br />\n", array_map('check_plain', $node->fb_feed_data['short'][$key]));
   }
   
-  if ($node->fb_feed_data['full']['template_title']) {
+  if (isset($node->fb_feed_data['full']) && $node->fb_feed_data['full']['template_title']) {
     $items[t('Full template')] =
       implode("<br />\n", array_map('check_plain', $node->fb_feed_data['full']));
   }
