@@ -704,7 +704,9 @@ function fb_report_errors($fb = FB_APP_CURRENT, $message = NULL) {
                          '!message' => $message,
                    ));
       watchdog('fb', $message, array(), WATCHDOG_ERROR);
-      drupal_set_message($message, 'error');
+      if (user_access('administer fb apps')) {
+        drupal_set_message($message, 'error');
+      }
     }
   }
 }
