@@ -57,8 +57,12 @@ function fb_app_fb($op, $data, &$return) {
   }
 }
 
+
 /**
- * Loader callback for drupal menu api.
+ * Implementation of something_load() to create custom loader for hook_menu().
+ *
+ * see "Defining your own wildcard loader" - http://drupal.org/node/209056
+ * passing $nid not needed if menu_get_object() were to work.
  */
 function fb_app_nid_load($nid) {
   $node = node_load($nid);
@@ -223,9 +227,13 @@ function fb_app_validate_fb_app() {
   //dpm(func_get_args(), 'fb_app_validate_fb_app');
 }
 
+
+/**
+ * Implementation of hook_load().
+ */
 function fb_app_load($node) {
   $fb_app = db_fetch_object(db_query('SELECT * FROM {fb_app} WHERE nid=%d',
-                                   $node->nid));
+                                     $node->nid));
   $fb_app_data = fb_app_get_data($fb_app);
   return array('fb_app' => $fb_app,
                'fb_app_data' => $fb_app_data,
@@ -409,7 +417,7 @@ function fb_app_delete($node) {
  */
 function fb_app_get_data(&$fb_app) {
   if (!isset($fb_app->fb_app_data)) {
-    $fb_app->fb_app_data = unserialize($fb_app->data);
+    $fb_app->fb_app_data = isset($fb_app->data) ? unserialize($fb_app->data) : array();
   }
   return $fb_app->fb_app_data;
 }
