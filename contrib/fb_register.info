@@ -3,5 +3,4 @@ description = Helps map local accounts to facebook accounts.  See http://wiki.de
 package = Drupal for Facebook
 dependencies[] = fb
 dependencies[] = fb_app
-dependencies[] = fb_user
 core = 6.x
