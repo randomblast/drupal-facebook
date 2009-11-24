@@ -110,6 +110,15 @@ function fb_devel_fb($op, $data, &$return) {
         }
       }
     }
+
+    // Moved files sanity check.
+    if (file_exists(drupal_get_path('module', 'fb_devel') . '/fb_feed.module')) {
+      $message = 'Drupal for Facebook modules have moved to <em>modules/fb/contrib/</em>, but your install still has old out-of-date files!  Delete the entire <em>modules/fb/</em> directory and re-install.';
+      if (user_access('access administration pages')) {
+        drupal_set_message($message, 'error');
+      }
+      watchdog('fb_devel', $message, array(), WATCHDOG_ERROR);
+    }
   }
   
   else if ($op == FB_APP_OP_EVENT) {

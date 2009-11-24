@@ -1,0 +1,5 @@
+name = Infinite Session
+description = Historically necessary for application administration.  Should not be necessary any longer.
+package = Drupal for Facebook - deprecated
+dependencies[] = fb
+core = 6.x

@@ -1,5 +1,5 @@
-name = DFF Applications
-description = Allows Drupal to host Facebook Applications
+name = Drupal for Facebook Apps
+description = <strong>REQUIRED</strong>.  Allows Drupal to host one or more Facebook Applications.
 package = Drupal for Facebook
 dependencies[] = fb
 core = 6.x

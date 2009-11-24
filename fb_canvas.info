@@ -1,5 +1,5 @@
-name = DFF Canvas Pages
-description = Support for Facebook Canvas Pages.  You will also need an FBML theme.
+name = Canvas Pages
+description = For <a href=http://developers.facebook.com/get_started.php target=_blank>traditional Facebook Apps</a>.  Also for Profile Tabs.
 package = Drupal for Facebook
 dependencies[] = fb
 dependencies[] = fb_app

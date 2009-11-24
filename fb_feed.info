@@ -1,5 +1,0 @@
-name = DFF Feeds
-description = Manage Facebook feed templates and post to feeds.
-package = Drupal for Facebook
-dependencies[] = fb
-core = 6.x

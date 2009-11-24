@@ -1,5 +1,5 @@
-name = DFF Connect
-description = Login to Drupal with Facebook username and password, and other fbConnect features.  You will need a fbConnect-aware theme.
+name = Facebook Connect
+description = For <a href=http://developers.facebook.com/connect.php target=_blank>Facebook Connect apps</a>.  Allow users to log in using Facebook credentials.  Include XFBML and facebook javascript in your website.
 package = Drupal for Facebook
 core = 6.x
 dependencies[] = fb

@@ -1,6 +1,6 @@
 name = Register Users
-description = Helps map local accounts to facebook accounts.  See http://wiki.developers.facebook.com/index.php/Connect.registerUsers
-package = Drupal for Facebook
+description = Avoid duplicate accounts when your site has local users who may become facebook application users.  See http://wiki.developers.facebook.com/index.php/Connect.registerUsers
+package = Drupal for Facebook - contrib
 dependencies[] = fb
 dependencies[] = fb_app
 core = 6.x

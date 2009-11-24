@@ -1,5 +1,0 @@
-name = DFF Infinite Session
-description = Some app administration requires a session.  Use this module, or Facebook Connect, with the Feeds module.
-package = Drupal for Facebook
-dependencies[] = fb
-core = 6.x

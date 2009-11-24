@@ -1,6 +1,6 @@
 name= Extended Permissions
-description = Extended permisions Facebook Apps.
-package = Drupal for Facebook
+description = Extended Permissions allow apps to provide additional features, like posting to Streams and sending email.  This module helps you prompt users to grant those permissions.
+package = Drupal for Facebook - contrib
 dependencies[] = fb
 dependencies[] = fb_app
 core = 6.x

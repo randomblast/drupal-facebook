@@ -1,6 +1,6 @@
-name = DFF Views
+name = Drupal for Facebook Views
 description = Provides features specific to Views module for Facebook Apps.
-package= Drupal for Facebook
+package= Drupal for Facebook - optional
 core = 6.x
 dependencies[] = fb
 dependencies[] = views

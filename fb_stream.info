@@ -1,5 +1,5 @@
-name = DFF Stream
-description = Post to Facebook Streams.
-package = Drupal for Facebook
+name = Drupal for Facebook Streams
+description = Post to Facebook Streams (a.k.a. News Feed or Wall)
+package = Drupal for Facebook - optional
 dependencies[] = fb
 core = 6.x

@@ -1,6 +1,0 @@
-name= DFF Actions
-description = Provides actions for tasks such as updating a Facebook Profile or writing to a Mini-Feed.
-package = Drupal for Facebook
-dependencies[] = actions
-dependencies[] = token
-dependencies[] = fb

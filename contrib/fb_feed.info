@@ -1,0 +1,5 @@
+name = Drupal for Facebook Feeds
+description = Write to Feeds (a.k.a. Streams or Walls).  Uses an older API which Facebook has deprecated.  Use the Streams API instead.
+package = Drupal for Facebook - deprecated
+dependencies[] = fb
+core = 6.x

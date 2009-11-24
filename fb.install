@@ -21,6 +21,10 @@ function _fb_install_alter_session_table() {
 function fb_install() {
   _fb_install_set_weight();
   _fb_install_alter_session_table();
+  
+  drupal_set_message(t('Drupal for Facebook modules enabled.  Be sure to install facebook\'s client libraries and modify your settings.php!  Read modules/fb/README.txt and <a href="!doc_url" target="_blank">the online documentation for Drupal for Facebook</a> for details.',
+                       array('!doc_url' => 'http://drupal.org/node/195035')
+                     )); 
 }
 
 function fb_uninstall() {
@@ -30,4 +34,10 @@ function fb_update_6000() {
   $ret = array();
   _fb_install_alter_session_table();
   return $ret;
+}
+
+function fb_update_6001() {
+  $message = 'IMPORTANT: Drupal for Facebook modules have moved around!  Check your <em>modules/fb/</em> directory, and make sure you do not have duplicates of fb_feed.module or fb_views.module.  If so, delete the entire <em>modules/fb/</em> directory and re-install.';
+  drupal_set_message($message);
+  watchdog('fb', $message);
 }

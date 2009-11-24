@@ -1,0 +1,7 @@
+name = Drupal for Facebook Actions
+description = Provides Actions for tasks such as updating a Facebook Profile.  Might be useful if you use Drupal Actions and Triggers.
+package = Drupal for Facebook - contrib
+dependencies[] = actions
+dependencies[] = token
+dependencies[] = fb
+core = 6.x

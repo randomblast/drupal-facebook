@@ -1,5 +1,5 @@
-name = DFF Facebook API
-description = Imports and uses the Facebook API.
+name = Drupal for Facebook API
+description = <strong>REQUIRED</strong>.  Imports and uses the Facebook API.  <strong>You must also</strong> download and install the Facebook client libraries, and make manual configuration changes.  (See <em>modules/fb/README.txt</em>.)
 package = Drupal for Facebook
 core = 6.x
 php = 5
