@@ -313,7 +313,7 @@ function fb_register_user($op, &$edit, &$account, $category = NULL) {
       $apps = fb_get_all_apps();
       foreach ($apps as $app) {
         $fb_app_data = fb_app_get_data($app);
-        $fb_register_data = $fb_app_data['fb_register'];
+        $fb_register_data = isset($fb_app_data['fb_register']) ? $fb_app_data['fb_register'] : array();
         if (is_array($fb_register_data) && $fb_register_data['register_users']) {
           $fb = fb_api_init($app);
           $success_data = $fb->api_client->connect_registerUsers(json_encode($register_data));
