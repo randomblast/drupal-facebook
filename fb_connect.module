@@ -612,26 +612,34 @@ function fb_connect_theme_registry_alter(&$theme_registry) {
  * Our replacement for theme('user_picture', ...)
  */
 function fb_connect_theme_user_picture_override($account) {
-  // First learn the Facebook id
-  if (isset($account->fbu)) {
-    $fbu = $account->fbu;
-  }
-  else if ($pos = strpos($account->name, '@facebook')) {
-    // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
-    
-    $fbu = substr($account->name, 0, $pos);
-  }
-  else {
-    // Sometimes the $account object is not an account at all.  Could be a node for example.
-    // (There may be pages where this code is reached many times, and that could be a performance problem.)
-    $fbu = fb_get_fbu($account->uid);
-  }
-
-  $orig = theme('fb_connect_user_picture_orig', $account); // Markup without fb_connect.
-  if (!isset($fbu) || !$fbu)
+  // Markup without fb_connect.
+  $orig = theme('fb_connect_user_picture_orig', $account);
+  
+  // Respect Drupal's profile pic, if uploaded.
+  if (isset($account->picture) && $account->picture) {
     $output = $orig;
+  }
   else {
-    $output = theme('fb_connect_fbml_user_picture', $orig, $account, $fbu);
+    // First learn the Facebook id
+    if (isset($account->fbu)) {
+      $fbu = $account->fbu;
+    }
+    else if ($pos = strpos($account->name, '@facebook')) {
+      // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
+      
+      $fbu = substr($account->name, 0, $pos);
+    }
+    else {
+      // Sometimes the $account object is not an account at all.  Could be a node for example.
+      // (There may be pages where this code is reached many times, and that could be a performance problem.)
+      $fbu = fb_get_fbu($account->uid);
+    }
+    
+    if (!isset($fbu) || !$fbu)
+      $output = $orig;
+    else {
+      $output = theme('fb_connect_fbml_user_picture', $orig, $account, $fbu);
+    }
   }
 
   return $output;
