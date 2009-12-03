@@ -7,6 +7,7 @@
  * 
  */
 
+
 /**
  * implementation of hook_block
  *
@@ -663,6 +664,140 @@ function fb_canvas_process_fbml($output, $fb_app) {
   }
   else
 	return $output;
+}
+
+
+
+//// Theme overrides
+
+/**
+ * Implementation of hook_theme_registry_alter().
+ *
+ * Wrap original theme functions in our overrides.
+ */
+function fb_canvas_theme_registry_alter(&$theme_registry) {
+  // Ideally, we'd do this only on themes which will certainly be used for FBML canvas pages.
+  
+  if ($theme_registry['page']['type'] == 'theme_engine') {
+    // Override theme page.
+    $theme_registry['fb_canvas_page_orig'] = $theme_registry['page'];
+    $theme_registry['page'] = array(
+      'arguments' => $theme_registry['fb_canvas_page_orig']['arguments'],
+      'function' => 'fb_canvas_theme_page_override',
+      'type' => 'module',
+    );
+  }
+  
+  if ($theme_registry['username']['type'] == 'module') {
+    // Override theme_username
+    $theme_registry['fb_canvas_username_orig'] = $theme_registry['username'];
+    $theme_registry['username'] = array(
+      'arguments' => array('object' => NULL),
+      'function' => 'fb_canvas_theme_username_override',
+      'type' => 'module',
+    );
+  }
+
+  if ($theme_registry['user_picture']['type'] == 'module') {
+    // Override theme_user_picture
+    $theme_registry['fb_canvas_user_picture_orig'] = $theme_registry['user_picture'];
+    $theme_registry['user_picture'] = array(
+      'arguments' => array('account' => NULL),
+      'function' => 'fb_canvas_theme_user_picture_override',
+      'type' => 'module',
+    );
+  }
+
+}
+
+/**
+ * Override theme('page',...).  Wrap the original code in our hacks.
+ *
+ * The first hack sets a global variable which we test for when
+ * theming tabs.
+ *
+ * The second hack calls fb_canvas_process() to munge the entire page.
+ */
+function fb_canvas_theme_page_override($content, $show_blocks = TRUE, $show_messages = TRUE) {
+  if (fb_canvas_is_fbml()) {
+    // We have to go out of our way here to theme the tabs.
+    // The code in menu.inc that themes them is complex,
+    // incomprehensible, and tangles the theme layer with the logic
+    // layer.  It doesn't help that the same theme functions are called
+    // for tabs as are called for all other menus.  So we use a global
+    // to keep track of what we're doing.
+    global $_fb_canvas_state;
+    $_fb_canvas_state = 'tabs';
+    // Why does a call to menu_tab_root_path theme the tabs?  I have no
+    // idea, but it does and caches the result.
+    menu_tab_root_path();
+    $_fb_canvas_state = NULL;
+  }
+  
+  $output = theme('fb_canvas_page_orig', $content, $show_blocks, $show_messages);
+  
+  if (fb_canvas_is_fbml()) {
+    // Drupal provides no post-process for themes.
+    $output = fb_canvas_process($output);
+  }
+  
+  return $output;
+}
+
+/**
+ * Our replacement for theme('username', ...)
+ */
+function fb_canvas_theme_username_override($object) {
+  $output = theme('fb_canvas_username_orig', $object);
+  if (fb_canvas_is_fbml()) {
+    // First learn the Facebook id
+    if (isset($object->fbu)) {
+      $fbu = $object->fbu;
+    }
+    else if ($pos = strpos($object->name, '@facebook')) {
+      // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
+      $fbu = substr($object->name, 0, $pos);
+    }
+    else {
+      // This option more expensive than naming convention, less expensive than user load.
+      $fbu = fb_get_fbu($object->uid);
+    }
+    if (isset($fbu) && is_numeric($fbu)) {
+      $output = l("<fb:name linked=false useyou=false uid=$fbu></fb:name>", "user/$object->uid", array('html' => TRUE));
+    }
+    
+  }
+  return $output;
+}
+
+/**
+ * Our replacement for theme('user_picture', ...)
+ */
+function fb_canvas_theme_user_picture_override($account) {
+  $output = theme('fb_canvas_user_picture_orig', $account);
+
+  // Respect Drupal's profile pic, if uploaded.
+  if (isset($account->picture) && $account->picture) {
+  }
+  elseif (fb_canvas_is_fbml()) {
+    // First learn the Facebook id
+    if (isset($account->fbu)) {
+      $fbu = $account->fbu;
+    }
+    else if ($pos = strpos($account->name, '@facebook')) {
+      // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
+      
+      $fbu = substr($account->name, 0, $pos);
+    }
+    else {
+      // Sometimes the $account object is not an account at all.  Could be a node for example.
+      $fbu = fb_get_fbu($account->uid);
+    }
+    if (isset($fbu) && is_numeric($fbu)) {
+      $output = l("<fb:profile-pic linked=false uid=$fbu></fb:profile-pic>", "user/$account->uid", array('html' => TRUE));
+    }
+  }
+  return $output;  
 }
 
 ?>

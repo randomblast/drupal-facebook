@@ -10,13 +10,12 @@ if (isset($extra_style))
 ?>
 <div <?php print $class; ?> <?php if (isset($style)) print $style; ?>>
 
-<?php if ($picture || $page == 0 || $submitted || $about || $terms) { ?>
+<?php if ($picture || $page == 0 || $submitted || $terms) { ?>
 <div class="node-header">
    <?php if ($picture && $submitted) {
   print $picture;
   }?>
 <?php if ($page == 0) { ?><h2 class="title"><a href="<?php print $node_url?>"><?php print $title?></a></h2><?php }; ?>
-<span class="about"><?php print $about; ?></span>
 <span class="submitted"><?php print $submitted?></span>
 <span class="taxonomy"><?php print $terms?></span>
 </div>

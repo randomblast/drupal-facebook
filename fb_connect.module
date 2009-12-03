@@ -590,22 +590,30 @@ function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
  * Drupal.
  */
 function fb_connect_theme_registry_alter(&$theme_registry) {
-  // Re-register the original theme function under a new name.
-  $theme_registry['fb_connect_username_orig'] = $theme_registry['username'];
-  // Override theme username
-  $theme_registry['username'] = array(
-    'arguments' => array('object' => NULL),
-    'function' => 'fb_connect_theme_username_override',
-  );
 
-  // Re-register the original theme function under a new name.
-  $theme_registry['fb_connect_user_picture_orig'] = $theme_registry['user_picture'];
-  // Override theme username
-  $theme_registry['user_picture'] = array(
-    'arguments' => array('account' => NULL),
-    'function' => 'fb_connect_theme_user_picture_override',
-  );
-  
+  // Ideally, we'd do this only on themes which will certainly be used for facebook connect pages.
+
+  if ($theme_registry['username']['type'] == 'module') {
+    // Re-register the original theme function under a new name.
+    $theme_registry['fb_connect_username_orig'] = $theme_registry['username'];
+    // Override theme username
+    $theme_registry['username'] = array(
+      'arguments' => array('object' => NULL),
+      'function' => 'fb_connect_theme_username_override',
+      'type' => 'module',
+    );
+  }
+
+  if ($theme_registry['user_picture']['type'] == 'module') {
+    // Re-register the original theme function under a new name.
+    $theme_registry['fb_connect_user_picture_orig'] = $theme_registry['user_picture'];
+    // Override theme username
+    $theme_registry['user_picture'] = array(
+      'arguments' => array('account' => NULL),
+      'function' => 'fb_connect_theme_user_picture_override',
+      'type' => 'module',
+    );
+  }
 }
 
 /**
@@ -614,7 +622,11 @@ function fb_connect_theme_registry_alter(&$theme_registry) {
 function fb_connect_theme_user_picture_override($account) {
   // Markup without fb_connect.
   $orig = theme('fb_connect_user_picture_orig', $account);
-  
+  // Make no changes to FBML pages.
+  if (fb_is_fbml_canvas()) {
+    return $orig;
+  }
+
   // Respect Drupal's profile pic, if uploaded.
   if (isset($account->picture) && $account->picture) {
     $output = $orig;
@@ -641,7 +653,7 @@ function fb_connect_theme_user_picture_override($account) {
       $output = theme('fb_connect_fbml_user_picture', $orig, $account, $fbu);
     }
   }
-
+  
   return $output;
   
 }
@@ -652,8 +664,16 @@ function fb_connect_theme_user_picture_override($account) {
 function fb_connect_theme_username_override($object) {
   // TODO: does this function need to account for canvas pages?  Or can we assume every canvas page theme will override theme_username on its own?
 
-  // Theme the username with XFBML, using original username as backup.
-  return fb_connect_fbml_username($object, theme('fb_connect_username_orig', $object));
+  $orig = theme('fb_connect_username_orig', $object);
+  
+  // Make no changes to FBML pages.
+  if (fb_is_fbml_canvas()) {
+    return $orig;
+  }
+  else {
+    // Theme the username with XFBML, using original username as backup.
+    return fb_connect_fbml_username($object, $orig);
+  }
 }
 
 /**
