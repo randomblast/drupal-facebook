@@ -59,15 +59,16 @@ function _fb_user_special_page() {
  * Keep track of when the user has visited the app, and whether they've
  * authorized the app or not.
  */
-function _fb_user_track($fb, $fb_app, $user) {
+function _fb_user_track($fb, $fb_app, $account) {
   // Keep track of all our app users.  We need this info when updating
   // profiles during cron.  We keep session keys in case user has an
   // infinite session, and we can actually log in as them during cron.
-
+  
   // In special cases, do not modify the uid column.
   $fb_user_data = _fb_user_get_config($fb_app);
   
-  if (!$user->uid || $user->uid == $fb_user_data['not_logged_in_uid'] || $user->uid == $fb_user_data['logged_in_uid']) {
+  $uid = 0;
+  if (!$account->uid || $account->uid == $fb_user_data['not_logged_in_uid'] || $account->uid == $fb_user_data['logged_in_uid']) {
     // Should we even keep data for users who have not added???
     $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=0 WHERE apikey='%s' AND fbu=%d",
                        time(), $fb->api_client->session_key, $fb->session_expires,
@@ -76,9 +77,10 @@ function _fb_user_track($fb, $fb_app, $user) {
   }
   else {
     // Uid is accurate.
+    $uid = $account->uid;
     $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=%d WHERE apikey='%s' AND fbu=%d",
                        time(), $fb->api_client->session_key, $fb->session_expires,
-                       $user->uid,
+                       $account->uid,
                        $fb_app->apikey, fb_facebook_user($fb));
   }
   if ($result && !db_affected_rows()) {
@@ -92,7 +94,7 @@ function _fb_user_track($fb, $fb_app, $user) {
                          $data['is_app_user'],
                          $fb->session_key, $fb->session_key_expires,
                          time(),
-                         $user->uid,
+                         $uid,
                          $data['proxied_email'],
                          0 // time_cron
       );
@@ -158,9 +160,10 @@ function fb_user_fb($op, $data, &$return) {
         fb_api_check_session($fb)) {
       // Try the application-specific account.
       $account = user_external_load("$fbu-$fb_app->apikey@facebook.com");
-      if (!$account)
+      if (!$account) {
 	// Try the cross-application account.
 	$account = user_external_load("$fbu@facebook.com");
+      }
       if ($account) {
 	$account->fbu = $fbu;
 	if ($user->uid == 0) {
@@ -175,8 +178,8 @@ function fb_user_fb($op, $data, &$return) {
         }
 	else if ($user->uid != $account->uid) {
 	  watchdog('fb_user', 'fb_user encountered something it cannot handle.  The current user, !user1 is logged in.  But the facebook user id %fbu is associated with another user, !user2',
-                   array('!user1' => theme('username', $user),
-                         '!user2' => theme('username', $account),
+                   array('!user1' => l($user->name, 'user/' . $user->uid),
+                         '!user2' => l($account->name, 'user/' . $account->uid),
                          '%fbu' => $fbu),
 		   WATCHDOG_ERROR);
 	}
@@ -191,15 +194,16 @@ function fb_user_fb($op, $data, &$return) {
 	    user_set_authmaps($user, array($module => $authname));  // is this right?
 	    $user->fbu = $fbu;
 	    //dpm("setting up authmap to associate " . theme('username', $user) . " with fbu $fbu");
-	    watchdog('fb_user', 'Using authmap to associate user !user with facebook user id %fbu.',
-                     array('!user' => theme('username', $user),
-                           '%fbu' => $fbu));
-	  }
-	  
+            if (fb_verbose()) {
+              watchdog('fb_user', 'Using authmap to associate user !user with facebook user id %fbu.',
+                       array('!user' => l($user->name, 'user/' . $user->uid),
+                             '%fbu' => $fbu));
+            }
+          }
 	}
       }
     }
-
+    
     // Check if the local account needs to be made.
     if (!variable_get('site_offline', FALSE) && $user->fbu != fb_facebook_user($fb) && (!_fb_user_special_page()) && fb_api_check_session($fb)) {
       if (($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_ADD &&
@@ -212,7 +216,7 @@ function fb_user_fb($op, $data, &$return) {
 						'roles' => array($fb_user_data['new_user_rid'] => TRUE),
                                           ));
 	watchdog('fb_user', t("Created new user !username for application %app" . print_r(array('session_name' => session_name(), 'session_id' => session_id()), 1),
-			      array('!username' => theme('username', $user),
+			      array('!username' => l($user->name, 'user/' . $user->uid),
 				    '%app' => $fb_app->label)));
 	
       }
@@ -257,15 +261,7 @@ function fb_user_fb($op, $data, &$return) {
     
     // Keep a record of when user accesses app.
     _fb_user_track($fb, $fb_app, $user);
-
-    // Now do I need a goto or some such???
     
-    // debug
-    /*
-      drupal_set_message("To Drupal, you are " . theme('username', $user));
-      drupal_set_message("Facebook user id is " . fb_facebook_user());
-      drupal_set_message("Facebook logged in is " . $fb->get_loggedin_user());
-    */
   }
   else if ($op == FB_OP_GET_FBU) {
     // This is a request to learn the user's FB id.
@@ -666,11 +662,11 @@ function _fb_user_get_authmap($fb_app, $fbu) {
   if ($app_specific) {
     // would rather use the shorter app id (not apikey), but no way to query it
     $authname = "$fbu-$fb_app->apikey@facebook.com";
-    $module = "fb_user-$fb_app->nid";
+    $module = "authname_fb_user-$fb_app->nid";
   }
   else {
     $authname = "$fbu@facebook.com";
-    $module = "fb_user";
+    $module = "authname_fb_user";
   }
   
   //return array('module' => $module, 'authname' => $authname);
@@ -818,7 +814,7 @@ function fb_user_get_local_friends($fbu = NULL, $fb_app = NULL) {
   $uids = array();
   if ($fbus = fb_get_friends($fbu, $fb_app)) {
     // Should this query be limited to users of the app?
-    $query = "SELECT uid FROM {fb_user_app} WHERE fbu in (%s)";
+    $query = "SELECT uid FROM {fb_user_app} WHERE fbu in (%s) AND uid>0";
     $args[] = implode(',', $fbus);
     $result = db_query($query, $args);
     
