@@ -154,7 +154,7 @@ function fb_permission_form_alter(&$form, $state, $id) {
   }
   
   // Add settings to fb_app form
-  if (is_array($form['fb_app_data'])) {
+  if (isset($form['fb_app_data'])) {
     $node = $form['#node'];
     $fb_app_data = fb_app_get_data($node->fb_app);
     $fb_permission_data = $fb_app_data['fb_permission'];

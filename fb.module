@@ -947,7 +947,7 @@ function fb_format_username($account) {
  */
 function fb_username_alter(&$name, $account) {
   //dpm(func_get_args(), "fb_username_alter($name)");
-  if ($account->fbu && ($name == $account->fbu . '@facebook')) {
+  if (isset($account->fbu) && ($name == $account->fbu . '@facebook')) {
     $info = fb_users_getInfo(array($account->fbu));
     if ($info[0]['name']) {
       $name = $info[0]['name'];
