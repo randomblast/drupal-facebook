@@ -38,8 +38,9 @@ Drupal.behaviors.fb_connect = function(context) {
   // Handle clicks on the link element.
   .bind('click', 
         function (e) {
+          var popup;
           //alert('Clicked!  Will show ' + this.fbml_popup); // debug
-          popup = new FB.UI.FBMLPopupDialog($(this).attr('title'), this.fbml_popup);
+          popup = new FB.UI.FBMLPopupDialog($(this).attr('title'), this.fbml_popup, true, true);
           if (this.fbml_popup_width) {
             popup.setContentWidth(this.fbml_popup_width);
           }
