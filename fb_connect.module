@@ -28,7 +28,7 @@ function fb_connect_menu() {
 }
 
 function fb_connect_js_cb() {
-  $extra = fb_invoke(FB_OP_CONNECT_JS_INIT, $data, array());
+  $extra = fb_invoke(FB_OP_CONNECT_JS_INIT, NULL, array());
   $extra_js = implode("\n", $extra);
   print $extra_js;
   exit();
@@ -590,7 +590,6 @@ function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
  * Drupal.
  */
 function fb_connect_theme_registry_alter(&$theme_registry) {
-
   // Ideally, we'd do this only on themes which will certainly be used for facebook connect pages.
 
   if ($theme_registry['username']['type'] == 'module') {
@@ -737,7 +736,7 @@ function fb_connect_theme() {
 }
 
 function theme_fb_connect_fbml_username($orig_username, $object, $fbu) {
-  return '<span class=fb_connect_hide>'.$orig_username.'</span><span class=fb_connect_show style="display:none"><a href="'. url('user/' . $object->uid) . '"><fb:name linked=false useyou=false uid=' . $fbu . '></fb:name></a></span>';  
+  return '<span class=fb_connect_hide>'.$orig_username.'</span><span class=fb_connect_show style="display:none"><a href="'. url('user/' . $object->uid) . '"><fb:name linked=false useyou=false uid=' . $fbu . ' ifcantsee="'. $object->name .'"></fb:name></a></span>';  
 }
 
 function theme_fb_connect_fbml_user_picture($orig, $account, $fbu) {
