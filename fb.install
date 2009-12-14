@@ -37,7 +37,9 @@ function fb_update_6000() {
 }
 
 function fb_update_6001() {
+  $ret = array();
   $message = 'IMPORTANT: Drupal for Facebook modules have moved around!  Check your <em>modules/fb/</em> directory, and make sure you do not have duplicates of fb_feed.module or fb_views.module.  If so, delete the entire <em>modules/fb/</em> directory and re-install.';
   drupal_set_message($message);
   watchdog('fb', $message);
+  return $ret;
 }
