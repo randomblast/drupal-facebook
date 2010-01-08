@@ -1,6 +1,6 @@
 <?php
 // The URL prefix will look something like fb_cb/NID.
-// Or in avanced cases fb_cb/NID/fb_cb_type/TYPE, or even fb_cb/NID/fb_sess/SESSION.
+// Or in complex cases fb_cb/NID/fb_cb_type/TYPE, or even fb_cb/NID/fb_sess/SESSION.
 define('FB_SETTINGS_APP_NID', 'fb_cb');
 define('FB_SETTINGS_PAGE_TYPE', 'fb_cb_type');
 define('FB_SETTINGS_SESSION_KEY', 'fb_sess');
@@ -21,10 +21,7 @@ if ($nid = _fb_settings_parse(FB_SETTINGS_APP_NID))
   if (isset($_REQUEST['fb_sig']) && isset($_REQUEST['fb_sig_in_canvas'])) {
   // It's a facebook callback to an FBML page.
   
-  // Force clean URLs.  Looks better on facebook, and helps us know
-  // what to expect Note that we set our facebook callback to end in
-  // "?q=" so clean URLs will work in a facebook app whether or not
-  // they work locally
+  // Force clean URLs.  Necessary for canvas pages.
   $conf['clean_url'] = 1;
   
   // Force the admin theme to be our facebook theme.
