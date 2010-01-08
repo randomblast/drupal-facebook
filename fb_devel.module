@@ -31,6 +31,13 @@ function fb_devel_init() {
       watchdog('fb_devel', "Facebook Connect receiver called" . "                                                       " . dpr($_REQUEST, 1));
     }
   }
+
+  // Test if json extensions are loaded.
+  if (defined('SERVICES_JSON_SLICE')) { // defined in facebook's json wrapper, which is not compatible with PHP's JSON extensions.
+    if (user_access('access administration pages')) {
+      drupal_set_message(t("JSON extension for PHP not found.  Drupal for Facebook will not work properly without this extension!  You can wait for facebook to <a href=http://bugs.developers.facebook.com/show_bug.cgi?id=4351>fix their bug</a>, or install the JSON extension. "), 'error');
+    }
+  }
 }
 
 function fb_devel_fb($op, $data, &$return) {
