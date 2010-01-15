@@ -14,11 +14,18 @@ function fb_register_schema() {
       'uid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE),
       'email_hash' => array('type' => 'varchar', 'length' => 255),
     ),
-    'primary_key' => array('uid'),
+    'primary key' => array('uid'),
     'unique keys' => array(
       'email_hash' => array('email_hash'),
     ),
   );
 
   return $schema;
+}
+
+
+function fb_register_update_6000() {
+  $ret = array();
+  db_add_primary_key($ret, 'fb_register', array('uid'));
+  return $ret;
 }
