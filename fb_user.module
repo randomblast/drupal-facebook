@@ -69,8 +69,8 @@ function _fb_user_track($fb, $fb_app, $account) {
   
   $uid = 0;
   if (!$account->uid || $account->uid == $fb_user_data['not_logged_in_uid'] || $account->uid == $fb_user_data['logged_in_uid']) {
-    // Should we even keep data for users who have not added???
-    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=0 WHERE apikey='%s' AND fbu=%d",
+    // Keep data for fbu, even if we do not know uid.
+    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=NULL WHERE apikey='%s' AND fbu=%d",
                        time(), $fb->api_client->session_key, $fb->session_expires,
                        $fb_app->apikey, fb_facebook_user($fb));
     
@@ -161,14 +161,7 @@ function fb_user_fb($op, $data, &$return) {
         $valid_session) {
       // Use session to avoid this logic on every request.
       if (!isset($_SESSION['fb_user'][$fb_app->apikey]['authmap'])) {
-        list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
-        user_set_authmaps($user, array($module => $authname));
-        $user->fbu = $fbu;
-        if (fb_verbose()) {
-          watchdog('fb_user', 'Using authmap to associate user !user with facebook user id %fbu.',
-                   array('!user' => theme('username', $user),
-                         '%fbu' => $fbu));
-        }
+        _fb_user_set_authmap($fb_app, $fbu, $user);
         $_SESSION['fb_user'][$fb_app->apikey]['authmap'] = $authname;
       }
     }
@@ -530,7 +523,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
         // On login, we set up the map this way...
         user_set_authmaps($account, array($module => $authname));
       }
-
+      
       // TODO: if the app has a role, make sure the user gets that role. (presently, that will not happen until their next request)
     }
   }
@@ -637,12 +630,12 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     return $form;
   }
   else if ($op == 'update' && $category == 'fb_user') {
-    //dpm($edit, "fb_user_user($op)");
     
-    if (is_array($edit['map']))
+    if (is_array($edit['map'])) {
       foreach ($edit['map'] as $module => $authname) {
         user_set_authmaps($account, array($module => $authname));
       }
+    }
   }
   else if ($op == 'delete') {
     db_query("DELETE FROM {fb_user_app} WHERE uid=%d",
@@ -677,6 +670,27 @@ function _fb_user_get_authmap($fb_app, $fbu) {
   //return array('module' => $module, 'authname' => $authname);
   return array($module, $authname);
 }
+
+/**
+ * Helper function to keep the authmap table in sync.
+ */
+function _fb_user_set_authmap($fb_app, $fbu, $account) {
+  $fb_user_data = _fb_user_get_config($fb_app);
+  if ($fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS &&
+      $fbu &&
+      $account->uid != 0 &&
+      $account->uid != $fb_user_data['logged_in_uid']) {
+    list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
+    user_set_authmaps($user, array($module => $authmap));
+    if (fb_verbose()) {
+      watchdog('fb_user', 'Using authmap to associate user !user with facebook user id %fbu.',
+               array('!user' => l($account->name, 'user/' . $account->uid),
+                     '%fbu' => $fbu,
+               ));
+    }
+  }
+}
+
 
 /**
  * Creates a local Drupal account for the specified facebook user id.
