@@ -126,6 +126,17 @@ function fb_devel_fb($op, $data, &$return) {
       }
       watchdog('fb_devel', $message, array(), WATCHDOG_ERROR);
     }
+
+    // Require login sanity check.
+    $fb_app_data = fb_app_get_data($fb_app);
+    if (isset($fb_app_data['fb_user']) && $fb_app_data['fb_user']['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN) {
+      $message = 'Drupal for Facebook options for require login have changed.  You must manually <a href=!url>edit your application</a>.  Look for the require login options under canvas page options.  No longer under user options.';
+      $args = array('!url' => url('node/' . $fb_app->nid . '/edit'));
+      if (user_access('access administration pages')) {
+        drupal_set_message(t($message, $args), 'error');
+      }
+      watchdog('fb_devel', $message, $args, WATCHDOG_ERROR);      
+    }
   }
   
   else if ($op == FB_APP_OP_EVENT) {

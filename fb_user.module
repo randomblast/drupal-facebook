@@ -9,9 +9,6 @@
  * application's canvas pages.
  */
 
-define('FB_USER_OPTION_ALLOW_ANON', 1);
-define('FB_USER_OPTION_REQUIRE_LOGIN', 2);
-
 define('FB_USER_OPTION_CREATE_NEVER', 1);
 define('FB_USER_OPTION_CREATE_LOGIN', 2);
 
@@ -34,7 +31,6 @@ function _fb_user_get_config($fb_app) {
 
   // Merge in defaults
   $fb_user_data += array(
-    'require_login' => FB_USER_OPTION_ALLOW_ANON,
     'create_account' => FB_USER_OPTION_CREATE_LOGIN,
     'map_account' => FB_USER_OPTION_MAP_ALWAYS,
   );
@@ -117,14 +113,8 @@ function fb_user_fb($op, $data, &$return) {
   if ($fb_app) {
     $fb_user_data = _fb_user_get_config($fb_app);
   }
-
-  if ($op == FB_OP_INITIALIZE) {
-    // Here we ask facebook to prompt the user to authorize the app.
-    if (fb_user_authentication_is_required($fb_app)) {
-      $fb->require_login();
-    }
-  }
-  else if ($op == FB_OP_POST_INIT) {
+  
+  if ($op == FB_OP_POST_INIT) {
     // Observe special rules for canvas page users without local accounts
     if (!$user->uid && !_fb_user_special_page() && !isset($_REQUEST['form_id'])) {
       if ($fbu = fb_facebook_user($fb) && fb_api_check_session($fb) && !$fb->api_client->users_isAppUser()) {
@@ -162,7 +152,7 @@ function fb_user_fb($op, $data, &$return) {
       // Use session to avoid this logic on every request.
       if (!isset($_SESSION['fb_user'][$fb_app->apikey]['authmap'])) {
         _fb_user_set_authmap($fb_app, $fbu, $user);
-        $_SESSION['fb_user'][$fb_app->apikey]['authmap'] = $authname;
+        $_SESSION['fb_user'][$fb_app->apikey]['authmap'] = TRUE;
       }
     }
     
@@ -310,33 +300,6 @@ function fb_user_fb($op, $data, &$return) {
   }
 }
 
-/**
- * Determines whether authentication is required to serve the current
- * page.  This will return true if the application has been configured
- * to require login for all canvas pages.  Except in special cases,
- * such as profile tabs.
- *
- * @return TRUE only for canvas pages if authentication is required to
- * use the application and the page is not a special exception to the
- * rule.
- */
-function fb_user_authentication_is_required($fb_app) {
-  $fb_user_data = _fb_user_get_config($fb_app);
-  
-  if ($fb_user_data['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN) {
-    // The application is configured to require login on all canvas pages.
-    // However, there are exceptions.
-    if (isset($_REQUEST['fb_sig_in_profile_tab']) && $_REQUEST['fb_sig_in_profile_tab']) {
-      // Redirects are not allowed for the profile tab.
-      return FALSE;
-    }
-    // There may be other exceptions, for example some ajax callbacks.  Potential todo item.
-    
-    // No exceptions apply, authentication is required.
-    return TRUE;
-  }
-}
-
 function fb_user_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
@@ -349,20 +312,7 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
                                             '#collapsible' => TRUE,
                                             '#collapsed' => TRUE,
     );
-    
-    $form['fb_app_data']['fb_user']['require_login'] = 
-      array('#type' => 'radios',
-            '#title' => t('Require Login'),
-            '#description' => t('If some of your canvas (or connect) pages are visible to the public at large, allow anyone.  You will have to call Facebook\'s require_login() on pages that require more information about the user.<br />Allow only logged-in users if you want Drupal for Facebook to call require_login() on every page.'),
-            '#options' => 
-            array(FB_USER_OPTION_ALLOW_ANON => t('Allow anyone'),
-                  FB_USER_OPTION_REQUIRE_LOGIN => t('Allow logged-in users'),
-            ),
-            '#default_value' => $fb_user_data['require_login'],
-            '#required' => TRUE,
-      );
-    
-    
+        
     $form['fb_app_data']['fb_user']['create_account'] = 
       array('#type' => 'radios',
             '#title' => t('Create Local Account'),

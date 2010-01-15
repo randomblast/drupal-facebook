@@ -2,10 +2,16 @@
 /**
  * @file
  * 
- * This module provides some app-specific navigation to facebook apps.  This
- * is fairly experimental material.  May change a lot in near future.
+ * This module provides support for Canvas page applications.  Use
+ * Drupal to power traditional Facebook Apps.  
+ *
+ * See also fb_connect.module for Facebook Connect.
  * 
  */
+
+// Option to require_login() on all canvas pages.
+define('FB_CANVAS_OPTION_ALLOW_ANON', 1);
+define('FB_CANVAS_OPTION_REQUIRE_LOGIN', 2);
 
 
 /**
@@ -78,7 +84,7 @@ function fb_canvas_fb($op, $data, &$return) {
     $fb_canvas_data = $fb_app_data['fb_canvas'];
     
     $is_canvas = FALSE;
-
+    
     // Set an app-specific theme.
     global $custom_theme; // Set by this function.
     if (fb_canvas_is_fbml()) {
@@ -89,12 +95,27 @@ function fb_canvas_fb($op, $data, &$return) {
       $custom_theme = $fb_canvas_data['theme_iframe'];
       $is_canvas = TRUE;
     }
-
-    // Hack to init the theme before _drupal_maintenance_theme initializes the wrong one.
-    if ($is_canvas && variable_get('site_offline', FALSE)) {
-      $dummy = theme('dummy');
+    
+    if ($is_canvas) {
+      // We are serving a canvas page.
+      if ($fb_canvas_data['require_login'] == FB_CANVAS_OPTION_REQUIRE_LOGIN) {
+        // The application is configured to require login on all canvas pages.
+        // However, there are exceptions.
+        if (isset($_REQUEST['fb_sig_in_profile_tab']) && $_REQUEST['fb_sig_in_profile_tab']) {
+          // Redirects are not allowed for the profile tab.
+        }
+        else {
+          // There may be other exceptions, for example some ajax callbacks.  Potential todo item.
+          $fb->require_login();
+        }
+      }
+      
+      // Hack to init the theme before _drupal_maintenance_theme initializes the wrong one.
+      if (variable_get('site_offline', FALSE)) {
+        $dummy = theme('dummy');
+      }
     }
-
+    
     // Special handling for forms, as they are submitted directly to us, not
     // to apps.facebook.com/canvas
     // we will buffer, and later cache, the results.
@@ -175,6 +196,21 @@ function fb_canvas_fb($op, $data, &$return) {
   }
 }
 
+/**
+ * Helper returns configuration for this module, on a per-app basis.
+ */
+function _fb_canvas_get_config($fb_app) {
+  $fb_app_data = fb_app_get_data($fb_app);
+  $fb_canvas_data = $fb_app_data['fb_canvas'] ? $fb_app_data['fb_canvas'] : array();
+  
+  // Merge in defaults
+  $fb_canvas_data += array(
+    'require_login' => FB_CANVAS_OPTION_ALLOW_ANON,
+    'theme_fbml' => 'fb_fbml',
+    'theme_iframe' => 'fb_fbml',
+  );
+  return $fb_canvas_data;
+}
 
 /**
  * Implementation of hook_form_alter.
@@ -183,23 +219,29 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data']) && is_array($form['fb_app_data'])) {
     $node = $form['#node'];
-    $fb_app_data = fb_app_get_data($node->fb_app);
-    $fb_canvas_data = $fb_app_data['fb_canvas'];
+    $fb_canvas_data = _fb_canvas_get_config($node->fb_app);    
     
-    // defaults
-    if (!$fb_canvas_data)
-      $fb_canvas_data = array();
-    $fb_canvas_data = array_merge(array('theme_fbml' => 'fb_fbml',
-                                        'theme_iframe' => 0),
-                                  $fb_canvas_data);
-    
-    
-    $form['fb_app_data']['fb_canvas'] = array('#type' => 'fieldset',
-                                              '#collapsible' => TRUE,
-                                              '#collapsed' => TRUE,
-                                              '#title' => t('Facebook canvas page settings'),
-                                              '#description' => t('Allows application-specific front page and navigation links.')
+    $form['fb_app_data']['fb_canvas'] = array(
+      '#type' => 'fieldset',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#title' => t('Facebook canvas pages'),
+      '#description' => t('Settings which apply to <a href=!url target=_blank>canvas pages</a>.',
+                          array('!url' => 'http://developers.facebook.com/get_started.php?tab=anatomy#canvas')),
     );
+    
+    $form['fb_app_data']['fb_canvas']['require_login'] = array(
+      '#type' => 'radios',
+      '#title' => t('Require authorization'),
+      '#description' => t('Require authorization if you want Drupal for Facebook to call require_login() on <strong>every</strong> canvas page.'),
+      '#options' => array(
+        FB_CANVAS_OPTION_ALLOW_ANON => t('Allow anonymous visitors'),
+        FB_CANVAS_OPTION_REQUIRE_LOGIN => t('Require all users to authorize the application'),
+      ),
+      '#default_value' => $fb_canvas_data['require_login'],
+      '#required' => TRUE,
+    );
+    
     $form['fb_app_data']['fb_canvas']['front_anonymous'] =
       array('#type' => 'textfield',
             '#title' => t('Front page when user is not logged in to facebook'),
@@ -215,7 +257,7 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
       );
     $form['fb_app_data']['fb_canvas']['front_added'] =
       array('#type' => 'textfield',
-            '#title' => t('Front page for users of this application'),
+            '#title' => t('Front page for authorized users of this application'),
             '#description' => t('Leave blank to use the site-wide front page.'),
             '#default_value' => $fb_canvas_data['front_added'],
       );
@@ -299,7 +341,7 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
       $form['fb_canvas_form_handler']['#action_new'] = $form['#action'];
       // We've stored #action_old and #action_new so custom modules have the option to change it back.
     }
-
+    
     // Drupal includes wacky markup for javascript junk in node forms.  It
     // makes things look terrible in FBML.  It only works when javascript is
     // enabled and it should have been implemented to degrade gracefully, but

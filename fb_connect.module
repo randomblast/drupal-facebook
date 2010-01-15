@@ -573,6 +573,10 @@ function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
       variable_set('fb_connect_primary_apikey', $node->fb_app['apikey']);
       drupal_set_message(t('!node is now the primary Facebook Connect application.', array('!node' => l($node->title, 'node/' . $node->nid))));
     }
+    else if ($node->fb_app['apikey'] == variable_get('fb_connect_primary_apikey')) {
+      // This app was the primary one, but the user has unchecked it.
+      variable_set('fb_connect_primary_apikey', NULL);
+    }
   }
 }
 
