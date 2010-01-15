@@ -152,22 +152,43 @@ function fb_user_fb($op, $data, &$return) {
     // or could be they clicked a fbConnect link.
     
     $fbu = $data['fbu']; // The user id on facebook.
+    $valid_session = fb_api_check_session($fb);
+    
+    // Ensure authmap table in sync.  In case settings have changed or entry was manually deleted.
+    if ($user->uid != 0 &&
+        $user->uid != $fb_user_data['logged_in_uid'] &&
+        $fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS &&
+        $valid_session) {
+      // Use session to avoid this logic on every request.
+      if (!isset($_SESSION['fb_user'][$fb_app->apikey]['authmap'])) {
+        list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
+        user_set_authmaps($user, array($module => $authname));
+        $user->fbu = $fbu;
+        if (fb_verbose()) {
+          watchdog('fb_user', 'Using authmap to associate user !user with facebook user id %fbu.',
+                   array('!user' => theme('username', $user),
+                         '%fbu' => $fbu));
+        }
+        $_SESSION['fb_user'][$fb_app->apikey]['authmap'] = $authname;
+      }
+    }
     
     // Remember the original uid
     $original_uid = $user->uid;
     
     if ((!isset($user->fbu) || $user->fbu != $fbu) && 
-        fb_api_check_session($fb)) {
+        $valid_session) {
       // Try the application-specific account.
       $account = user_external_load("$fbu-$fb_app->apikey@facebook.com");
       if (!$account) {
 	// Try the cross-application account.
 	$account = user_external_load("$fbu@facebook.com");
       }
+
       if ($account) {
 	$account->fbu = $fbu;
 	if ($user->uid == 0) {
-
+          
           // Honoring facebook accounts on admin pages causes problems.
           if (!variable_get('site_offline', FALSE) || user_access('administer site configuration', $account)) {
             
@@ -184,32 +205,16 @@ function fb_user_fb($op, $data, &$return) {
 		   WATCHDOG_ERROR);
 	}
       }
-      else {
-	// There is no account associated with the facebook id.
-	// If the user is not anonymous, we can make an association now.
-	if ($user->uid != 0 &&
-	    $user->uid != $fb_user_data['logged_in_uid']) {
-	  if ($fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS) {
-	    list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
-	    user_set_authmaps($user, array($module => $authname));  // is this right?
-	    $user->fbu = $fbu;
-	    //dpm("setting up authmap to associate " . theme('username', $user) . " with fbu $fbu");
-            if (fb_verbose()) {
-              watchdog('fb_user', 'Using authmap to associate user !user with facebook user id %fbu.',
-                       array('!user' => l($user->name, 'user/' . $user->uid),
-                             '%fbu' => $fbu));
-            }
-          }
-	}
-      }
     }
     
     // Check if the local account needs to be made.
-    if (!variable_get('site_offline', FALSE) && $user->fbu != fb_facebook_user($fb) && (!_fb_user_special_page()) && fb_api_check_session($fb)) {
+    if (!variable_get('site_offline', FALSE) && 
+        $user->fbu != fb_facebook_user($fb) && 
+        (!_fb_user_special_page()) && 
+        $valid_session) {
       if (($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_ADD &&
            $fb->api_client->users_isAppUser()) ||
           ($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_LOGIN)) {
-        
 	// We need to make a local account for this facebook user.
 	$user = fb_user_create_local_user($fb, $fb_app, fb_facebook_user($fb), 
 					  array('app_specific' => $fb_user_data['unique_account'],
@@ -247,10 +252,10 @@ function fb_user_fb($op, $data, &$return) {
 	// Redirect to a canvas page
 	$url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), array('absolute' => TRUE)), $fb_app);
 	if (fb_verbose()) 
-	  watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting to $url to ensure permissions are correct."); // debug
+	  watchdog('fb_debug', "User uid is now {$user->uid} (was {$original_uid}), redirecting canvas to $url to ensure permissions are correct."); // debug
 	$fb->redirect($url);
       }
-      else if (!fb_settings(FB_SETTINGS_APP_NID)) {
+      else if (FALSE && !fb_settings(FB_SETTINGS_APP_NID)) { // deprecated.  fb_connect.js will do the redirect. right? ??? XXX
         // Facebook connect pages (not callback or receiver)
         $path = isset($_REQUEST['q']) ? $_REQUEST['q'] : '<front>';
 	if (fb_verbose())
@@ -368,7 +373,7 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
     $form['fb_app_data']['fb_user']['create_account'] = 
       array('#type' => 'radios',
             '#title' => t('Create Local Account'),
-            '#description' => t('This option will create a local account automatically and create an entry in the authmap table.  This happens whenever the user visits a canvas page, except pages whose path starts with "user/" and the landing page for anonymous users.  Choose never to use Drupal\'s built in user registration.'),
+            '#description' => t('This option will create a local account automatically and create an entry in the authmap table.  Choose never to use Drupal\'s built in user registration.'),
             '#options' => array(FB_USER_OPTION_CREATE_NEVER => t('Never (user/register page will still work)'),
                                 FB_USER_OPTION_CREATE_LOGIN => t('If user has logged in'),
             ),
@@ -511,7 +516,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   }
 
   if (!empty($fb_app) && $op == 'insert' || $op == 'login') {
-    // A facebook user has logged in.  We can map the two acounts together.
+    // A facebook user has logged in.  We can map the two accounts together.
     $fb_user_data = _fb_user_get_config($fb_app);
     if ($fbu &&
         $fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS) {
