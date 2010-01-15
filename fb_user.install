@@ -6,10 +6,7 @@
 function fb_user_install() {
   // Create tables.
   drupal_install_schema('fb_user');
-
-
 }
-
 
 /**
  * Implementation of hook_uninstall().
@@ -21,22 +18,36 @@ function fb_user_uninstall() {
 
 
 function fb_user_schema() {
-  $schema['fb_user_app'] =
-    array('fields' => array('apikey' => array('type' => 'varchar', 'length' => 128, 'not null' => TRUE, ),
-                            'fbu' => array('type' => 'int', 'size' => 'big', 'not null' => TRUE, ),
-                            'uid' => array('type' => 'int', 'size' => 'normal', 'not null' => TRUE, ),
-                            'added' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
-                            'proxied_email' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE),
-                            'time_cron' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
-                            'time_access' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
-                            'session_key' => array('type' => 'varchar', 'length' => 255, 'not null' => FALSE, ),
-                            'session_key_expires' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE, ),
-          ),
-          'primary key' => array('apikey', 'fbu'),
-          'unique keys' => array(
-            'apikey_uid' => array('apikey', 'uid'),
-          ),
-    );
+  $schema['fb_user_app'] = array(
+    'fields' => array(
+      'apikey' => array(
+        'type' => 'varchar', 'length' => 128, 'not null' => TRUE,
+      ),
+      'fbu' => array('type' => 'int', 'size' => 'big', 'not null' => TRUE, ),
+      'uid' => array(
+        'type' => 'int', 'size' => 'normal', 'not null' => TRUE,
+      ),
+      'added' => array(
+        'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,
+      ),
+      'proxied_email' => array(
+        'type' => 'varchar', 'length' => 255, 'not null' => TRUE,
+      ),
+      'time_cron' => array(
+        'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,
+      ),
+      'time_access' => array(
+        'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,
+      ),
+      'session_key' => array(
+        'type' => 'varchar', 'length' => 255, 'not null' => FALSE,
+      ),
+      'session_key_expires' => array(
+        'type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE,
+      ),
+    ),
+    'primary key' => array('apikey', 'fbu'),
+  );
   
   return $schema;
 }
@@ -53,7 +64,7 @@ function fb_user_update_2() {
   // Add local uid to fb_user_app table.
   $ret[] = update_sql("ALTER TABLE {fb_user_app} ADD COLUMN uid int(11) DEFAULT NULL");
   $ret[] = update_sql("ALTER TABLE {fb_user_app} ADD INDEX (uid)");
-  $ret[] = update_sql("ALTER TABLE {fb_user_app} ADD UNIQUE INDEX (uid, apikey)");
+  //$ret[] = update_sql("ALTER TABLE {fb_user_app} ADD UNIQUE INDEX (uid, apikey)");
   return $ret;
 }
 
@@ -102,6 +113,18 @@ function fb_user_update_6004() {
     'primary key' => array('apikey', 'fbu')
   ));
 
+  return $ret;
+}
+
+function fb_user_update_6005() {
+  $ret = array();
+  
+  // Making uid unique was a bad idea.  It can be 0.
+  // One of the following should work, depending on whether the key was added during install or update.
+  // The other will create a warning, unfortunately.
+  db_drop_unique_key($ret, 'fb_user_app', 'apikey_uid');
+  db_drop_unique_key($ret, 'fb_user_app', 'uid_2');
+  drupal_set_message(t('Note that if you see a warning about "Can\'t DROP ...", it is safe to ignore that message.  See fb_user.install.'));
   return $ret;
 }
 ?>
