@@ -118,6 +118,10 @@ http://us.php.net/manual/en/json.requirements.php.  And tell facebook
 their client libs suck at
 http://bugs.developers.facebook.com/show_bug.cgi?id=4351.
 
+If using Facebook Connect, your theme needs the following attribute in
+it's <html> tag: xmlns:fb="http://www.facebook.com/2008/fbml" 
+See http://www.drupalforfacebook.org/node/1106
+
 Bug reports and feature requests may be submitted.  
 Here's an idea: check the issue queue before you submit
 http://drupal.org/project/issues/fb
