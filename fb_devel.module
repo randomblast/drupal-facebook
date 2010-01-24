@@ -350,6 +350,7 @@ function fb_devel_info() {
   $info['session_name'] = session_name();
 
   $info['request'] = $_REQUEST;
+  $info['user'] = $GLOBALS['user'];
   $info['fb_app'] = $fb_app;
   $info['session'] = $_SESSION;
   $info['cookies'] = $_COOKIE;
