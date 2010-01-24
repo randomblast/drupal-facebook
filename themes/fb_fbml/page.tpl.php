@@ -26,7 +26,8 @@
 <?php print $tabs; ?>
 <div id="content-wrap" class="content-wrap">
 <div id="content-main" class="content-main">
-	<?php print $messages; ?>
+<?php print $messages; ?>
+<?php print $help; ?>
 <?php print $content; ?>
 <?php if ($content_footer):?>
 <div id="content-footer" class="content-footer">
