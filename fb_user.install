@@ -124,6 +124,7 @@ function fb_user_update_6005() {
   // The other will create a warning, unfortunately.
   db_drop_unique_key($ret, 'fb_user_app', 'apikey_uid');
   db_drop_unique_key($ret, 'fb_user_app', 'uid_2');
+  db_drop_unique_key($ret, 'fb_user_app', 'uid_4');
   drupal_set_message(t('Note that if you see a warning about "Can\'t DROP ...", it is safe to ignore that message.  See fb_user.install.'));
   return $ret;
 }
