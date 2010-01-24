@@ -301,6 +301,8 @@ ul.inline li {
 /* forums */
 td.topics, td.posts {text-align: center;}
 
+#forum table {clear:both;}
+
 /* make tabs align with header and content padding */
 .left_tabs {padding-left: 20px;}
 
