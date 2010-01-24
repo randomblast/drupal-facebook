@@ -15,48 +15,12 @@ define('FB_CANVAS_OPTION_REQUIRE_LOGIN', 2);
 
 
 /**
- * implementation of hook_block
- *
- * Block 0 is a session helper block.  It is useful on FBML canvas
- * pages.  In includes an iframe, so the user's browser makes a
- * request directly to the server, rather than via facebook.  This
- * will set a cookie on the browser, so that subsequent requests to
- * the local server will share the same session as the canvas pages.
- *
- * Note that some browsers (safari) simply refuse to accept cookies
- * from an iframe unless the user takes some action in that frame.  In
- * such a case this block will have no effect.  If you encounter this,
- * consider setting $conf['fb_session_cookieless_iframe'] = TRUE in
- * your settings.php.
- */
-function fb_canvas_block($op = 'list', $delta = 0, $edit = array()) {
-  if ($op == 'list') {
-    $items[0]['info'] = t('Facebook Canvas Session Helper');
-    return $items;
-  }
-  else if ($op == 'view') {
-    // This block only makes sense in FBML pages.
-    if (!fb_canvas_is_fbml()) {
-      return;
-    }
-    // Try to avoid including the iframe on every page, but use it if the currenly known session will expire soon.
-    if ($_SESSION['fb_canvas_session'] &&
-	$_SESSION['fb_frame_params'] &&
-	$_SESSION['fb_frame_params']['expires'] > time() + (60 * 60)) {
-      return;
-    }
-    $_SESSION['fb_canvas_session'] = TRUE;
-
-    $url = url('fb/canvas/session', array('absolute' => TRUE));
-    return array('subject' => NULL,
-		 'content' => "<fb:iframe width=0 height=0 frameborder=0 src=$url></fb:iframe>");
-  }
-}
-
-/**
  * Implementation of hook_fb.
  */
 function fb_canvas_fb($op, $data, &$return) {
+  static $original_uid;
+  global $user;
+
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   
@@ -110,6 +74,9 @@ function fb_canvas_fb($op, $data, &$return) {
         }
       }
       
+      // Remember the user id.  If fb_user.module changes it, we'll need to refresh the page.  See FB_OP_POST_INIT.
+      $original_uid = $user->uid;
+
       // Hack to init the theme before _drupal_maintenance_theme initializes the wrong one.
       if (variable_get('site_offline', FALSE)) {
         $dummy = theme('dummy');
@@ -134,6 +101,28 @@ function fb_canvas_fb($op, $data, &$return) {
       
       if ($front)
         menu_set_active_item(drupal_get_normal_path($front));
+    }
+  }
+  else if ($op == FB_OP_POST_INIT) {
+    if (isset($original_uid) && 
+        $original_uid != $user->uid) {
+      // The user has changed, presumably fb_user.module recognized the facebookuser.  We need to refresh canvas pages.
+
+
+      if(!(arg(0) == 'fb_app' && arg(1) == 'event')) {
+        // In order to ensure that drupal handles
+        // permissions properly, the user must make the request all over
+        // again.  Skip this for the profile tab, as facebook does not allow
+        // redirects (or persistent session) there.
+        if ((fb_is_fbml_canvas() || fb_is_iframe_canvas()) &&
+            (!isset($_REQUEST['fb_sig_in_profile_tab']) || !$_REQUEST['fb_sig_in_profile_tab'])) {
+          
+          $url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), array('absolute' => TRUE)), $fb_app);
+          if (fb_verbose()) 
+            watchdog('fb_canvas', "User uid is now {$user->uid} (was {$original_uid}), redirecting canvas to $url to ensure permissions are correct."); // debug
+          $fb->redirect($url);
+        }
+      }
     }
   }
   else if ($op == FB_OP_EXIT) {
