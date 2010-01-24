@@ -94,7 +94,8 @@ function fb_connect_app_init($fb_app) {
   if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
     $fbu = $fb->get_loggedin_user();
     // TODO: sometimes this method indicates we are logged in when we really are not.  Find a way to verify.
-    if ($fbu) {
+    if ($fbu &&
+        (!isset($GLOBALS['fb_app']) || $GLOBALS['fb_app']->apikey != $fb_app->apikey)) {
       // The user has authorized the app and we now know something about them.  Use a hook to trigger the actions of other modules.
       fb_invoke(FB_OP_APP_IS_AUTHORIZED, array('fbu' => $fbu,
                                                'fb_app' => $fb_app,
@@ -107,8 +108,8 @@ function fb_connect_app_init($fb_app) {
     }
     $_SESSION['fb_connect'][$fb_app->apikey] = $fbu;
     
-    return $fb;
   }
+  return $fb;
 }
 
 /**
@@ -571,7 +572,7 @@ function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
     //dpm(func_get_args(), "fb_connect_nodeapi($op)"); // debug
     if ($node->fb_app_data['fb_connect']['primary']) {
       variable_set('fb_connect_primary_apikey', $node->fb_app['apikey']);
-      drupal_set_message(t('!node is now the primary Facebook Connect application.', array('!node' => l($node->title, 'node/' . $node->nid))));
+      drupal_set_message(t('!node is the primary Facebook Connect application.', array('!node' => l($node->title, 'node/' . $node->nid))));
     }
     else if ($node->fb_app['apikey'] == variable_get('fb_connect_primary_apikey')) {
       // This app was the primary one, but the user has unchecked it.
