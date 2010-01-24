@@ -89,7 +89,7 @@ function fb_init() {
       }
     }
   }
-
+  
   // Purge out-of-date session info 
   if (isset($_SESSION['fb_frame_params']) && 
       $_SESSION['fb_frame_params']['expires'] &&
@@ -201,7 +201,7 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
   else {
     $global_fb = (object) array('api_key' => NULL);
   }
-
+  
   // Determine the actual facebook user id to use.
   if ($global_fb->api_key == $fb_app->apikey && 
       ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY ||
@@ -230,14 +230,14 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
       $session = $data[1];
     }
   }
-  else if ($fbu != FB_FBU_NO_SESSION) {
+  else if (is_numeric($fbu)) {
     // FB user id passed in.  If we happen to have valid session info for
     // them, we can log in as them.
     $data = fb_invoke(FB_OP_GET_USER_SESSION,
 		      array('fb_app' => $fb_app,
 			    'fbu' => $fbu),
 		      array());
-    
+
     if (count($data) && $data[0] && $data[1]) {
       $fbu = $data[0];
       $session = $data[1];
@@ -406,16 +406,18 @@ function fb_get_fbu($uid, $fb_app = NULL) {
     $fb_app = $GLOBALS['fb_app'];
   
   // Accept either a user object or uid passed in.
-  if (is_object($uid) && isset($uid->fbu) && $uid->fbu)
+  if (is_object($uid) && ($uid->uid) && 
+      isset($uid->fbu) && $uid->fbu)
     return $uid->fbu;
   else if (is_object($uid))
     $uid = $uid->uid;
 
-  // User management is handled by another module.  Use our hook to ask for mapping.
-  $fbu = fb_invoke(FB_OP_GET_FBU, array('fb_app' => $fb_app,
-					'uid' => $uid,
-					'fb' => $GLOBALS['fb']));
-  
+  if ($uid) {
+    // User management is handled by another module.  Use our hook to ask for mapping.
+    $fbu = fb_invoke(FB_OP_GET_FBU, array('fb_app' => $fb_app,
+                                          'uid' => $uid,
+                                          'fb' => $GLOBALS['fb']));
+  }
   return $fbu;
 }
 
