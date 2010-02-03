@@ -124,29 +124,33 @@ function fb_canvas_fb($op, $data, &$return) {
         }
       }
     }
+    
+    // The ?destination=... url param means something to drupal but also to facebook.  If ?fb_canvas_destination=... is set, we honor that.
+    if (isset($_REQUEST['fb_canvas_destination'])) {
+      $_REQUEST['destination'] = $_REQUEST['fb_canvas_destination'];
+    }
   }
   else if ($op == FB_OP_EXIT) {
     $destination = $return;
-    if (fb_canvas_handling_form() && $fb_app) {
+    if (fb_canvas_is_fbml()) {
       $output = ob_get_contents();
       ob_end_clean();
       
       if ($destination) {
-        watchdog('fb_debug', "FB_OP_EXIT, handling form, original destination: $destination");
         // Fully qualified URLs need to be modified to point to facebook app.
         // URLs are fully qualified when a form submit handler returns a path,
         // or any call to drupal_goto.
-        $destination = fb_canvas_fix_url($destination, $fb_app);
-
+        $app_destination = fb_canvas_fix_url($destination, $fb_app);
+        
         // If here, drupal_goto has been called, but it may not work within a
         // canvas page, so we'll use Facebook's method.
-        // Will this preempt other hook_exits?
-        if ($fb) {
-          watchdog('fb_debug', "FB_OP_EXIT, handling form, redirecting to $destination");
-          $fb->redirect($destination);
+        // Will this preempt other hook_exits???
+        if (fb_verbose()) {
+          watchdog('fb_debug', "FB_OP_EXIT on canvas page redirecting to $app_destination (original destination was $destination).");
+          $fb->redirect($app_destination);
         }
       }
-      else {
+      else if (fb_canvas_handling_form()) {
         // Save the results to show the user later
         $token = uniqid('fb_');
         $cid = session_id() . "_$token";
@@ -327,6 +331,7 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
 	$form['#action'] = $_GET['q'];
       }
       $form['#action'] = _fb_canvas_make_form_action_local($form['#action']);
+
       $form['fb_canvas_form_handler']['#action_new'] = $form['#action'];
       // We've stored #action_old and #action_new so custom modules have the option to change it back.
     }
@@ -418,7 +423,7 @@ function fb_canvas_handling_form() {
   global $fb;
   
   // Test whether a form has been submitted via facebook canvas page.
-  if ($fb && isset($_REQUEST['form_id']) && isset($_REQUEST['_fb_handling_form']))
+  if ($fb && isset($_REQUEST['_fb_handling_form']))
     return TRUE;
 }
 
@@ -557,6 +562,10 @@ function fb_canvas_secondary_links() {
  * pages.  This is a relatively expensive operation.  Its unfortunate that we
  * must do it on every page request.  However to the best of my knowledge,
  * Drupal provides no better way.
+ *
+ * In Drupal 7.x, there should be a way to alter URLs before they are
+ * rendered.  That could provide a more efficient solution.  Until
+ * then we are stuck with this.
  * 
  * @param $output is the page (or iframe block) about to be returned.
  * 
@@ -588,6 +597,11 @@ function fb_canvas_process($output, $add_target = TRUE) {
       
       */
       
+      // Fix for relative images
+      $absolute_base = url('<front>', array('absolute' => TRUE));
+      $patterns[] = "|src=\"{$base}|";
+      $replacements[] = "src=\"$absolute_base";
+
       // Change links to use canvas on Facebook
       // Links ending in #something:
       $patterns[] = "|=\"{$base}([^\"]*#)|";
@@ -595,12 +609,6 @@ function fb_canvas_process($output, $add_target = TRUE) {
       // Other links
       $patterns[] = "|=\"{$base}|";
       $replacements[] = "=\"/{$fb_app->canvas}/";
-      
-      // Workaround Drupal does not let us rewrite the frontpage url
-      /* Not needed thanks to: http://drupal.org/node/241878
-	 $patterns[] = "|=\"{$base_path}\"|";
-	 $replacements[] = "=\"/{$fb_app->canvas}/\"";
-      */
       
       // Change paths to files to fully qualified URLs. This matches relative
       // URLs that do not include the canvas (that is, not matched by previous
@@ -622,7 +630,10 @@ function fb_canvas_process($output, $add_target = TRUE) {
       // the efficiency of this regexp (and/or make it optional)
       $patterns[] = '|(?<!["\d])([\d]*)@facebook(?!\.com)|';
       $replacements[] = '<fb:name uid=$1 linked=false ifcantsee="$1@facebook" useyou=false />';
-      
+
+      // Drupal has a habit of adding ?destination=... to some URLs.  And Facebook for no good reason screws up when you do that. 
+      $patterns[] = "|href=\"([^\"]*)\?(.*)(destination)=|";
+      $replacements[] = 'href="$1?$2fb_canvas_destination=';
     }
     else if (fb_canvas_is_iframe()) {
       // In iframe
