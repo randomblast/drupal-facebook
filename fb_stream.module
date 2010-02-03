@@ -49,7 +49,7 @@ function fb_stream_publish_dialog($params, $fb_app = NULL) {
   if (!isset($fb_app)) {
     $fb_app = $GLOBALS['fb_app'];
   }
-
+  
   if (!isset($_SESSION[FB_STREAM_DIALOGS][$fb_app->apikey])) {
     $_SESSION[FB_STREAM_DIALOGS][$fb_app->apikey] = array();
   }
@@ -85,7 +85,8 @@ function fb_stream_fb($op, $data, &$return) {
   if ($op == FB_OP_CONNECT_JS_INIT || $op == FB_OP_CANVAS_FBJS_INIT) {
     // arguments for JS and FBJS methods are the same!
     $params_array = fb_stream_get_stream_dialog_data($data['fb_app']);
-    return fb_stream_js($params_array);
+    $js = fb_stream_js($params_array);
+    $return += $js;
   }
 }
 

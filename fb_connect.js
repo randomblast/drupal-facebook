@@ -10,7 +10,7 @@ Drupal.behaviors.fb_connect = function(context) {
   if (typeof FB_RequireFeatures == 'undefined') {
     return;
   }
-
+    
   // Tell Facebook to parse any XFBML elements found in the context.
   FB_RequireFeatures(['XFBML'], function() {
       $(context).each(function() {
@@ -18,11 +18,11 @@ Drupal.behaviors.fb_connect = function(context) {
           //alert('fb_connect: ' + elem + $(elem).html()); // debug
           FB.XFBML.Host.parseDomElement(elem);
           
-        });
+      });
       // Respect fb_connect classes on new content.
       $('.fb_connect_show', context).show();
       $('.fb_connect_hide', context).hide();
-    });
+  });
 
   // Support for easy fbml popup markup which degrades when javascript not enabled.
   // Markup is subject to change.  Currently...
