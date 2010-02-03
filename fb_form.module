@@ -512,8 +512,8 @@ function theme_fb_form_req_choice($elements) {
 }
 
 function theme_fb_form_serverfbml($elements) {
-  $output = '<fb:serverfbml><script type="text/fbml">' . 
-    (isset($element['#attributes']) ? drupal_attributes($elements['#attributes']) : '') . 
+  $output = '<fb:serverfbml ' .(isset($elements['#attributes']) ? drupal_attributes($elements['#attributes']) : '') .
+    '><script type="text/fbml">' .  
     $elements['#children'] . "</script></fb:serverfbml>\n";
   return $output;
 }
