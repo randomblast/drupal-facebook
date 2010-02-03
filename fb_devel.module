@@ -98,25 +98,36 @@ function fb_devel_fb($op, $data, &$return) {
 
     // server URL sanity check
     // This is an expensive test, because it invokes api_client.
-    $props = $fb->api_client->admin_getAppProperties(array('connect_url', 'callback_url'));
-    if (is_array($props)) {
-      foreach ($props as $prop => $url) {
-        if ($url && (strpos($url, $GLOBALS['base_url']) === FALSE)) {
-          $message = t('The Facebook Application labeled %label has a suspicious %prop.  The value is %value, while something starting with %url was expected.  Consider editing !nodelink.',
-                       array('%label' => $fb_app->label,
-                             '%prop' => $prop,
-                             '%value' => $url,
-                             '%url' => $GLOBALS['base_url'],
-                             '!nodelink' => l($fb_app->title, 'node/'.$fb_app->nid . '/edit'),
-                       ));
-          
-          if (user_access('access administration pages')) {
-            drupal_set_message($message, 'error');
+    try {
+      $props = $fb->api_client->admin_getAppProperties(array('connect_url', 'callback_url'));
+      if (is_array($props)) {
+        foreach ($props as $prop => $url) {
+          if ($url && (strpos($url, $GLOBALS['base_url']) === FALSE)) {
+            $message = t('The Facebook Application labeled %label has a suspicious %prop.  The value is %value, while something starting with %url was expected.  Consider editing !nodelink.',
+                         array('%label' => $fb_app->label,
+                               '%prop' => $prop,
+                               '%value' => $url,
+                               '%url' => $GLOBALS['base_url'],
+                               '!nodelink' => l($fb_app->title, 'node/'.$fb_app->nid . '/edit'),
+                         ));
+            
+            if (user_access('access administration pages')) {
+              drupal_set_message($message, 'error');
+            }
+            watchdog('fb_devel', $message);      
           }
-          watchdog('fb_devel', $message);      
         }
       }
+    } 
+    catch (FacebookRestClientException $e) {
+      if ($e->getCode() == 102) {
+        // Session key invalid or no longer valid 102, which we can ignore.
+      }
+      else {
+        fb_log_exception($e, t('Failed to get app properties for %name.', array('%name' => $fb_app->title)));
+      }
     }
+  
 
     // Moved files sanity check.
     if (file_exists(drupal_get_path('module', 'fb_devel') . '/fb_feed.module')) {
