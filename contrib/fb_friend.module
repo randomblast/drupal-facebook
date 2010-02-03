@@ -51,58 +51,14 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       global $fb, $fb_app;
       
       if ($delta == FB_FRIEND_DELTA_INVITE_PAGE) {
-        $page_url = url($_GET['q'], array('absolute' => TRUE));
-        // Build the alterable data structure.
-        // http://wiki.developers.facebook.com/index.php/Fb:request-form
-        $fbml = fb_form_requestform(
-          array(
-            'type' => variable_get('site_name', t('page view')),
-            'content' => array(
-              'markup' => array('#value' => t('You may want to see this. <a href="!url">!title</a>',
-                                              array('!url' => $page_url,
-                                                    '!title' => drupal_get_title()))),
-              'choice' => array('#type' => 'fb_form_req_choice',
-                                '#attributes' => array(
-                                  'url' => $page_url,
-                                  'label' => t('Accept'))),
-            ),
-            'invite' => TRUE,
-            'action' => $page_url,
-            'method' => 'POST',
-            'style' => "width: 630px; height: 400px",
-          ));
-      
-        $fbml['selector'] = fb_form_multi_selector(array('actiontext' => t('Invite friends')));
-      
-        // Allow third-party to modify the form
-        drupal_alter('fb_friend_invite_page', $fbml);
-      
-        if ($fbml) {
-          if (fb_is_fbml_canvas()) {
-            $xfbml = array(
-              'fbml' => $fbml,
-            );
-          }
-          else {
-            // Render in Facebook Connect page.
-            fb_connect_require_feature('XFBML');
-          
-            // Wrap in serverfbml for connect pages.
-            $xfbml = array('#type' => 'fb_form_serverfbml',
-                           'fbml' => $fbml);
-          }
-        
-          // Allow third-party to modify wrapper
-          drupal_alter('fb_friend_invite_page_wrap', $xfbml);
-        
+        if ($xfbml = fb_friend_invite_page_fbml('fb_friend_invite_page')) {
           $content = drupal_render($xfbml);
-        
+          
           return array('subject' => t('Invite friends to visit this page'),
                        'content' => $content,
           );
         }
-      }
-      else if ($delta == FB_FRIEND_DELTA_INVITE_APP) {
+      } else if ($delta == FB_FRIEND_DELTA_INVITE_APP) {
         // TODO: support canvas pages, in addition to connect pages.
         fb_connect_require_feature('XFBML');
       
@@ -205,3 +161,54 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
   }
 }
 
+function fb_friend_invite_page_fbml($alter_hook = NULL) {
+  $page_url = url($_GET['q'], array('absolute' => TRUE));
+  // Build the alterable data structure.
+  // http://wiki.developers.facebook.com/index.php/Fb:request-form
+  $fbml = fb_form_requestform(
+    array(
+      'type' => variable_get('site_name', t('page view')),
+      //'style' => "width: 500px;",
+      'content' => array(
+        'markup' => array('#value' => t('You may want to see this. <a href="!url">!title</a>',
+                                        array('!url' => $page_url,
+                                              '!title' => drupal_get_title()))),
+        'choice' => array('#type' => 'fb_form_req_choice',
+                          '#attributes' => array(
+                            'url' => $page_url,
+                            'label' => t('Accept'))),
+      ),
+      'invite' => TRUE,
+      'action' => $page_url,
+      'method' => 'POST',
+    ));
+  
+  $fbml['selector'] = fb_form_multi_selector(array('actiontext' => t('Invite friends')));
+  
+  // Allow third-party to modify the form
+  if (isset($alter_hook)) {
+    drupal_alter($alter_hook, $fbml);
+  }
+  
+  if ($fbml) {
+    if (fb_is_fbml_canvas()) {
+      $xfbml = array(
+        'fbml' => $fbml,
+      );
+    }
+    else {
+      // Render in Facebook Connect page.
+      fb_connect_require_feature('XFBML');
+      
+      // Wrap in serverfbml for connect pages.
+      $xfbml = array('#type' => 'fb_form_serverfbml',
+                     'fbml' => $fbml);
+    }
+    
+    // Allow third-party to modify wrapper
+    if (isset($alter_hook)) {
+      drupal_alter($alter_hook . '_wrap', $xfbml);
+    }
+    return $xfbml;
+  }
+}
