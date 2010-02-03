@@ -85,47 +85,56 @@ function fb_stream_fb($op, $data, &$return) {
   if ($op == FB_OP_CONNECT_JS_INIT || $op == FB_OP_CANVAS_FBJS_INIT) {
     // arguments for JS and FBJS methods are the same!
     $params_array = fb_stream_get_stream_dialog_data($data['fb_app']);
-    foreach ($params_array as $params) {
-      $args = array();
-      // These are the defaults:
-      foreach (array('user_message' => '',
-                     'attachment' => '{}',
-                     'action_links' => '{}',
-                     'target_id' => 'null',
-                     'user_message_prompt' => 'null',
-                     'callback' => 'null',
-                     'auto_publish' => 'null',
-                     'actor_id' => 'null',
-               ) as $key => $default) {
-        if (isset($params[$key])) {
-          // Encode the params passed to fb_stream_publish_dialog.
-          if (in_array($key, array('callback', 'auto_publish'))) {
-            // no encoding
-            $args[] = $params[$key];
-          }
-          else {
-            $args[] = json_encode($params[$key]);
-          }
-          
-        }
-        else {
-          // Use default
-          $args[] = $default;
-        }
-      }
-    
-      if ($op == FB_OP_CONNECT_JS_INIT) {
-        // Add stream dialog javascript to a facebook connect page.
-        $return[] = "FB.Connect.streamPublish(" . implode(', ', $args) . ");\n";
-      }
-      else if ($op == FB_OP_CANVAS_FBJS_INIT) {
-        // Add stream dialog javascript to a canvas page.
-        $return[] = "Facebook.streamPublish(" . implode(', ', $args) . ");\n";
-      }
-      
-      // debug
-      //dpm($return, "fb_stream_fb added javascript");
-    }
+    return fb_stream_js($params_array);
   }
 }
 
+/**
+ * Convert our data structure in javascript.
+ */
+function fb_stream_js($params_array) {
+  $return = array();
+  foreach ($params_array as $params) {
+    $args = array();
+    // These are the defaults:
+    foreach (array('user_message' => '',
+                   'attachment' => '{}',
+                   'action_links' => '{}',
+                   'target_id' => 'null',
+                   'user_message_prompt' => 'null',
+                   'callback' => 'null',
+                   'auto_publish' => 'null',
+                   'actor_id' => 'null',
+             ) as $key => $default) {
+      if (isset($params[$key])) {
+        // Encode the params passed to fb_stream_publish_dialog.
+        if (in_array($key, array('callback', 'auto_publish'))) {
+          // no encoding
+          $args[] = $params[$key];
+        }
+        else {
+          $args[] = json_encode($params[$key]);
+        }
+        
+      }
+      else {
+        // Use default
+        $args[] = $default;
+      }
+    }
+    
+    if (!fb_is_fbml_canvas()) {
+      // Add stream dialog javascript to a facebook connect page.
+      $return[] = "FB.Connect.streamPublish(" . implode(', ', $args) . ");\n";
+    }
+    else {
+      // Add stream dialog javascript to a canvas page.
+      $return[] = "Facebook.streamPublish(" . implode(', ', $args) . ");\n";
+    }
+      
+    // debug
+    //dpm($return, "fb_stream_fb added javascript");
+  }
+  
+  return $return;
+}
