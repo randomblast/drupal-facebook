@@ -80,7 +80,7 @@
       <?php if (isset($closure)) {print $closure;} ?>
     </div>
     <!-- /page -->
-<!-- http://wiki.developers.facebook.com/index.php/JavaScript_Client_Library -->
+<!-- http://wiki.developers.facebook.com/index.php/Resizable_IFrame -->
 <div id="FB_HiddenIFrameContainer" style="display:none; position:absolute; left:-100px; top:-100px; width:0px; height: 0px;"></div>
   </body>
 </html>

@@ -1,8 +1,52 @@
 .page-wrap {
     position: relative;
 }
-  .page-wrap.in-new-facebook { width: 760px; }
+.page-wrap.in-new-facebook { width: 760px; }
 
+#page-title {
+  margin: 10px 0 10px 0;
+}
+
+/** Prefaces **/
+#preface-first {clear; both;}
+
+#preface .block {
+  float: left;
+  margin: 5px 0 0 0;
+}
+#preface-wrapper.prefaces-1 div.column {
+  float: left;    /* LTR */
+  width: 100%;
+}
+  
+#preface-wrapper.prefaces-2 div.column {
+  display: inline;
+  float: left;    /* LTR */
+  margin: 0 10px;
+  width: 48%;
+}
+  
+#preface-wrapper.prefaces-3 div.column {
+  display: inline;
+  float: left;    /* LTR */
+  margin: 0 10px 0 0;
+  width: 31%;
+} 
+
+/** Search **/
+#search-box {
+  float: right;
+  clear: right;
+}
+
+#logo-title-wrapper {float: left; clear: left;}
+#logo-title-wrapper h1 {float: left; clear: left;}
+
+#slogan {
+  font-size: 10px;
+  display: block;
+  margin: 2px 0 0 0;
+}
   div.error {
   padding: 10px;
   border: solid 1px #dd3c10;
@@ -21,6 +65,7 @@
   padding: 5px 5px 5px 10px;
   overflow: hidden;
   }
+
   .comment-header {
   border: none;
   }
@@ -29,9 +74,10 @@
   font-size: 10px;
   display: block;
   }
-  .node-header .picture {
+  .node-header img, .comment-header img {
   float: left;
   margin: 0 10px 0 0px;
+  vertical-align: middle;
   }
   .indented {padding-left: 10px;}
   .node-teaser .content, .node .content, .comment .content {
@@ -75,32 +121,26 @@
   .header .block-menu .title { display: none;}
   .header ul.links, .header .block-menu, .header .breadcrumb {
   font-size: 10px;
-  margin: 0;
+  margin: 0 0 5px 0;
   }
   
   .header ul.links, .header .block-menu {
-  float: right;
-  clear: right;
-}
+    float: right;
+    vertical-align: top;
+  }
   
   .header .block .content {clear: none;}
   
   .header .breadcrumb { float: left;}
   
-  #canvas-header h1 {
-    float: left;
-	clear: left;
-	padding: 10px 0 0 0;
-  }
   #canvas-header img {
     vertical-align: middle;
     margin-right: 10px;
   }
+
   #canvas-header {
-    margin: 0px;
-    padding: 10px 10px 10px 20px;
-	/*border-bottom: 1px solid #cccccc; IE will not render this */
-	overflow: hidden;
+    margin: 0 0 10px 0;
+    overflow: hidden;
   }
   
   /* for IE */
@@ -348,4 +388,8 @@ td.topics, td.posts {text-align: center;}
 /* Facebook's captcha FBML */
 .captcha {
     margin: 10px 0 5px 0;
+}
+
+.clearfix {
+  clear: both;
 }

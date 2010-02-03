@@ -17,34 +17,9 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
     
     // Add our own stylesheet
     drupal_add_css(path_to_theme() . '/styles_fbml.css', 'theme', 'fbml');
-    
-    // http://wiki.developers.facebook.com/index.php/Include_files
-    // Facebook now allows external references to stylesheets, but not
-    // using the normal syntax, we don't use the normal
-    // drupal_get_css() here.
-    $css = drupal_add_css();
-    $module_css = '';
-    $theme_css = '';
-    
-    // Only include stylesheets for FBML
-    foreach ($css['fbml'] as $type => $files) {
-      foreach ($files as $file => $preprocess) {
-        $url = base_path() . $file;
-        if (file_exists($file)) {
-          // Refresh Facebook's cache anytime file changes.
-          $url .= '?v=' . filemtime($file);
-        }
-        // preprocess ignored
-        if ($type == 'module') {
-          $module_css .= '<link rel="stylesheet" type="text/css" media="screen" href="'.$url."\" />\n";
-        }
-        else if ($type == 'theme') {
-          $theme_css .= '<link rel="stylesheet" type="text/css" media="screen" href="'.$url."\" />\n";
-        }
-      }
-    }
-    $vars['styles'] = $module_css . $theme_css;
-    
+
+    $vars['styles'] = drupal_get_css();
+
     // Include only Facebook aware javascript.
     $vars['fbjs'] = drupal_get_js('fbml');
     
@@ -84,6 +59,22 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
     if ($_REQUEST['fb_sig_in_new_facebook'])
       $body_classes[] = 'in-new-facebook';
     
+    // Regions
+    $region_list = array(
+    'prefaces' => array('preface_first', 'preface_middle', 'preface_last'), 
+    //'postscripts' => array('postscript_first', 'postscript_middle', 'postscript_last')
+    );
+    foreach ($region_list as $sub_region_key => $sub_region_list) {
+      $active_regions = array();
+      foreach ($sub_region_list as $region_item) {
+        if ($vars[$region_item]) {
+          $active_regions[] = $region_item;
+        }
+      }
+      $vars[$sub_region_key . '_class'] = $sub_region_key .'-'. strval(count($active_regions));
+      $vars[$sub_region_key . '_count'] = count($active_regions);
+    }
+
     $vars['body_classes'] = implode(' ', $body_classes);
   }
 }
@@ -91,7 +82,7 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
 /**
  * Tell the theme engine which regions our theme supports.
  */
-function fb_fbml_regions() {
+function fb_fbml_regionsXXX() {
   $regions = array('admin' => t('Admin sidebar'),
 		   'header' => t('Canvas Header'),
 		   'right' => t('Canvas Right'),

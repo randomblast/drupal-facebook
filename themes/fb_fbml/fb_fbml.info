@@ -3,10 +3,14 @@ description = Use on Facebook FBML canvas pages only.
 core = 6.x
 engine = phptemplate
 
-regions[admin] = Admin sidebar
-regions[header] = Canvas Header
-regions[right] = Canvas Right
-regions[content_footer] = Content Footer
-regions[canvas_footer] = Canvas Footer
-regions[iframe_footer] = Iframe Footer
+regions[admin] = admin sidebar
+regions[header] = canvas header
+regions[preface_first] = canvas preface first
+regions[preface_middle] = canvas preface middle
+regions[preface_last] = canvas preface last
+regions[content_top] = content top
+regions[content_footer] = content footer
+regions[right] = canvas right
+regions[canvas_footer] = canvas footer
+regions[iframe_footer] = iframe footer
 
