@@ -61,12 +61,12 @@ if ($nid && isset($_REQUEST['fb_sig_api_key'])) {
   if (isset($_REQUEST['fb_sig_session_key']))
     $new_session_id = "fb_canvas_{$nid}_" . $_REQUEST['fb_sig_session_key'];
   else if ($orig_session_id) {
-    // When user is logged into facebook, but not authorized app, cookies are honored.  (confirm this???)
+    // When user is logged into facebook, but not authorized app, cookies are honored.  NO! This may have once been true, but no longer.
     $new_session_id = "fb_canvas_{$nid}_" . $orig_session_id;
   }
   else {
     // If we have no session (user not logged into facebook) all such users will share one session!!!
-    $new_session_id = "fb_canvas_{$nid}_shared_session";
+    //$new_session_id = "fb_canvas_{$nid}_shared_session";
   }
   
   // Force url() to include the cookie-less session when in iframe
@@ -144,15 +144,16 @@ if (isset($new_session_id)) {
    }
  }
 
-
-if ($nid && !isset($_COOKIE[session_name()])) {
+$session_name = session_name();
+$session_id = session_id();
+if ($nid && $session_id && !isset($_COOKIE[$session_name])) {
   // requests from facebook (FBML canvas pages) will not have cookies.
   // We want Drupal's session.inc to work properly, as if the session
   // came via cookie.
   if (!$_COOKIE || !count($_COOKIE))
     // Remember that cookies are actually disabled, some apps will want to display a message and/or redirect in this case.
     $_COOKIE['_fb_cookie_fake'] = TRUE;
-  $_COOKIE[session_name()] = session_id();
+  $_COOKIE[$session_name] = $session_id;
  }
 
 
