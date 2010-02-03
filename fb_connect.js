@@ -65,7 +65,13 @@ FB_Connect.fbu = null;
 FB_Connect.statusHandle = function(e, data) {
   if (data.changed) {
     // Status has changed, user has logged in or logged out.
-    window.location.reload();
+    var destination = Drupal.settings.fb_connect.destination;
+    if (destination) {
+      window.location.href = destination;
+    }
+    else {
+      window.location.reload();
+    }
   }
 };
 
