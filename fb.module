@@ -447,13 +447,18 @@ function fb_get_app($search_data) {
  * Convenience method to return a list of all known apps, suitable for form
  * elements.
  */
-function fb_get_app_options($include_current = FALSE) {
+function fb_get_app_options($include_current = FALSE, $key = 'nid') {
   $apps = fb_get_all_apps();
   $options = array();
   if ($include_current)
     $options[FB_APP_CURRENT] = t('<current>');
   foreach ($apps as $app) {
-    $options[$app->nid] = $app->title;
+    if ($key == 'apikey') {
+      $options[$app->apikey] = $app->title;
+    }
+    else {
+      $options[$app->nid] = $app->title;
+    }
   }
   return $options;
 }
