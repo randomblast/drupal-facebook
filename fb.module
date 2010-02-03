@@ -79,7 +79,7 @@ function fb_init() {
 	}
         $url = url($_REQUEST['q'], array('query' => $req, 'absolute' => TRUE));
 	if (fb_verbose())
-	  watchdog('fb_debug', 'Facebook session key was %old, now %new.  Destroying session and sending user to %url.',
+	  watchdog('fb_debug', 'Facebook session key was "%old", now "%new".  Destroying session and sending user to %url.',
                    array('%old' => $_SESSION['fb_frame_params']['session_key'],
                          '%new' => $_REQUEST['fb_sig_session_key'],
                          '%url' => $url));
@@ -253,7 +253,7 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
       // will not provide all its normal variables.  To prepare for such a case,
       // we cache the facebook parameters in the session.
       // We update the cache whenever possible, to keep it current.
-      if ($fb->in_frame() && $fb->fb_params) {
+      if ($fb->in_frame() && $fb->fb_params && $fb->api_client->session_key) {
         $_SESSION['fb_frame_params'] = $fb->fb_params; // hacky to use fb's internal data structure
       }
       
