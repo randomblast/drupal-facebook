@@ -528,8 +528,8 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
                        array('query' => array('id' => $data['uid'])));
           
           $form['map'][$shared_module]['#description'] .= t('Local account !username corresponds to !profile_page on Facebook.com.',
-                                                              array('!username' => theme('username', $account),
-                                                                    '!profile_page' => $fb_link));
+                                                            array('!username' => l($account->name, 'user/' . $account->uid),
+                                                                  '!profile_page' => $fb_link));
         }
       }
 
