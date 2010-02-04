@@ -786,7 +786,15 @@ function fb_connect_theme() {
 }
 
 function theme_fb_connect_fbml_username($orig_username, $object, $fbu) {
-  return '<span class=fb_connect_hide>'.$orig_username.'</span><span class=fb_connect_show style="display:none"><a href="'. url('user/' . $object->uid) . '"><fb:name linked=false useyou=false uid=' . $fbu . ' ifcantsee="'. $object->name .'"></fb:name></a></span>';  
+  $fbml = "<fb:name linked=false useyou=false uid=$fbu ifcantsee='$object->name'></fb:name>";
+  $wrap_pre = "<span class=fb_connect_hide>$orig_username</span><span class=fb_connect_show style='display:none'>";
+  $wrap_post = "</span>\n";
+  if ($object->uid) {
+    // Provide link if local account.
+    $wrap_pre = $wrap_pre . '<a href="' . url('user/' . $object->uid) . '">';
+    $wrap_post = '</a>' . $wrap_post;
+  }
+  return $wrap_pre . $fbml . $wrap_post;
 }
 
 function theme_fb_connect_fbml_user_picture($orig, $account, $fbu) {
