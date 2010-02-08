@@ -1,8 +1,12 @@
 <?php
 
 // Drupal variables
-define('FB_CONNECT_VAR_PRIMARY', 'fb_connect_primary_apikey');
-define('FB_CONNECT_VAR_LOGIN', 'fb_connect_login_apikey');
+define('FB_CONNECT_VAR_PRIMARY', 'fb_connect_primary_nid');
+define('FB_CONNECT_VAR_LOGIN', 'fb_connect_login_nid');
+define('FB_CONNECT_VAR_THEME_USERNAME_1', 'fb_connect_theme_username_1');
+define('FB_CONNECT_VAR_THEME_USERNAME_2', 'fb_connect_theme_username_2');
+define('FB_CONNECT_VAR_THEME_USERPIC1', 'fb_connect_theme_userpic_1');
+define('FB_CONNECT_VAR_THEME_USERPIC_2', 'fb_connect_theme_userpic_2');
 
 /**
  * @file
@@ -85,20 +89,6 @@ HTML;
 }
 
 /**
- * Returns an apikey, if the current page has facebook connect enabled.
- */
-function fb_connect_current_apikey() {
-  // TODO: return false on canvas pages
-  if ($GLOBALS['fb_connect_apikey'])
-    // Learned apikey from cookies.
-    return $GLOBALS['fb_connect_apikey'];
-  else if ($apikey = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
-    // Primary connect app.
-    return $apikey;
-  }
-}
-
-/**
  * Prepare for fbConnect use.  Because a single Drupal might support
  * multiple apps, we don't know in advance which is the fbConnect app.
  * Theoretically, it might be possible to simultaneously use multiple
@@ -154,13 +144,13 @@ function fb_connect_fb($op, $data, &$return) {
   //dpm(func_get_args(), "fb_connect_fb($op)");
   if ($op == FB_OP_CURRENT_APP && !$return) {
     // This will cause fb.module to set the global $fb when user is logged in via fbConnect.
-    if ($apikey = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
-      $return = fb_get_app(array('apikey' => $apikey));
+    if ($nid = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
+      $return = fb_get_app(array('nid' => $nid));
     }
   }
   else if ($op == FB_OP_POST_INIT) {
-    if ($apikey = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
-      if ($data['fb_app']->apikey == $apikey) {
+    if ($nid = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
+      if ($data['fb_app']->nid == $nid) {
         $fb_app = $data['fb_app'];
         // Init Facebook javascript for primary app
         _fb_connect_add_js();
@@ -566,26 +556,26 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
       '#collapsed' => $node->nid ? TRUE : FALSE,
     );
 
+    // "Primary" will be initialized on every non-canvas page.
+    $primary_nid = variable_get(FB_CONNECT_VAR_PRIMARY, NULL);
     $form['fb_app_data']['fb_connect']['primary'] = array(
       '#type' => 'checkbox',
       '#title' => t('Primary'),
       '#description' => t('Initialize fbConnect javascript on all (non-canvas) pages.  If this site supports multiple Facebook Apps, this may be checked for at most one.'),
-      '#default_value' => $fb_connect_data['primary'],
+      '#default_value' => isset($node->nid) && ($primary_nid == $node->nid),
     );
-    if ($primary_apikey = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
-      if ($primary_apikey != $node->fb_app->apikey) {
-        $primary = fb_get_app(array('apikey' => $primary_apikey));
-        $form['fb_app_data']['fb_connect']['primary']['#description'] .= '<br/>' . t('Note that checking this will replace %app as the primary Facebook Connect app.',
-                                                                                     array('%app' => $primary ? $primary->title : $primary_apikey));
-      }
+    if (($primary_nid) && ($primary_nid != $node->nid)) {
+      $primary = fb_get_app(array('nid' => $primary_nid));
+      $form['fb_app_data']['fb_connect']['primary']['#description'] .= '<br/>' . 
+        t('Note that checking this will replace %app as the primary Facebook Connect app.', array('%app' => $primary ? $primary->title : $primary_nid));
     }
   }
 
   // Add button to login form.
   if (($form_id == 'user_login_block' || $form_id == 'user_login') &&
       !fb_is_fbml_canvas()) {
-    if ($apikey = variable_get(FB_CONNECT_VAR_LOGIN, NULL)) {
-      $fb_app = fb_get_app(array('apikey' => $apikey));
+    if ($app_nid = variable_get(FB_CONNECT_VAR_LOGIN, NULL)) {
+      $fb_app = fb_get_app(array('nid' => $app_nid));
       // Ensure that facebook javascript is in the page closure.
       fb_connect_require_feature('XFBML', $fb_app);
       fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
@@ -616,10 +606,10 @@ function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   if (($op == 'insert' || $op == 'update') && $node->type == 'fb_app') {
     //dpm(func_get_args(), "fb_connect_nodeapi($op)"); // debug
     if ($node->fb_app_data['fb_connect']['primary']) {
-      variable_set(FB_CONNECT_VAR_PRIMARY, $node->fb_app['apikey']);
+      variable_set(FB_CONNECT_VAR_PRIMARY, $node->nid);
       drupal_set_message(t('!node is the primary Facebook Connect application.', array('!node' => l($node->title, 'node/' . $node->nid))));
     }
-    else if ($node->fb_app['apikey'] == variable_get(FB_CONNECT_VAR_PRIMARY)) {
+    else if ($node->nid == variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
       // This app was the primary one, but the user has unchecked it.
       variable_set(FB_CONNECT_VAR_PRIMARY, NULL);
     }
@@ -641,8 +631,9 @@ function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
  */
 function fb_connect_theme_registry_alter(&$theme_registry) {
   // Ideally, we'd do this only on themes which will certainly be used for facebook connect pages.
-
-  if ($theme_registry['username']['type'] == 'module') {
+  if (variable_get(FB_CONNECT_VAR_THEME_USERNAME_2, TRUE) ||
+      (variable_get(FB_CONNECT_VAR_THEME_USERNAME_1, TRUE) &&
+       $theme_registry['username']['type'] == 'module')) {
     // Re-register the original theme function under a new name.
     $theme_registry['fb_connect_username_orig'] = $theme_registry['username'];
     // Override theme username
@@ -653,7 +644,9 @@ function fb_connect_theme_registry_alter(&$theme_registry) {
     );
   }
 
-  if ($theme_registry['user_picture']['type'] == 'module') {
+  if (variable_get(FB_CONNECT_VAR_THEME_USERPIC_2, TRUE) ||
+      (variable_get(FB_CONNECT_VAR_THEME_USERPIC_1, TRUE) &&
+       $theme_registry['user_picture']['type'] == 'module')) {
     // Re-register the original theme function under a new name.
     $theme_registry['fb_connect_user_picture_orig'] = $theme_registry['user_picture'];
     // Override theme username

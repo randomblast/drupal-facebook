@@ -1,0 +1,26 @@
+<?php
+
+
+function fb_connect_update_6200() {
+  $items = array();
+  foreach (array('fb_connect_primary', 'fb_connect_login') as $prefix) {
+    $oldvar = $prefix . '_apikey';
+    $newvar = $prefix . '_nid';
+    // Variable fb_connect_primary_apikey is now fb_connect_primary_nid
+    if ($apikey = variable_get($oldvar, NULL)) {
+      $result = db_query("SELECT * FROM fb_app WHERE apikey = '%s'",
+                         $apikey);
+      $data = db_fetch_object($result);
+      if ($data->nid) {
+        variable_set($newvar, $data->nid);
+        $items[] = array('success' => TRUE, 'query' => "updated $newvar to be $data->label ($data->nid)");
+        variable_del($oldvar);
+      }
+      else {
+        $items[] = array('success' => FALSE, 'query' => "Could not find $oldvar by apikey ($apikey)");
+      }
+    }
+  }
+  return $items;
+}
+?>
