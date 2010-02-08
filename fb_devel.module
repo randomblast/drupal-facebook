@@ -32,12 +32,6 @@ function fb_devel_init() {
     }
   }
 
-  // Test if json extensions are loaded.
-  if (defined('SERVICES_JSON_SLICE')) { // defined in facebook's json wrapper, which is not compatible with PHP's JSON extensions.
-    if (user_access('access administration pages')) {
-      drupal_set_message(t("JSON extension for PHP not found.  Drupal for Facebook will not work properly without this extension!  You can wait for facebook to <a href=http://bugs.developers.facebook.com/show_bug.cgi?id=4351>fix their bug</a>, or install the JSON extension. "), 'error');
-    }
-  }
 }
 
 function fb_devel_fb($op, $data, &$return) {
@@ -77,24 +71,6 @@ function fb_devel_fb($op, $data, &$return) {
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message);
     }
-    
-    // arg_separator sanity check
-    $sep = ini_get('arg_separator.output');
-    if ($sep != '&') {
-      $message = t('Facebook client libraries will not work properly if arg_separator.output is not "&".  Currently the value is "!sep".  Please change this in settings.php or php.ini.', array('!sep' => check_plain($sep)));
-      drupal_set_message($message, 'error');
-      watchdog('fb_devel', $message);
-    }
-
-    // clean url sanity check
-    if (!variable_get('clean_url', FALSE)) {
-      $message = t('Drupal for Facebook will not function properly until <a href=!url>clean URLs</a> are turned on.',
-                   array('!url' => url('admin/settings/clean-urls')));
-      if (user_access('access administration pages')) {
-        drupal_set_message($message, 'error');
-      }
-      watchdog('fb_devel', $message);      
-    }
 
     // server URL sanity check
     // This is an expensive test, because it invokes api_client.
@@ -128,16 +104,6 @@ function fb_devel_fb($op, $data, &$return) {
       }
     }
   
-
-    // Moved files sanity check.
-    if (file_exists(drupal_get_path('module', 'fb_devel') . '/fb_feed.module')) {
-      $message = 'Drupal for Facebook modules have moved to <em>modules/fb/contrib/</em>, but your install still has old out-of-date files!  Delete the entire <em>modules/fb/</em> directory and re-install.';
-      if (user_access('access administration pages')) {
-        drupal_set_message($message, 'error');
-      }
-      watchdog('fb_devel', $message, array(), WATCHDOG_ERROR);
-    }
-
     // Require login sanity check.
     $fb_app_data = fb_app_get_data($fb_app);
     if (isset($fb_app_data['fb_user']) && $fb_app_data['fb_user']['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN) {
@@ -305,8 +271,10 @@ function fb_devel_block($op = 'list', $delta = 0, $edit = array()) {
     return $items;
   }
   else if ($op == 'view') {
-    return array('subject' => t('Facebook Devel Info'),
-                 'content' => drupal_get_form('fb_devel_info'));
+    if (user_access('access devel information')) {
+      return array('subject' => t('Facebook Devel Info'),
+                   'content' => drupal_get_form('fb_devel_info'));
+    }
   }
 }
 
@@ -435,5 +403,35 @@ function fb_devel_user($op, &$edit, &$account, $category = NULL) {
     }
   }
 }
+
+/**
+ * Implementation of hook_cron().
+ *
+ * Remove obsolete data from {users} table.  Not a serious problem,
+ * just cruft in the database which should never have been saved.
+ * Clean it up.
+ */
+function fb_devel_cron() {
+  $limit = 10;
+  $result = db_query('SELECT * FROM {users} WHERE data LIKE "%\"app_specific\"%" OR data LIKE "%\"is_app_user\"%" OR data LIKE "%\"fbu\"%" LIMIT %d', $limit);
+  
+  while ($account = db_fetch_object($result)) {
+    $data = unserialize($account->data);
+    // Clean out the bogus data.
+    foreach (array('app_specific', 'username', 'fbu', 'info') as $key) {
+      unset($data[$key]);
+    }
+    db_query("UPDATE {users} SET data='%s' WHERE uid=%d",
+             serialize($data), $account->uid);
+    if (fb_verbose()) {
+      print(t('Cleaned up data for user %name (%uid), it is now: !data',
+              array('%name' => $account->name,
+                    '%uid' => $account->uid,
+                    '!data' => '<pre>' . print_r($data, 1) . '</pre>',
+              )));
+    }
+  }
+}
+
 
 ?>
