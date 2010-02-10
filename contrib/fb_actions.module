@@ -4,262 +4,39 @@
  * 
  * Actions defined here interact with Facebook's API.  This makes it
  * possible to notify facebook of various activities as they happen.
+ *
+ * In the past, facebook offered "profile boxes" and actions were a
+ * resonable way to update their content.  Facebook has deprecated
+ * this feature, leaving thi s module very little to do.  So for the
+ * time being there is little reason to enable this module.
  */
 
 /**
  * Implemntation of hook_action_info()
  */
 function fb_actions_action_info() {
-  return array('fb_actions_profile_fbml' =>
-               array('type' => 'fb_action',
-                     'description' => t('Write to Facebook profile'),
-                     'configurable' => TRUE,
-                     'hooks' => array('nodeapi' => array('delete', 'insert', 'update', 'view'),
-                                      'comment' => array('delete', 'insert', 'update', 'view'),
-                                      'user' => array('insert', 'update', 'delete', 'login', 'logout'),
-                                      'cron' => array('run'),
-                     ),
-               ),               
-               'fb_actions_ref_fbml' =>
-               array('type' => 'fb_action',
-                     'description' => t('Write to Facebook reference FBML'),
-                     'configurable' => TRUE,
-                     'hooks' => array('nodeapi' => array('delete', 'insert', 'update', 'view'),
-                                      'comment' => array('delete', 'insert', 'update', 'view'),
-                                      'user' => array('insert', 'update', 'delete', 'login', 'logout'),
-                                      'cron' => array('run'),
-                     ),
-               ),
-               'fb_actions_cron_per_user' =>
-               array('type' => 'fb_app',
-                     'description' => t('Perform an Action once for each user of a Facebook App'),
-                     'configurable' => TRUE,
-                     'hooks' => array('cron' => array('run')),
-               ),
+  return array(
+    'fb_actions_cron_per_user' =>
+    array('type' => 'fb_app',
+          'description' => t('Perform an Action once for each user of a Facebook App'),
+          'configurable' => TRUE,
+          'hooks' => array('cron' => array('run')),
+    ),
   );
-  
-  }
-
+}
 
 
 
 /**
- * Implementation of an Action.  See Actions module.
- * 
- * This action updates a user's profile FBML.
+ * Implementation of fb_actions_cron_per_user action.
+ *
+ * This is useful only if you have another action which you wish to
+ * trigger, once for each user of an application.  Formerly used to
+ * update profile boxes during cron jobs.  Profile boxes no longer
+ * exist, so there may no longer be a need for this.
  */
-function fb_actions_profile_fbml_form($values) {
-  $options = fb_get_app_options(TRUE);
-  $form['description'] = array('#value' => t('This action will update the current user\'s Facebook profile.  Suitable for canvas pages and cron jobs (if infinite session is configured).'));
-  $form['fb_app_nid'] = 
-    array('#type' => 'select',
-          '#title' => t('Application'),
-          '#default_value' => $values['fb_app_nid'],
-          '#options' => $options,
-          '#description' => t('Log into Facebook as which application?  %current is OK when invoked from canvas pages or cron jobs.',
-                              array('%current' => $options[FB_APP_CURRENT])),
-    );
-  
-  $form['body'] = array('#type' => 'textarea',
-                        '#title' => t('Profile Box FBML'),
-                        '#default_value' => $values['body'],
-                        '#description' => t('FBML to write to user\'s profile box.  Make sure to choose an input filter that allows FBML!<br />The following token will be replaced: !token_help',
-                                            array('!token_help' => theme('token_help', 'fb_app'))),
-  );
-  $form['body_filter'] = filter_form($values['body_filter'],
-                                     NULL,
-                                     array('body_filter'));
-
-  $form['profile_main'] = array('#type' => 'textarea',
-                                '#title' => t('Main Profile Box'),
-                                '#default_value' => $values['profile_main'],
-                                '#description' => t('FBML for the <a href=!url>narrow profile box</a> on the Wall and Info tabs page.',
-                                                    array('!url' => 'http://wiki.developers.facebook.com/index.php/New_Design_Narrow_Boxes')),
-  );
-  $form['mobile_profile'] = array('#type' => 'textarea',
-                                  '#title' => t('Mobile Profile Box'),
-                                  '#default_value' => $values['mobule_profile'],
-                                  '#description' => t('FBML intended for mobile devices.'),
-  );
-  
-  return $form;
-}
-
-function fb_actions_profile_fbml_validate($form_id, $values) {
-  // TODO
-}
-
-function fb_actions_profile_fbml_submit($form_id, $values) {
-  return array('fb_app_nid' => $values['fb_app_nid'],
-               'body' => $values['body'],
-               'body_filter' => $values['body_filter'],
-               'profile_main' => $values['profile_main'],
-               'mobile_profile' => $values['mobile_profile'],
-  );
-}
-
-function fb_actions_profile_fbml(&$object, $values) {
-  //dpm(func_get_args(), "fb_actions_profile_fbml");
-
-  if ($values['hook'] == 'nodeapi') {
-    $node = $values['node'];
-  }
-  else if ($values['hook'] == 'comment') {
-    $comment = $values['comment'];
-    $node = node_load($comment->nid);
-  }
-  else if ($values['hook'] == 'user') {
-    $account = $values['user']; // untested
-  }
-  
-  // Determine which app to use
-  if ($object) {
-    $fb_app = $object;
-  }
-  else if ($values['fb_app_nid'] && is_numeric($values['fb_app_nid'])) {
-    $fb_app = fb_get_app(array('nid' => $values['fb_app_nid']));
-  }
-  else if ($values['fb_app_nid'] == FB_APP_CURRENT) {
-    $fb_app = $GLOBALS['fb_app'];
-  }
-  
-  // Use already configured $fb if its passed in (cron jobs)
-  $fb = $values['fb'];
-  if (!$fb && $fb_app)
-    // Otherwise, login to facebook as either the current user or the infinite session
-    $fb = fb_api_init($fb_app, FB_FBU_ANY);
-  
-  if ($fb) {
-    global $user;
-    $fbu = fb_get_fbu($user->uid, $fb_app);
-    // Replace fb_app related tokens
-    $body = token_replace($values['body'], 'fb_app', $fb_app);
-    $body = check_markup($body, $values['body_filter'], FALSE);
-    if ($profile_main)
-      $profile_main = check_markup($profile_main, $values['body_filter'], FALSE);
-    if ($mobile_profile)
-      $mobile_profile = check_markup($mobile_profile, $values['body_filter'], FALSE);
-    
-    // Links in profile FBML must be fully-qualified.  Here we attempt to
-    // replace relative links with fully qualified ones.
-    global $base_url, $base_path;
-    $patterns[] = '/"'.str_replace('/','\/', $base_path).'([^"]*)"/';
-    $replacements[] = '"'.$base_url.'/$1"';
-    $body = preg_replace($patterns, $replacements, $body);
-    if ($profile_main)
-      $profile_main = preg_replace($patterns, $replacements, $profile_main);
-    if ($mobile_profile)
-      $mobile_profile = preg_replace($patterns, $replacements, $mobile_profile);
-    
-    // Rewrite links to reference canvas pages
-    if ($fb_app->canvas && function_exists('fb_canvas_process_fbml')) {
-      $body = fb_canvas_process_fbml($body, $fb_app);
-      if ($profile_main)
-        $profile_main = fb_canvas_process_fbml($profile_main, $fb_app);
-      if ($mobile_profile)
-        $mobile_profile = fb_canvas_process_fbml($mobile_profile, $fb_app);
-    }
-    
-    if (variable_get('fb_actions_verbose', FALSE))
-      watchdog('fb_actions', 'Setting Facebook profile markup for !user to !body',
-               array('!user' => theme('username', $user),
-                     '!body' => htmlentities($body)));
-    try {
-      // http://wiki.developers.facebook.com/index.php/Profile.setFBML
-      $fb->api_client->profile_setFBML(NULL, $fbu, $body, NULL, $mobile_profile, $profile_main);
-    } catch (Exception $e) {
-      fb_log_exception($e, t('Failed to set profile FBML'), $fb);
-    }
-  }
-}
-
-/**
- * Implementation of an Action.
- * 
- * This action updates reference FBML.
- * http://developer.facebook.com/documentation.php?v=1.0&method=fbml.setRefHandle
- */
-function fb_actions_ref_fbml_form($values) {
-  $form['description'] = array('#value' => t('This action will update reference FBML.  See Facebook\'s documentation of the &lt;fb:ref&gt; tag.  Suitable for canvas pages and cron jobs (if infinite session is configured).'));
-  $options = fb_get_app_options(TRUE);
-  $form['fb_app_nid'] = 
-    array('#type' => 'select',
-          '#title' => t('Application'),
-          '#default_value' => $values['fb_app_nid'],
-          '#options' => $options,
-          '#description' => t('Log into Facebook as which application?  %current is OK when invoked from canvas pages or cron jobs.',
-                              array('%current' => $options[FB_APP_CURRENT])),
-	  );
-  $form['handle'] = array('#type' => 'textfield',
-                          '#title' => t('Handle'),
-                          '#default_value' => $values['handle'],
-  );
-  $form['body'] = array('#type' => 'textarea',
-                        '#title' => t('Reference FBML'),
-                        '#default_value' => $values['body'],
-                        '#description' => t('FBML to write to user\'s profile.<br />The following token will be replaced: !token_help',
-                                            array('!token_help' => theme('token_help', 'fb_app'))),
-  );
-  $form['body_filter'] = filter_form($values['body_filter'],
-                                     NULL,
-                                     array('body_filter'));
-  return $form;
-}
-function fb_actions_ref_fbml_validate($form_id, $values) {
-  // TODO
-}
-function fb_actions_ref_fbml_submit($form_id, $values) {
-  return array('fb_app_nid' => $values['fb_app_nid'],
-               'handle' => $values['handle'],
-               'body' => $values['body'],
-               'body_filter' => $values['body_filter'],
-  );
-}
-function fb_actions_ref_fbml(&$object, $values) {
-  if ($values['hook'] == 'nodeapi') {
-    $node = &$object;
-  }
-  else if ($values['hook'] == 'comment') {
-    $node = node_load($object['nid']);
-    $comment = &$object;
-  }
-  else if ($values['hook'] == 'user') {
-    $account = &$object;
-  }
-  
-  // Log into facebook as the current user.
-  if ($fb_app = $GLOBALS['fb_app'])
-    if ($values['fb_app_nid'] == FB_APP_CURRENT || 
-        $fb_app->nid == $values['fb_app_nid'])
-      // We're in a canvas page for the desired app.  We're already logged in.
-      $fb = $GLOBALS['fb'];
-  if (!$fb && $values['fb_app_nid'] != FB_APP_CURRENT) {
-    // Need to log into this app.
-    $fb_app = fb_get_app(array('nid' => $values['fb_app_nid']));
-    $fb = fb_api_init($fb_app, FB_FBU_INFINITE_SESSION);
-  }
-  
-  // This will be set on canvas pages and Facebook App cron actions.
-  if ($fb && $fb_app) {
-    // Replace fb_app related tokens
-    $body = token_replace($values['body'], 'fb_app', $fb_app);
-
-    $body = check_markup($body, $values['body_filter'], FALSE);
-    if ($fb_app->canvas && function_exists('fb_canvas_process_fbml')) {
-      $body = fb_canvas_process_fbml($body, $fb_app);
-    }
-    if (variable_get('fb_actions_verbose', FALSE))
-      watchdog('fb_actions', 'Setting Facebook ref FBML for %handle to %body',
-               array('%handle' => $values['handle'],
-                     '%body' => htmlentities($body)));
-    $fb->api_client->fbml_setRefHandle($values['handle'], $body);
-    fb_report_errors($fb);
-  }
-}
-
-
 function fb_actions_cron_per_user_form($values) {
-  $form['description'] = array('#value' => t('This action will iterate through user\'s of a Facebook Application, attempt to log into the Facebook API as that user (or failing that, the infinite session user), and execute additional actions.  Use this to perform per-user actions during a Facebook cron job.'));
+  $form['description'] = array('#value' => t('This action will iterate through user\'s of a Facebook Application, attempt to log into the Facebook API as that user, and execute additional actions.  Use this to perform per-user actions during a Facebook cron job.'));
   
   $options = fb_get_app_options(FALSE);
   $form['fb_app_nids'] = 
@@ -307,11 +84,11 @@ function fb_actions_cron_per_user_submit($form_id, $values) {
 function fb_actions_cron_per_user($obj, $values) {
   //$args = func_get_args();
   //watchdog('fb_action_debug', "fb_actions_cron_per_user" . dpr($args, 1), WATCHDOG_ERROR);
-
+  
   foreach ($values['fb_app_nids'] as $nid) {
     $fb_app = fb_get_app(array('nid' => $nid));
     // Set paths as if on a canvas page.
-
+    
     // perform per-user actions by manipulating the global user variable.
     $save_session = session_save_session();
     session_save_session(FALSE);

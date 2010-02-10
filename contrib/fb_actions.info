@@ -1,7 +1,6 @@
 name = Drupal for Facebook Actions
-description = Provides Actions for tasks such as updating a Facebook Profile.  Might be useful if you use Drupal Actions and Triggers.
+description = Since facebook has deprecated user profiles, there is little reason to enable this module.  (May become deprecated in the near future).
 package = Drupal for Facebook - contrib
-dependencies[] = actions
-dependencies[] = token
 dependencies[] = fb
+dependencies[] = trigger
 core = 6.x
