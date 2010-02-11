@@ -778,7 +778,7 @@ function fb_canvas_theme_page_override($content, $show_blocks = TRUE, $show_mess
   
   $output = theme('fb_canvas_page_orig', $content, $show_blocks, $show_messages);
   
-  if (fb_canvas_is_fbml()) {
+  if (fb_canvas_is_fbml() || fb_canvas_is_iframe()) {
     // Drupal provides no post-process for themes.
     $output = fb_canvas_process($output);
   }
