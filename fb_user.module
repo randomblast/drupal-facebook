@@ -614,7 +614,7 @@ function _fb_user_set_authmap($fb_app, $fbu, $account) {
       $account->uid != 0 &&
       $account->uid != $fb_user_data['logged_in_uid']) {
     list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
-    user_set_authmaps($user, array($module => $authmap));
+    user_set_authmaps($account, array($module => $authname));
     if (fb_verbose()) {
       watchdog('fb_user', 'Using authmap to associate user !user with facebook user id %fbu.',
                array('!user' => l($account->name, 'user/' . $account->uid),
