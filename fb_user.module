@@ -127,7 +127,11 @@ function fb_user_fb($op, $data, &$return) {
         // Be careful on maintenance pages.
         if (!variable_get('site_offline', FALSE) || user_access('administer site configuration', $account)) {
           $account = user_load(array('uid' => $uid));
-          $user = $account;
+          $valid_user = user_external_login($account);
+          if (!$valid_user) {
+            drupal_access_denied();
+            exit();
+          }
           if (fb_verbose() === 'extreme')
             watchdog("fb_user", "fb_user_fb changing user to $uid"); // debug
         }
@@ -170,7 +174,11 @@ function fb_user_fb($op, $data, &$return) {
               
               if (fb_verbose() === 'extreme')
                 watchdog("fb_user", "fb_user_fb changing user to $account->uid");
-              $user = $account; // change the global user
+              $valid_user = user_external_login($account);
+              if (!$valid_user) {
+                drupal_access_denied();
+                exit();
+              }
             }
           }
         }
@@ -193,9 +201,25 @@ function fb_user_fb($op, $data, &$return) {
            $fb->api_client->users_isAppUser()) ||
           ($fb_user_data['create_account'] == FB_USER_OPTION_CREATE_LOGIN)) {
 	// We need to make a local account for this facebook user.
+        
+        // First choose a name.
+        if ($fb_user_data['unique_account']) {
+          $username = "$fbu-$fb_app->label@facebook";
+        }
+        else {
+          $username = "$fbu@facebook";
+        }
+        
+        if ($fb_user_data['new_user_rid']) {
+          $roles = array($fb_user_data['new_user_rid'] => TRUE);
+        }
+        else {
+          $roles = array();
+        }
+
 	$user = fb_user_create_local_user($fb, $fb_app, fb_facebook_user($fb), 
-					  array('app_specific' => $fb_user_data['unique_account'],
-						'roles' => array($fb_user_data['new_user_rid'] => TRUE),
+					  array('name' => $username,
+                                                'roles' => $roles,
                                           ));
         $user->fbu = $fbu;
 	watchdog('fb_user', 
@@ -631,13 +655,11 @@ function _fb_user_set_authmap($fb_app, $fbu, $account) {
  * @param fbu
  * The facebook user id corresponding to this account.
  * 
- * @param config
- * An associative array with user configuration.  Possible values include:
- * 'app_specific' - Set to true if the same facebook id might correspond to different local accounts, depending on which apps the user has used.  Set to false if the user shares one local account across facebook apps.
- * 'roles' - an array with keys corresponding to role ids the new user should receive.
+ * @param edit
+ * An associative array with user configuration.  As would be passed to user_save().
  */
 function fb_user_create_local_user($fb, $fb_app, $fbu,
-                                   $config = array()) {
+                                   $edit = array()) {
   // Ensure $fbu is a real facebook user id.
   if (!$fbu || !is_numeric($fbu)) {
     return;
@@ -650,69 +672,70 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
   if (!$account) {
     // Create a new user in our system
     
-    // learn some details from facebook
+    // Learn some details from facebook.
     $infos = fb_users_getInfo(array($fbu), $fb);
-    $config['info'] = $infos[0];
+    $info = $infos[0];
+        
+    // All Drupal users get authenticated user role.
+    $edit['roles'][DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
     
-    // We need a username that will not collide with any already in our
-    // system.  Could use $authname, but this will be just slightly more
-    // user-friendly.
-    if ($config['app_specific'] && !$config['username'])
-      $config['username'] = "$fbu-$fb_app->label@facebook";
-    else
-      $config['username'] = "$fbu@facebook";
-    
-    // Allow third-party module to adjust any of our settings before we create
-    // the user.
-    $config = fb_invoke(FB_OP_PRE_USER, array('fbu' => $fbu,
-					      'fb' => $GLOBALS['fb'],
-					      'fb_app' => $fb_app),
-			$config);
-    
-    // TODO: double-check that username is not taken.
-    $user_default = array('name' => $config['username'],
-                          'mail' => $config['mail'],
-                          'pass' => user_password(),
-                          'init' => db_escape_string($config['username']),
-                          'status' => 1,
-                          'authname_fb_user' => $authname,
-    );
-    
-    // Allow $config to set other values, including mail
-    $user_default = array_merge($user_default, $config);
-    
-    $user_default['roles'][DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
-    if (count($config['roles']))
-      foreach ($config['roles'] as $rid => $value)
-        if ($rid)
-          $user_default['roles'][$rid] = $value;
-
-    // user_save() will serialize many things into the 'data' column.  So we sanitize before calling it.
-    if (isset($user_default['data'])) {
-      $user_default_sanitized = $user_default['data'];
+    // Ensure unique username.  Append "_N" if necessary.
+    if (isset($edit['name']) && $edit['name']) {
+      $username = $edit['name'];
     }
     else {
-      $user_data_sanitized = array();
+      $username = "$fbu@facebook";
+      $edit['name'] = $username;
     }
-    foreach (user_fields() as $field) {
-      if (isset($user_default[$field])) {
-        $user_data_sanitized[$field] = $user_default[$field];
-      }
+    $i = 1;
+    while (db_result(db_query("SELECT name FROM {users} WHERE name='%s'", $edit['name']))) {
+      $i++;
+      $edit['name'] = $username . '_' . $i;
     }
-
-    $account = user_save('', $user_data_sanitized);
     
-    watchdog('fb_user', 'New user: %name %email.', 
-             array('%name' => $name, '%email' => '<'. $mail .'>'), 
-             WATCHDOG_NOTICE, l(t('edit'), 'user/'. $account->uid .'/edit'));
+    // Allow third-party module to adjust any of our data before we create
+    // the user.
+    $edit = fb_invoke(FB_OP_PRE_USER, array('fbu' => $fbu,
+                                            'fb' => $GLOBALS['fb'],
+                                            'fb_app' => $fb_app,
+                                            'info' => $info),
+                      $edit);
     
-    // Allow third-party modules to act after account creation.
-    //$config = fb_invoke($fb_app, FB_OP_POST_USER, NULL, array('account' => $account));
-    fb_invoke(FB_OP_POST_USER, array('account' => $account,
-				     'fb_app' => $fb_app,
-				     'fb' => $fb));
+    // Fill in any default that are missing.
+    $defaults = array(
+      'pass' => user_password(),
+      'init' => db_escape_string($edit['name']),
+      'status' => 1,
+      'authname_fb_user' => $authname, // authmap entry
+    );
+    // Mail available only if user has granted extended permission.
+    if (isset($info['email']) && ($info['email'] != $info['proxied_email'])) {
+      $defaults['mail'] = $info['email'];
+    }
+    
+    // Merge defaults
+    $edit = array_merge($defaults, $edit);
+    
+    // Confirm username is not taken.  FB_OP_PRE_USER may have changed it.    
+    if ($uid = db_result(db_query("SELECT uid FROM {users} WHERE name='%s'", $user_data_sanitized['name']))) {
+      // The desired name is taken.
+      watchdog('fb_user', 'Failed to create new user %name.  That name is already in the users table.', 
+               array('%name' => $user_data_sanitized['name']),
+               WATCHDOG_ERROR, l(t('view user'), 'user/' . $uid));
+    }
+    else {
+      $account = user_save('', $edit);
+      
+      watchdog('fb_user', 'New user: %name %email.', 
+               array('%name' => $account->name, '%email' => '<'. $account->mail .'>'), 
+               WATCHDOG_NOTICE, l(t('edit'), 'user/'. $account->uid .'/edit'));
+      
+      // Allow third-party modules to act after account creation.
+      fb_invoke(FB_OP_POST_USER, array('account' => $account,
+                                       'fb_app' => $fb_app,
+                                       'fb' => $fb));
+    }
   }
-
   return $account;
 }
 
