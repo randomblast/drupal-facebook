@@ -6,8 +6,8 @@
  * We change template for iframes, add styles and fbjs.
  */
 function fb_fbml_preprocess_page(&$vars, $hook) {
-  global $fb_app, $user;
-
+  global $fb_app, $user, $conf;
+  
   if (fb_is_iframe_canvas()) {
     // Iframe in a canvas
     $vars['template_file'] = 'iframe';
@@ -17,8 +17,14 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
     
     // Add our own stylesheet
     drupal_add_css(path_to_theme() . '/styles_fbml.css', 'theme', 'fbml');
-
+    
+    // On profile tabs, we must preprocess.  Kind of hacky, but so is facebook.
+    $preprocess_css = $conf['preprocess_css'];
+    if (fb_is_profile_tab()) {
+      $conf['preprocess_css'] = TRUE;
+    }
     $vars['styles'] = drupal_get_css();
+    $conf['preprocess_css'] = $preprocess_css; // Restore original value
 
     // Include only Facebook aware javascript.
     $vars['fbjs'] = drupal_get_js('fbml');

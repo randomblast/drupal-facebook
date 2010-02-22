@@ -384,6 +384,17 @@ function fb_is_iframe_canvas() {
     }
   }
 }
+/**
+ * Determine whether we are rendering a profile tab.
+ */
+function fb_is_profile_tab() {
+  if (isset($_REQUEST['fb_sig_in_profile_tab']))
+    return $_REQUEST['fb_sig_in_profile_tab'];
+}
+function fb_get_profile_id() {
+  if (isset($_REQUEST['fb_sig_profile_id']))
+    return $_REQUEST['fb_sig_profile_id'];
+}
 
 /**
  * Facebook provides a method, users_isAppUser(), which is buggy and
@@ -801,6 +812,7 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
                                                     'proxied_email',
                                                     'status',
                                                     'email_hashes',
+                                                    'email',
                                               ));
       // Update cache with recent results.
       if (is_array($infos)) {

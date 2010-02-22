@@ -65,7 +65,7 @@ function fb_canvas_fb($op, $data, &$return) {
       if ($fb_canvas_data['require_login'] == FB_CANVAS_OPTION_REQUIRE_LOGIN) {
         // The application is configured to require login on all canvas pages.
         // However, there are exceptions.
-        if (isset($_REQUEST['fb_sig_in_profile_tab']) && $_REQUEST['fb_sig_in_profile_tab']) {
+        if (fb_is_profile_tab()) {
           // Redirects are not allowed for the profile tab.
         }
         else {
@@ -115,7 +115,7 @@ function fb_canvas_fb($op, $data, &$return) {
         // again.  Skip this for the profile tab, as facebook does not allow
         // redirects (or persistent session) there.
         if ((fb_is_fbml_canvas() || fb_is_iframe_canvas()) &&
-            (!isset($_REQUEST['fb_sig_in_profile_tab']) || !$_REQUEST['fb_sig_in_profile_tab'])) {
+            !fb_is_profile_tab()) {
           
           $url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), array('absolute' => TRUE)), $fb_app);
           if (fb_verbose()) 
@@ -391,7 +391,7 @@ function fb_canvas_footer($main = 0) {
     global $fb, $fb_app;
     $data = array('fb' => $fb, 'fb_app' => $fb_app);
     $extra = fb_invoke(FB_OP_CANVAS_FBJS_INIT, $data, array());
-    //dpm($extra, "FB_OP_CANVAS_FBJS_INIT returning"); // XXX
+    
     if (count($extra)) {
       $extra_js = implode("\n", $extra);
       fb_add_js('', ''); // prime javascript
@@ -569,11 +569,13 @@ function fb_canvas_secondary_links() {
  * 
  * @param $output is the page (or iframe block) about to be returned.
  * 
- * @param $add_target will cause target=_top to be added when producing an
- * iframe.
+ * @param $options - 'add_target' will cause target=_top to be added
+ * when producing an iframe. 'force_absolute_canvas' will turn
+ * relative urls for canvas pages into absolute, for use on profile
+ * tabs.
  * 
  */
-function fb_canvas_process($output, $add_target = TRUE) {
+function fb_canvas_process($output, $options = array()) {
   global $base_path, $base_url;
   global $fb, $fb_app;
   
@@ -602,14 +604,24 @@ function fb_canvas_process($output, $add_target = TRUE) {
       $patterns[] = "|src=\"{$base}|";
       $replacements[] = "src=\"$absolute_base";
 
-      // Change links to use canvas on Facebook
-      // Links ending in #something:
-      $patterns[] = "|=\"{$base}([^\"]*#)|";
-      $replacements[] = "=\"/{$fb_app->canvas}/$1app{$fb_app->id}_";
-      // Other links
-      $patterns[] = "|=\"{$base}|";
-      $replacements[] = "=\"/{$fb_app->canvas}/";
-      
+      if (isset($options['force_absolute_canvas']) && $options['force_absolute_canvas']) {
+        // Change links to use canvas on Facebook
+        // Links ending in #something:
+        $patterns[] = "|=\"{$base}([^\"]*#)|";
+        $replacements[] = "=\"http://apps.facebook.com/{$fb_app->canvas}/$1app{$fb_app->id}_";
+        // Other links
+        $patterns[] = "|=\"{$base}|";
+        $replacements[] = "=\"http://apps.facebook.com/{$fb_app->canvas}/";
+      }
+      else {
+        // Change links to use canvas on Facebook
+        // Links ending in #something:
+        $patterns[] = "|=\"{$base}([^\"]*#)|";
+        $replacements[] = "=\"/{$fb_app->canvas}/$1app{$fb_app->id}_";
+        // Other links
+        $patterns[] = "|=\"{$base}|";
+        $replacements[] = "=\"/{$fb_app->canvas}/";
+      }
       // Change paths to files to fully qualified URLs. This matches relative
       // URLs that do not include the canvas (that is, not matched by previous
       // patterns).
@@ -639,7 +651,7 @@ function fb_canvas_process($output, $add_target = TRUE) {
       // In iframe
       // Add target=_top so that entire pages do not appear within an iframe.
       // TODO: make these pattern replacements more sophisticated, detect whether target is already set.
-      if ($add_target) {
+      if (isset($options['add_target']) && $option['add_target']) {
         // Add target=_top to all links
         $patterns[] = "|<a |";
         $replacements[] = "<a target=\"_top\" ";
@@ -659,9 +671,6 @@ function fb_canvas_process($output, $add_target = TRUE) {
         $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
       }
       
-      // Workaround Drupal does not let us rewrite the frontpage url
-      //$patterns[] = "|=\"{$base_path}\"|";
-      //$replacements[] = "=\"{$base_path}fb_canvas/{$page_type}/{$nid}/\"";	 // XXX
     }
   }
   if (count($patterns)) {
@@ -677,36 +686,6 @@ function fb_canvas_process($output, $add_target = TRUE) {
     return $output;
 }
 
-//This API needs testing and may need to be improved...
-/**
- * Similar to fb_canvas_process, this also uses regular expressions to alter
- * link destinations.  Use this function when producing FBML for a profile box
- * or news feed, and the pages need to link to canvas pages rather than the
- * default URL.
- * 
- */
-function fb_canvas_process_fbml($output, $fb_app) {
-  $patterns = array();
-  $replacements = array();
-
-  $base = url();  // short URL with rewrite applied.
-
-  if ($fb_app->canvas) {
-    // Change links to use canvas on Facebook
-    $patterns[] = "|href=\"{$base}|";
-    $replacements[] = "href=\"http://apps.facebook.com/{$fb_app->canvas}/";
-  }
-
-  if (count($patterns)) {
-	$return = preg_replace($patterns,
-						   $replacements,
-						   $output);
-	
-	return $return;
-  }
-  else
-	return $output;
-}
 
 
 
@@ -780,7 +759,7 @@ function fb_canvas_theme_page_override($content, $show_blocks = TRUE, $show_mess
   
   if (fb_canvas_is_fbml() || fb_canvas_is_iframe()) {
     // Drupal provides no post-process for themes.
-    $output = fb_canvas_process($output);
+    $output = fb_canvas_process($output, array('force_absolute_canvas' => TRUE));
   }
   
   return $output;
