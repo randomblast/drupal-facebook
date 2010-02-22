@@ -1,7 +1,25 @@
 <?php
 
 /**
- * Here we override Drupal's session management.  Actually, we try not
+ * This file overrides Drupal's session management.
+ *
+ * If we are handling an FBMl canvas page request, cookies are not
+ * available.  Instead we rely on a session key provided by facebook.
+ *
+ * If handling a facebook connect request, Facebook will have set
+ * several cookies, and we must honor them instead of Drupal's
+ * normal cookie.
+ *
+ * If the request is neither canvas page nor facebook connect, we
+ * include drupal's default session.inc, so that session handling will
+ * remain unchanged.
+ *
+ * See also fb_session_impl.inc, which is based on drupal's
+ * session.inc but modified for canvas pages and connect pages.
+
+ 
+ *
+ *Actually, we try not
  * to change things, unless we're servicing a facebook app.  We
  * include drupal's session.inc at the end of this file so that
  * default behavior will take place.  But first we detect whether
@@ -60,13 +78,15 @@ if ($nid && isset($_REQUEST['fb_sig_api_key'])) {
   $new_session_name = "fb_canvas_{$nid}_" . $orig_session_name;
   if (isset($_REQUEST['fb_sig_session_key']))
     $new_session_id = "fb_canvas_{$nid}_" . $_REQUEST['fb_sig_session_key'];
+  else if (isset($_REQUEST['fb_sig_profile_session_key'])) {
+    $new_session_id = "fb_profile_{$nid}_" . $_REQUEST['fb_sig_profile_session_key'];
+  }
   else if ($orig_session_id) {
     // When user is logged into facebook, but not authorized app, cookies are honored.  NO! This may have once been true, but no longer.
     $new_session_id = "fb_canvas_{$nid}_" . $orig_session_id;
   }
   else {
-    // If we have no session (user not logged into facebook) all such users will share one session!!!
-    //$new_session_id = "fb_canvas_{$nid}_shared_session";
+    // User is not logged into facebook, or has not authorized app.  We have no session.  Equivalent to browser not supporting cookies.
   }
   
   // Force url() to include the cookie-less session when in iframe
@@ -97,8 +117,6 @@ if ($nid && isset($_REQUEST['fb_sig_api_key'])) {
    
    if ($apikey && isset($_COOKIE[$apikey . '_ss'])) {
      // We're logged into Facebook Connect.
-     // If fbConnect, we want to use another session id, so that if the
-     // user logs out of facebook, they are also logged out of drupal.
      
      // Use globals to remember some values, for fb_connect.module to use.
      $GLOBALS['fb_connect_apikey'] = $apikey;
@@ -109,10 +127,12 @@ if ($nid && isset($_REQUEST['fb_sig_api_key'])) {
    }
  }
 
+// Set the session name.
 if (isset($new_session_name)) {
   session_name($new_session_name);
  }
 
+// Set the session id.
 if (isset($new_session_id)) {
   if (!variable_get('fb_session_long_keys', TRUE)) {
     // Facebook appends user id, time and expiry info which is not necessary for uniqueness.  Here we truncate that information to ensure the sid fits in sessions table.
@@ -144,20 +164,13 @@ if (isset($new_session_id)) {
    }
  }
 
-$session_name = session_name();
-$session_id = session_id();
-if ($nid && $session_id && !isset($_COOKIE[$session_name])) {
-  // requests from facebook (FBML canvas pages) will not have cookies.
-  // We want Drupal's session.inc to work properly, as if the session
-  // came via cookie.
-  if (!$_COOKIE || !count($_COOKIE))
-    // Remember that cookies are actually disabled, some apps will want to display a message and/or redirect in this case.
-    $_COOKIE['_fb_cookie_fake'] = TRUE;
-  $_COOKIE[$session_name] = $session_id;
- }
-
-
-// Finally, include the logic of Drupal's session.inc
-include('includes/session.inc');
+// If the session is contolled by Facebook, include our session implementation.
+if (isset($new_session_id)) {
+  require('fb_session_impl.inc');
+}
+else {
+  // Session not controlled by facebook, use Drupal's session implemtation.
+  require('includes/session.inc');
+}
 
 ?>
