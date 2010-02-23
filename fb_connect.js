@@ -60,7 +60,7 @@ Drupal.behaviors.fb_connect = function(context) {
 FB_Connect = function(){};
 
 // Global to keep track of connected state.  Better than facebook's 'reloadIfSessionStateChanged' option.
-FB_Connect.fbu = null;
+FB_Connect.fbu = null; // null, not 0
 
 FB_Connect.statusHandle = function(e, data) {
   if (data.changed) {
