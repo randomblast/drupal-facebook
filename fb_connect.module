@@ -423,17 +423,15 @@ function fb_connect_get_connect_url($fb_app) {
 function _fb_connect_block_login_defaults() {
   return array('anon_not_connected' => array(
                  'title' => t('Facebook Connect'),
-                 'body' => t('Facebook users login here. !button',
-                             array('!button' => "<fb:login-button onclick='FB_Connect.login_onclick();'></fb:login-button>")),
+                 'body' => t('<fb:login-button onclick="FB_Connect.login_onclick()" v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>'),
                ),
                'user_not_connected' => array(
                  'title' => t('Facebook Connect'),
-                 'body' => t('Link your account with Facebook. !button',
-                             array('!button' => "<fb:login-button onclick='FB_Connect.login_onclick();'></fb:login-button>")),
+                 'body' => t('<fb:login-button onclick="FB_Connect.login_onclick()" v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>'),
                ),
                'connected' => array(
                  'title' => t('Facebook Connect'),
-                 'body' => "<fb:profile-pic uid=!fbu></fb:profile-pic><fb:login-button onclick='FB_Connect.logout_onclick();' autologoutlink=true></fb:login-button>",
+                 'body' => "<fb:profile-pic uid=!fbu></fb:profile-pic><!--<fb:login-button onclick='FB_Connect.logout_onclick();' autologoutlink=true></fb:login-button>-->",
                ),
   );
 }
@@ -454,7 +452,8 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
     return $items;
   }
   else if ($op == 'configure') {
-    $defaults = variable_get('fb_connect_block_' . $delta, _fb_connect_block_login_defaults());
+    $orig_defaults = _fb_connect_block_login_defaults();
+    $defaults = variable_get('fb_connect_block_' . $delta, $orig_defaults);
     $form['config'] = array('#tree' => TRUE);
     foreach(array('anon_not_connected', 'user_not_connected', 'connected') as $key) {
       $form['config'][$key] = array(
@@ -478,14 +477,16 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
     }
     $form['config']['anon_not_connected']['#title'] = t('Anonymous user, not connected');
     $form['config']['anon_not_connected']['#description'] = t('Settings when local user is Anonymous, and not connected to Facebook.  Typically a new account will be created when the user clicks the connect button.');
+    $form['config']['anon_not_connected']['body']['#description'] = t('Suggestion: %default .', array('%default' => $orig_defaults['anon_not_connected']['body']));
     $form['config']['user_not_connected']['#title'] = t('Registered user, not connected');
     $form['config']['user_not_connected']['#description'] = t('Settings when local user is registered, and not connected to Facebook.  Typically the facebook id will be linked to the local id after the user clicks the connect button.');
+    $form['config']['user_not_connected']['body']['#description'] = t('Suggestion: %default .', array('%default' => $orig_defaults['user_not_connected']['body']));
     $form['config']['connected']['#title'] = t('Connected user');
-    $form['config']['connected']['#description'] = t('Settings when local user is connected to Facebook.  You may render facebook\'s logout button, and/or information about the user.');
-    $form['config']['connected']['body']['#description'] .= t('Note that <em>!fbu</em> will be replaced with the user\'s facebook id.');
+    $form['config']['connected']['#description'] = t('Settings when local user is connected to Facebook.  You may render facebook\'s logout button, and/or information about the user.  Consider using <a target="_blank" href="!xfbml_url">XFBML</a> such as &lt;fb:name uid=!fbu&gt;&lt;/fb:name&gt; or &lt;fb:profile-pic uid=!fbu&gt;&lt;/fb:profile-pic&gt;', array('xfbml_url' => 'http://wiki.developers.facebook.com/index.php/XFBML'));
+    $form['config']['connected']['body']['#description'] .= t('Note that <strong>!fbu</strong> will be replaced with the user\'s facebook id.<br/>Suggestion: %default .', array('%default' => $orig_defaults['connected']['body']));
 
     $form['config']['format'] = filter_form($defaults['format']);
-    $form['config']['format']['#description'] .= t('Format selected will apply to all body fields above.  Be sure to select a format which allows FBML tags!');
+    $form['config']['format']['#description'] .= t('<p><strong>Be sure to select a format which allows XFBML tags!</strong> (That is, use <em>Full HTML</em> or <em>PHP code</em>, rather than  <em>Filtered HTML</em>.)</p><p>Format selected will apply to all body fields above.</p>');
     $form['config']['format']['#collapsed'] = FALSE;
 
     return $form;
