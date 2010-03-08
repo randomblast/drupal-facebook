@@ -63,22 +63,20 @@ function _fb_user_track($fb, $fb_app, $account) {
   // In special cases, do not modify the uid column.
   $fb_user_data = _fb_user_get_config($fb_app);
   
-  $uid = 0;
   if (!$account->uid || $account->uid == $fb_user_data['not_logged_in_uid'] || $account->uid == $fb_user_data['logged_in_uid']) {
     // Keep data for fbu, even if we do not know uid.
-    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=NULL WHERE apikey='%s' AND fbu=%d",
-                       time(), $fb->api_client->session_key, $fb->session_expires,
-                       $fb_app->apikey, fb_facebook_user($fb));
-    
+    $uid = 0;
   }
   else {
     // Uid is accurate.
     $uid = $account->uid;
-    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=%d WHERE apikey='%s' AND fbu=%d",
-                       time(), $fb->api_client->session_key, $fb->session_expires,
-                       $account->uid,
-                       $fb_app->apikey, fb_facebook_user($fb));
   }
+
+  $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=%d WHERE apikey='%s' AND fbu=%d",
+                     time(), $fb->api_client->session_key, $fb->session_expires,
+                     $uid,
+                     $fb_app->apikey, fb_facebook_user($fb));
+  
   if ($result && !db_affected_rows()) {
     // The row for this user was never inserted, or deleted.  Insert now.
     $fbu = fb_facebook_user($fb);
@@ -276,9 +274,12 @@ function fb_user_fb($op, $data, &$return) {
       $fbu = fb_facebook_user($fb);
       $proxied_email = fb_user_get_proxied_email($fbu, $fb_app);
       
+      // In special cases, do not store the uid column.
+      $fb_user_data = _fb_user_get_config($fb_app);
+
       // If user has authorized then later removed, there will be a row we can replace
       db_query("DELETE FROM {fb_user_app} WHERE apikey = '%s' AND fbu = %d", $fb_app->apikey, $fbu);
-      if ($user->uid) {
+      if ($user->uid || $user->uid == $fb_user_data['not_logged_in_uid'] || $user->uid == $fb_user_data['logged_in_uid']) {
         db_query("INSERT INTO {fb_user_app} (apikey, fbu, uid, added, session_key, session_key_expires, time_cron, time_access, proxied_email) VALUES ('%s', %d, %d, 1, '%s', %d, %d, %d, '%s')",
                  $fb_app->apikey, $fbu,
                  $user->uid,
@@ -289,9 +290,9 @@ function fb_user_fb($op, $data, &$return) {
         );
       }
       else {
-        // No local uid.
-        db_query("INSERT INTO {fb_user_app} (apikey, fbu, uid, added, session_key, session_key_expires, time_cron, time_access, proxied_email) VALUES ('%s', %d, NULL, 1, '%s', %d, %d, %d, '%s')",
+        db_query("INSERT INTO {fb_user_app} (apikey, fbu, uid, added, session_key, session_key_expires, time_cron, time_access, proxied_email) VALUES ('%s', %d, %d, 1, '%s', %d, %d, %d, '%s')",
                  $fb_app->apikey, $fbu,
+                 0, // uid not known
                  $fb->api_client->session_key, $fb->session_expires,
                  0, // time_cron
                  time(), // time_access
