@@ -651,7 +651,7 @@ function fb_canvas_process($output, $options = array()) {
       // In iframe
       // Add target=_top so that entire pages do not appear within an iframe.
       // TODO: make these pattern replacements more sophisticated, detect whether target is already set.
-      if (isset($options['add_target']) && $option['add_target']) {
+      if (isset($options['add_target']) && $options['add_target']) {
         // Add target=_top to all links
         $patterns[] = "|<a |";
         $replacements[] = "<a target=\"_top\" ";
@@ -757,9 +757,11 @@ function fb_canvas_theme_page_override($content, $show_blocks = TRUE, $show_mess
   
   $output = theme('fb_canvas_page_orig', $content, $show_blocks, $show_messages);
   
-  if (fb_canvas_is_fbml() || fb_canvas_is_iframe()) {
-    // Drupal provides no post-process for themes.
+  if (fb_canvas_is_fbml()) {
     $output = fb_canvas_process($output, array('force_absolute_canvas' => TRUE));
+  }
+  else if (fb_canvas_is_iframe()) {
+    $output = fb_canvas_process($output, array('add_target' => TRUE));  
   }
   
   return $output;
