@@ -146,9 +146,9 @@ if (isset($new_session_id)) {
       db_query("UPDATE {sessions} SET sid = '%s' WHERE sid = '%s'", $new_session_id, $orig_session_id);
     }
     
-    // If we've changed the session id, disable drupal's caching
-    $GLOBALS['conf']['cache'] = 0;
   }
+  // User logged into facebook, but possibly not Drupal.  If so, we do not want the cached page.
+  $GLOBALS['conf']['cache'] = 0;
  }
  else {
    // No session from facebook, so make sure we're not using an out of date one.
