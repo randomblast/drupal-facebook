@@ -85,20 +85,6 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
   }
 }
 
-/**
- * Tell the theme engine which regions our theme supports.
- */
-function fb_fbml_regionsXXX() {
-  $regions = array('admin' => t('Admin sidebar'),
-		   'header' => t('Canvas Header'),
-		   'right' => t('Canvas Right'),
-		   'content_footer' => t('Content Footer'),
-		   'canvas_footer' => t('Canvas Footer'),
-		   'iframe_header' => t('Iframe Header'),
-		   'iframe_footer' => t('Iframe Footer'),
-		   );
-  return $regions;
-}
 
 //// override tabs at top of page.  We rely on a hack in fb_canvas.module to detect when we are theming the tabs.
 function fb_fbml_menu_local_task($link, $active = FALSE) {
