@@ -7,6 +7,11 @@ function fb_requirements($phase) {
   $t = get_t();
   $items = array();
   
+  // Disable these checks at install time, because failure then causes more problems, due to module dependencies and Drupal's poor handling of requirement errors.
+  if ($phase != 'runtime') {
+    return $items;
+  }
+  
   $status = array('title' => $t('Drupal for Facebook Settings'));
   if (variable_get('fb_settings_check', FALSE)) {
     if ($phase == 'runtime') {
@@ -22,7 +27,7 @@ function fb_requirements($phase) {
     $status['description'] = $t('Add something like <strong>include "%path";</strong> to your settings.php.', array('%path' => drupal_get_path('module', 'fb') . '/fb_settings.inc'));
   }
   $items[] = $status;
-
+  
   $status = array('title' => $t('Facebook Client API'));
   $fb_platform = variable_get('fb_api_file', 'facebook-platform/php/facebook.php');
   if (file_exists($fb_platform)) {
@@ -40,7 +45,7 @@ function fb_requirements($phase) {
     }
   }
   $items[] = $status;
-
+  
   return $items;
 }
 
