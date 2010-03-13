@@ -85,6 +85,10 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
   }
 }
 
+function fb_fbml_preprocess_node(&$vars) {
+  // Add node_bottom region content
+  $vars['node_bottom'] = theme('blocks', 'node_bottom');
+}
 
 //// override tabs at top of page.  We rely on a hack in fb_canvas.module to detect when we are theming the tabs.
 function fb_fbml_menu_local_task($link, $active = FALSE) {

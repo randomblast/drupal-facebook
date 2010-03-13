@@ -24,6 +24,14 @@ if (isset($extra_style))
 <div class="footer">
   <?php if ($links) { ?><div class="links"><?php print $links?></div><?php }; ?>
 </div>
+
+<?php if ($node_bottom && !$teaser): ?>
+<div id="node-bottom">
+  <?php print $node_bottom; ?>
+</div>
+<?php endif; ?>
+
+
 <?php if (isset($children)) { ?>
 <div class="children" id="children_<?php print $node->nid; ?>">
   <?php print $children; ?>
