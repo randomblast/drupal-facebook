@@ -114,7 +114,7 @@ function fb_canvas_fb($op, $data, &$return) {
         // permissions properly, the user must make the request all over
         // again.  Skip this for the profile tab, as facebook does not allow
         // redirects (or persistent session) there.
-        if ((fb_is_fbml_canvas() || fb_is_iframe_canvas()) &&
+        if ((fb_canvas_is_fbml() || fb_canvas_is_iframe()) &&
             !fb_is_profile_tab()) {
           
           $url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), array('absolute' => TRUE)), $fb_app);
@@ -486,23 +486,22 @@ function fb_canvas_goto($path) {
 /**
  * Convert a local fully qualified path to a facebook app path.  This needs to
  * be used internally, to fix drupal_gotos upon form submission.  Third party
- * modules should not need to call this, I believe.
+ * modules should not need to call this.
  */
 function fb_canvas_fix_url($url, $fb_app) {
 
   global $base_url;
 
-
   $patterns[] = "|{$base_url}/" . FB_SETTINGS_APP_NID . "/{$fb_app->nid}/|";
-  // Here we assume apps.facebook.com.  Is this safe?
+  // Here we hard-wire apps.facebook.com.  Is there an API to get that?
   $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
 
-  // fully qualified paths
-  $patterns[] = "|".url('', array('absolute' => TRUE))."|";
+  // Fully qualified paths.
+  $patterns[] = "|" . url('', array('absolute' => TRUE)) . "|";
   $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
   
-  
-  $patterns[] = "|fb_cb_type/[^/]*/|";
+  // Page type helps themes support multiple iframes.
+  $patterns[] = "|" . FB_SETTINGS_PAGE_TYPE . "/[^/]*/|";
   $replacements[] = "";
 
   // Facebook will prepend "appNNN_" all our ids
@@ -512,14 +511,6 @@ function fb_canvas_fix_url($url, $fb_app) {
   $url = preg_replace($patterns, $replacements, $url);
 
   return $url;
-}
-
-/**
- * Returns the 'type' of the page.  This helps themes determine whether they
- * are to provide an iframe or an iframe within FBML.
- */
-function fb_canvas_page_type() {
-  return fb_settings(FB_SETTINGS_PAGE_TYPE);
 }
 
 function fb_canvas_primary_links() {
@@ -583,7 +574,6 @@ function fb_canvas_process($output, $options = array()) {
   $replacements = array();
   
   if ($fb) {
-    $page_type = fb_settings(FB_SETTINGS_PAGE_TYPE);
     $nid = $fb_app->nid;
     $base_before_rewrite = '';
     $rewrite_options = array();
@@ -692,6 +682,33 @@ function fb_canvas_process($output, $options = array()) {
 //// Theme overrides
 
 /**
+ * Implements hook_theme().
+ *
+ * We use theme function for FBML username and picture so that the
+ * markup can be relatively easily customized.
+ */
+function fb_canvas_theme() {
+  return array(
+    'fb_canvas_fbml_username' => array(
+      'arguments' => array( 
+        'fbu' => NULL,
+        'object' => NULL,
+        'orig_username' => NULL,
+      ),
+    ),
+    'fb_canvas_fbml_user_picture' => array(
+      'arguments' => array( 
+        'fbu' => NULL,
+        'account' => NULL,
+        'orig' => NULL,
+      ),
+    ),
+  );
+}
+
+
+
+/**
  * Implementation of hook_theme_registry_alter().
  *
  * Wrap original theme functions in our overrides.
@@ -718,7 +735,7 @@ function fb_canvas_theme_registry_alter(&$theme_registry) {
       'type' => 'module',
     );
   }
-
+  
   if ($theme_registry['user_picture']['type'] == 'module') {
     // Override theme_user_picture
     $theme_registry['fb_canvas_user_picture_orig'] = $theme_registry['user_picture'];
@@ -771,56 +788,74 @@ function fb_canvas_theme_page_override($content, $show_blocks = TRUE, $show_mess
  * Our replacement for theme('username', ...)
  */
 function fb_canvas_theme_username_override($object) {
-  $output = theme('fb_canvas_username_orig', $object);
-  if (fb_canvas_is_fbml()) {
-    // First learn the Facebook id
-    if (isset($object->fbu)) {
-      $fbu = $object->fbu;
-    }
-    else if ($pos = strpos($object->name, '@facebook')) {
-      // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
-      $fbu = substr($object->name, 0, $pos);
-    }
-    else {
-      // This option more expensive than naming convention, less expensive than user load.
-      $fbu = fb_get_fbu($object->uid);
-    }
-    if (isset($fbu) && is_numeric($fbu)) {
-      $output = l("<fb:name linked=false useyou=false uid=$fbu></fb:name>", "user/$object->uid", array('html' => TRUE));
-    }
-    
+  $orig = theme('fb_canvas_username_orig', $object);
+  
+  // Make no changes to non-FBML pages.
+  if (fb_canvas_is_fbml() && ($fbu = fb_get_object_fbu($object))) {
+    // Theme the username with FBML, using original username as backup.
+    return theme('fb_canvas_fbml_username', $fbu, $object, $orig);
   }
-  return $output;
+  else {
+    return $orig;
+  }
 }
+
+/**
+ * Theme FBML markup for username.
+ */
+function theme_fb_canvas_fbml_username($fbu, $object, $orig) {
+  if (!$fbu)
+    return $orig;
+
+  $ifcantsee = check_plain($orig);
+  $fbml = "<fb:name linked=false useyou=false uid=\"$fbu\" ifcantsee=\"$ifcantsee\"></fb:name>";
+  $wrap_pre = '';
+  $wrap_post = '';
+  if ($object->uid && user_access('access user profiles')) {
+    // Provide link if local account.
+    $wrap_pre = $wrap_pre . '<a href="' . url('user/' . $object->uid) . '">';
+    $wrap_post = '</a>' . $wrap_post;
+  }
+  return $wrap_pre . $fbml . $wrap_post;
+}
+
 
 /**
  * Our replacement for theme('user_picture', ...)
  */
-function fb_canvas_theme_user_picture_override($account) {
-  $output = theme('fb_canvas_user_picture_orig', $account);
-
+function fb_canvas_theme_user_picture_override($object) {
+  $orig = theme('fb_canvas_user_picture_orig', $object);
   // Respect Drupal's profile pic, if uploaded.
-  if (isset($account->picture) && $account->picture) {
+  if (isset($object->picture) && $object->picture) {
+    return $orig;
   }
-  elseif (fb_canvas_is_fbml()) {
-    // First learn the Facebook id
-    if (isset($account->fbu)) {
-      $fbu = $account->fbu;
-    }
-    else if ($pos = strpos($account->name, '@facebook')) {
-      // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
-      
-      $fbu = substr($account->name, 0, $pos);
-    }
-    else {
-      // Sometimes the $account object is not an account at all.  Could be a node for example.
-      $fbu = fb_get_fbu($account->uid);
-    }
-    if (isset($fbu) && is_numeric($fbu)) {
-      $output = l("<fb:profile-pic linked=false uid=$fbu></fb:profile-pic>", "user/$account->uid", array('html' => TRUE));
-    }
+  
+  // Make no changes to non-FBML pages.
+  if (fb_canvas_is_fbml() && ($fbu = fb_get_object_fbu($object))) {
+    // Theme the username with FBML, using original username as backup.
+    return theme('fb_canvas_fbml_user_picture', $fbu, $object, $orig);
   }
-  return $output;  
+  else {
+    return $orig;
+  }
+}
+
+/**
+ * Theme FBML markup for user_picture.
+ */
+function theme_fb_canvas_fbml_user_picture($fbu, $object, $orig) {
+  if (!$fbu)
+    return $orig;
+
+  $fbml = "<fb:profile-pic linked=false uid=\"$fbu\"></fb:profile-pic>";
+  $wrap_pre = '';
+  $wrap_post = '';
+  if ($object->uid && user_access('access user profiles')) {
+    // Provide link if local account.
+    $wrap_pre = $wrap_pre . '<a href="' . url('user/' . $object->uid) . '">';
+    $wrap_post = '</a>' . $wrap_post;
+  }
+  return $wrap_pre . $fbml . $wrap_post;
 }
 
 ?>
