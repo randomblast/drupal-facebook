@@ -4,6 +4,11 @@
 // hook_fb
 define('FB_HOOK', 'fb');
 
+// permissions
+define('FB_PERM_ADMINISTER', 'administer fb apps');
+define('FB_PERM_CREATE', 'create fb apps');
+define('FB_PERM_EDIT_OWN', 'edit own fb apps');
+
 // Ops for hook_fb.
 define('FB_OP_GET_APP', 'get_app'); // Load data from a known app
 define('FB_OP_GET_ALL_APPS', 'get_all_apps'); // Load data about all apps
@@ -433,6 +438,41 @@ function fb_get_fbu($uid, $fb_app = NULL) {
 }
 
 /**
+ * Convenience function to learn the fbu associated with a user, node or comment.
+ * Used in theming (X)FBML tags.
+ */
+function fb_get_object_fbu($object) {
+  static $cache;
+  if (!isset($cache))
+    $cache = array();
+
+  if (isset($object->uid) && isset($cache[$object->uid])) {
+    $fbu = $cache[$object->uid];
+    return $fbu;
+  }
+  else if (isset($object->fbu)) {
+    // Explicitly set.
+    $fbu = $object->fbu;
+  }
+  else if ($pos = strpos($object->name, '@facebook')) {
+    // Naming convention.
+    $fbu = substr($object->name, 0, $pos);
+  }
+  else if ($object->uid > 0) {
+    // Experimental.  This can be expensive on pages with many comments or nodes!
+    //$fbu = fb_get_fbu($object->uid);
+  }
+  
+  if (isset($fbu) && is_numeric($fbu)) {
+    if (isset($object->uid) && ($object->uid > 0)) {
+      $cache[$object->uid] = $fbu;
+    }
+    return $fbu;
+  }
+}
+
+
+/**
  * Convenience method to get an apps callback URL.
  *
  * TODO: This code will probably not handle every case and may need some work.
@@ -457,6 +497,8 @@ function fb_get_app($search_data) {
 /**
  * Convenience method to return a list of all known apps, suitable for form
  * elements.
+ *
+ * TODO: move this to fb.admin.inc.
  */
 function fb_get_app_options($include_current = FALSE, $key = 'nid') {
   $apps = fb_get_all_apps();
@@ -602,15 +644,40 @@ function fb_form_alter(&$form, &$form_state, $form_id) {
 function fb_menu() {
   $items = array();
   
-    // When forms are submitted directly to us, we cache the results,
-    // and show them later via this callback
-    $items['fb/form_cache'] = array(
-                     'page callback' => '_fb_form_cache_cb',
-                     'type' => MENU_CALLBACK,
-                     'access callback' => TRUE);
-
+  // Admin pages
+  $items['admin/fb'] = array(
+    'title' => 'Facebook Apps',
+    'description' => t('Facebook Applications'),
+    'page callback' => 'fb_admin_page',
+    'access arguments' => array(FB_PERM_ADMINISTER),
+    'file' => 'fb.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/fb/apps'] = array(
+    'title' => 'Apps',
+    'weight' => -1,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  
+  
+  // When forms are submitted directly to us, we cache the results,
+  // and show them later via this callback
+  $items['fb/form_cache'] = array(
+    'page callback' => '_fb_form_cache_cb',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE
+  );
+  
   return $items;
 }
+
+/**
+ * Implementation of hook_perm().
+ */
+function fb_perm() {
+  return array(FB_PERM_ADMINISTER, FB_PERM_CREATE, FB_PERM_EDIT_OWN);
+}
+
 
 /**
  * When exiting we need to do some special stuff for forms
@@ -727,7 +794,7 @@ function fb_report_errors($fb = FB_APP_CURRENT, $message = NULL) {
                          '!message' => $message,
                    ));
       watchdog('fb', $message, array(), WATCHDOG_ERROR);
-      if (user_access('administer fb apps')) {
+      if (user_access(FB_PERM_ADMINISTER)) {
         drupal_set_message($message, 'error');
       }
     }
@@ -748,7 +815,7 @@ function fb_log_exception($e, $text = '', $fb = NULL) {
     $message .= '<pre>' . $e . '</pre>';
   }
   watchdog('fb', $message, array(), WATCHDOG_ERROR);
-  if (user_access('administer fb apps')) {
+  if (user_access(FB_PERM_ADMINISTER)) {
     drupal_set_message($message, 'error');    
   }
 }
