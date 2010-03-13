@@ -38,8 +38,9 @@ function fb_connect_menu() {
     'description' => t('Configure Facebook Connect'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fb_connect_admin_settings'),
-    'access arguments' => array('administer fb apps'),
+    'access arguments' => array(FB_PERM_ADMINISTER),
     'file' => 'fb_connect.admin.inc',
+    'type' => MENU_LOCAL_TASK,
   );
     
 
@@ -96,6 +97,12 @@ HTML;
  * total hissy-fit if you tried.
  */
 function fb_connect_app_init($fb_app) {
+  if (isset($GLOBALS['fb_app']) && fb_is_iframe_canvas() &&
+      $GLOBALS['fb_app']->apikey != $fb_app->apikey) {
+    // If we're in an iframe, only support connect for the iframe app.
+    return;
+  }
+
   if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
     $fbu = $fb->get_loggedin_user();
     // TODO: sometimes this method indicates we are logged in when we really are not.  Find a way to verify.
@@ -173,7 +180,6 @@ function fb_connect_fb($op, $data, &$return) {
   else if ($op == FB_OP_LIST_PROPERTIES) {
     $return[t('Connect URL')] = 'connect_url';
   }
-
 }
 
 /**
@@ -500,43 +506,42 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       // Login block
       $label = substr($delta, 6); // length of 'login_'
       $fb_app = fb_get_app(array('label' => $label));
-      $fb = fb_connect_app_init($fb_app);
-      $fbu = $fb->get_loggedin_user();
-      fb_connect_require_feature('XFBML', $fb_app);
-      //fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
-      //fb_connect_init_option('doNotUseCachedConnectState', TRUE, $fb_app);
-
-      $base = drupal_get_path('module', 'fb_connect');
-      _fb_connect_add_js();
-      
-      $defaults = variable_get('fb_connect_block_' . $delta, _fb_connect_block_login_defaults());
-      if ($fbu) {
-        $subject = $defaults['connected']['title'];
-        $content = $defaults['connected']['body'];
-        // substitute %fbu
-        $content = str_replace('!fbu', $fbu, $content);
-      } else if ($GLOBALS['user']->uid > 1) {
-        $subject = $defaults['user_not_connected']['title'];
-        $content = $defaults['user_not_connected']['body'];
-      } else if ($GLOBALS['user']->uid == 1) {
-        $subject = $defaults['user_not_connected']['title'];
-        $content = '<em>' . t('Facebook Connect login disabled for user #1.') . '</em>';
-      } else {
-        $subject = $defaults['anon_not_connected']['title'];
-        $content = $defaults['anon_not_connected']['body'];
+      if ($fb = fb_connect_app_init($fb_app)) {
+        $fbu = $fb->get_loggedin_user();
+        fb_connect_require_feature('XFBML', $fb_app);
+        
+        $base = drupal_get_path('module', 'fb_connect');
+        _fb_connect_add_js();
+        
+        $defaults = variable_get('fb_connect_block_' . $delta, _fb_connect_block_login_defaults());
+        if ($fbu) {
+          $subject = $defaults['connected']['title'];
+          $content = $defaults['connected']['body'];
+          // substitute %fbu
+          $content = str_replace('!fbu', $fbu, $content);
+        } else if ($GLOBALS['user']->uid > 1) {
+          $subject = $defaults['user_not_connected']['title'];
+          $content = $defaults['user_not_connected']['body'];
+        } else if ($GLOBALS['user']->uid == 1) {
+          $subject = $defaults['user_not_connected']['title'];
+          $content = '<em>' . t('Facebook Connect login disabled for user #1.') . '</em>';
+        } else {
+          $subject = $defaults['anon_not_connected']['title'];
+          $content = $defaults['anon_not_connected']['body'];
+        }
+        
+        // If user has changed defaults, run filter
+        if (isset($defaults['format'])) {
+          $subject = check_plain($subject);
+          $content = check_markup($content, $defaults['format'], FALSE);
+        }
+        
+        $block = array(
+          'subject' => $subject,
+          'content' => $content,
+        );
+        return $block;
       }
-      
-      // If user has changed defaults, run filter
-      if (isset($defaults['format'])) {
-        $subject = check_plain($subject);
-        $content = check_markup($content, $defaults['format'], FALSE);
-      }
-      
-      $block = array(
-        'subject' => $subject,
-        'content' => $content,
-      );
-      return $block;
     }
   }
 }
@@ -577,19 +582,22 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
       !fb_is_fbml_canvas()) {
     if ($app_nid = variable_get(FB_CONNECT_VAR_LOGIN, NULL)) {
       $fb_app = fb_get_app(array('nid' => $app_nid));
+
       // Ensure that facebook javascript is in the page closure.
-      fb_connect_require_feature('XFBML', $fb_app);
-      fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
-      fb_connect_init_option('ifUserNotConnected', "{FB_Connect.on_not_connected}", $fb_app);
-      
-      // Add button to the form.
-      $form['fb_connect_button'] = array(
-        '#type' => 'markup',
-        '#value' => '<fb:login-button v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>',
-        '#prefix' => '<div class="form-item" id="fb-connect-button">',
-        '#suffix' => '</div>',
-        '#weight' => 4, // LOG IN button weight is 2.
-      );
+      if ($fb = fb_connect_app_init($fb_app)) {
+        fb_connect_require_feature('XFBML', $fb_app);
+        fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
+        fb_connect_init_option('ifUserNotConnected', "{FB_Connect.on_not_connected}", $fb_app);
+        
+        // Add button to the form.
+        $form['fb_connect_button'] = array(
+          '#type' => 'markup',
+          '#value' => '<fb:login-button v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>',
+          '#prefix' => '<div class="form-item" id="fb-connect-button">',
+          '#suffix' => '</div>',
+          '#weight' => 4, // LOG IN button weight is 2.
+        );
+      }
     }
     if ($form_id == 'user_login') {
       // On login, we must leave the user/login page or else get access denied.
@@ -672,81 +680,34 @@ function fb_connect_theme_user_picture_override($account) {
 
   // Respect Drupal's profile pic, if uploaded.
   if (isset($account->picture) && $account->picture) {
-    $output = $orig;
+    return $orig;
+  }
+
+  if ($fbu = fb_get_object_fbu($account)) {
+    $output = theme('fb_connect_fbml_user_picture', $fbu, $account, $orig);
   }
   else {
-    // First learn the Facebook id
-    if (isset($account->fbu)) {
-      $fbu = $account->fbu;
-    }
-    else if ($pos = strpos($account->name, '@facebook')) {
-      // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
-      
-      $fbu = substr($account->name, 0, $pos);
-    }
-    else {
-      // Sometimes the $account object is not an account at all.  Could be a node for example.
-      // (There may be pages where this code is reached many times, and that could be a performance problem.)
-      $fbu = fb_get_fbu($account->uid);
-    }
-    
-    if (!isset($fbu) || !$fbu)
-      $output = $orig;
-    else {
-      $output = theme('fb_connect_fbml_user_picture', $orig, $account, $fbu);
-    }
+    $output = $orig;
   }
-  
   return $output;
-  
 }
 
 /**
  * Our replacement for theme('username', ...)
  */
 function fb_connect_theme_username_override($object) {
-  // TODO: does this function need to account for canvas pages?  Or can we assume every canvas page theme will override theme_username on its own?
-
   $orig = theme('fb_connect_username_orig', $object);
   
   // Make no changes to FBML pages.
   if (fb_is_fbml_canvas()) {
     return $orig;
   }
-  else {
+  else if ($fbu = fb_get_object_fbu($object)) {
     // Theme the username with XFBML, using original username as backup.
-    return fb_connect_fbml_username($object, $orig);
-  }
-}
-
-/**
- * Helper function for themes to display the username.
- */
-function fb_connect_fbml_username($object, $orig_username = NULL) {
-  if (!isset($orig_username))
-    // What to display if javascript disabled.
-    $orig_username = theme_username($object);
-
-  // First learn the Facebook id
-  if (isset($object->fbu)) {
-    $fbu = $object->fbu;
-  }
-  else if ($pos = strpos($object->name, '@facebook')) {
-    // One option is to load the user object and get the definitive fbu.  But that's expensive, so we rely on the NNNNNN@facebook naming convention.
-    
-    $fbu = substr($object->name, 0, $pos);
+    return theme('fb_connect_fbml_username', $fbu, $object, $orig);
   }
   else {
-    // Experimental.  This can be expensive on pages with many comments or nodes!
-    //$fbu = fb_get_fbu($object->uid);
-  }
-  
-  if (isset($fbu) && is_numeric($fbu)) {
-    // Display both orig and XFBML, to degrade gracefully.
-    return theme('fb_connect_fbml_username', $orig_username, $object, $fbu);
-  }
-  else {
-    return $orig_username;
+    return $orig;
   }
 }
 
@@ -761,16 +722,16 @@ function fb_connect_theme() {
   return array(
     'fb_connect_fbml_username' => array(
       'arguments' => array( 
-        'orig_username' => NULL,
-        'object' => NULL,
         'fbu' => NULL,
+        'object' => NULL,
+        'orig' => NULL,
        ),
     ),
     'fb_connect_fbml_user_picture' => array(
       'arguments' => array( 
-        'orig' => NULL,
-        'account' => NULL,
         'fbu' => NULL,
+        'account' => NULL,
+        'orig' => NULL,
        ),
     ),
     'fb_connect_fbml_popup' => array(
@@ -779,27 +740,39 @@ function fb_connect_theme() {
   );
 }
 
-function theme_fb_connect_fbml_username($orig_username, $object, $fbu) {
-  $fbml = "<fb:name linked=false useyou=false uid=$fbu ifcantsee='$object->name'></fb:name>";
-  $wrap_pre = "<span class=fb_connect_hide>$orig_username</span><span class=fb_connect_show style='display:none'>";
+function theme_fb_connect_fbml_username($fbu, $object, $orig) {
+  if (!$fbu) {
+    return $orig;
+  }
+  $ifcantsee = $object->name;
+  $fbml = "<fb:name linked=false useyou=false uid=\"$fbu\" ifcantsee=\"$ifcantsee\"></fb:name>";
+  $wrap_pre = "<span class=fb_connect_hide>$orig</span><span class=fb_connect_show style='display:none'>";
   $wrap_post = "</span>\n";
-  if ($object->uid) {
+  if ($object->uid && user_access('access user profiles')) {
     // Provide link if local account.
+    $wrap_pre = $wrap_pre . '<a href="' . url('user/' . $object->uid) . '">';
+    $wrap_post = '</a>' . $wrap_post;
+  }
+  $output =  $wrap_pre . $fbml . $wrap_post;
+
+  return $output;
+}
+
+function theme_fb_connect_fbml_user_picture($fbu, $object, $orig) {
+  if (!$fbu)
+    return $orig;
+
+  $fbml = "<fb:profile-pic linked=false uid=\"$fbu\"></fb:profile-pic>";
+  $wrap_pre = '<span class=fb_connect_hide>' . $orig . '</span><span class="fb_connect_show" style="display:none;"><div class="picture">';
+  $wrap_post = '</div></span>';
+  if ($object->uid && user_access('access user profiles')) {
+    // Provide link to local account.
     $wrap_pre = $wrap_pre . '<a href="' . url('user/' . $object->uid) . '">';
     $wrap_post = '</a>' . $wrap_post;
   }
   return $wrap_pre . $fbml . $wrap_post;
 }
 
-function theme_fb_connect_fbml_user_picture($orig, $account, $fbu) {
-  $output = ''; // Build the markup.
-  // First, the markup if javascript is disabled, degrade gracefully.
-  if ($orig)
-    $output .= '<span class=fb_connect_hide>'.$orig.'</span>';
-  // Next markup that will be made visible by javascript.
-  $output .= '<span class="fb_connect_show" style="display:none"><div class="picture"><a href="'.url('user/' . $account->uid).'"><fb:profile-pic uid='.$fbu.' linked=false></fb:profile-pic></a></div></span>';
-  return $output;
-}
 
 function theme_fb_connect_fbml_popup($elem) {
   // Hide this markup until javascript shows it.
