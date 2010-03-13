@@ -69,7 +69,16 @@ FB_Connect.statusHandle = function(e, data) {
     if (destination) {
       window.location.href = destination;
     }
+    else if (data.fbu) {
+      // User has connected.
+      window.location.reload();
+    }
     else {
+      // User has disconnected.
+      // Sometimes bogus cookies are left behind, here we try to clean up.
+      FB_Connect.purgeCookies();
+
+      // Refresh page for not-connected user.
       window.location.reload();
     }
   }
@@ -85,7 +94,6 @@ FB_Connect.execute_javascript = function() {
 };
 
 FB_Connect.on_connected = function(fbu) {
-  //alert("FB_Connect.on_connected " + fbu + " settings fbu is " + Drupal.settings.fb_connect.fbu + " FB_Connect.fbu is " + FB_Connect.fbu);
   var status = {'changed': false, 'fbu': fbu};
   if ((FB_Connect.fbu === 0 || Drupal.settings.fb_connect.fbu != fbu) &&
       Drupal.settings.fb_connect.in_iframe != 1) {
@@ -96,7 +104,6 @@ FB_Connect.on_connected = function(fbu) {
 }
 
 FB_Connect.on_not_connected = function() {
-  //alert("FB_Connect.on_not_connected, settings fbu is " + Drupal.settings.fb_connect.fbu);
   var status = {'changed': false, 'fbu': 0};
   if ((FB_Connect.fbu > 0 || Drupal.settings.fb_connect.fbu > 0) &&
       Drupal.settings.fb_connect.in_iframe != 1){
@@ -115,7 +122,6 @@ FB_Connect.login_onclick = function() {
 
 FB_Connect.logout_onclick = function() {
   FB.ensureInit(function() {
-      //alert('logout and redirect to ' + Drupal.settings.fb_connect.front_url);
       FB.Connect.logoutAndRedirect(Drupal.settings.fb_connect.front_url);
     });
 }
@@ -125,3 +131,42 @@ FB_Connect.init = function() {
   $.event.trigger('fb_connect_init', status);
 }
 
+
+/**
+ * Facebook leaves bogus cookies.  We must clean up their mess.
+ * Thanks to http://techpatterns.com/downloads/javascript_cookies.php for example code.
+ * TODO: make this more efficient by learning the apikey some other way.
+ */
+FB_Connect.purgeCookies = function() {
+  var cookies = { };
+  
+  if (document.cookie && document.cookie != '') {
+    var split = document.cookie.split(';');
+    for (var i = 0; i < split.length; i++) {
+      var name_value = split[i].split("=");
+      name_value[0] = name_value[0].replace(/^ /, '');
+      var pos = name_value[0].indexOf('_session_key');
+      if (pos != -1) {
+        // Looks like a facebook cookie.
+        var apikey = name_value[0].substring(0, pos);
+        
+        // Try to delete all the crud.
+        FB_Connect.deleteCookie(apikey, '/', '');
+        FB_Connect.deleteCookie(apikey + '_user', '/', '');
+        FB_Connect.deleteCookie(apikey + '_ss', '/', '');
+        FB_Connect.deleteCookie(apikey + '_session_key', '/', '');
+        FB_Connect.deleteCookie(apikey + '_expires', '/', '');
+        FB_Connect.deleteCookie('fb_setting_' + apikey, '/', '');
+      }
+    }
+  }
+}
+  
+// Delete a cookie.
+FB_Connect.deleteCookie = function( name, path, domain ) {
+  document.cookie = name + "=" +
+  ( ( path ) ? ";path=" + path : "") +
+  ( ( domain ) ? ";domain=" + domain : "" ) +
+  ";expires=Thu, 01-Jan-1970 00:00:01 GMT";
+}
+  
