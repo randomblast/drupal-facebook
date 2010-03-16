@@ -114,8 +114,12 @@ function fb_user_fb($op, $data, &$return) {
   
   if ($op == FB_OP_POST_INIT) {
     // Observe special rules for canvas page users without local accounts
-    if (!$user->uid && !_fb_user_special_page() && !isset($_REQUEST['form_id'])) {
-      if ($fbu = fb_facebook_user($fb) && fb_api_check_session($fb) && !$fb->api_client->users_isAppUser()) {
+    if (!$user->uid && 
+        !_fb_user_special_page() && 
+        !isset($_REQUEST['form_id'])) {
+      if ($fbu = fb_facebook_user($fb) && 
+          fb_api_check_session($fb) && 
+          !$fb->api_client->users_isAppUser()) {
         $uid = $fb_user_data['logged_in_uid'];
       }
       else if (isset($fb_user_data['fb_user'])) {
@@ -150,7 +154,7 @@ function fb_user_fb($op, $data, &$return) {
     if (!isset($_SESSION['fb_user_fbu']) || $_SESSION['fb_user_fbu'] != $fbu) {
       if ($valid_session = fb_api_check_session($fb)) {
         $_SESSION['fb_user_fbu'] = $fbu;
-        
+
         if ($user->uid != 0 &&
             $user->uid != $fb_user_data['logged_in_uid']) {
           // Ensure local user has proper authmap entry.

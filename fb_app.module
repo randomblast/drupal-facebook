@@ -117,6 +117,9 @@ function fb_app_node_info() {
   );
 }
 
+/**
+ * Implementation of hook_access().
+ */
 function fb_app_access($op, $node, $account) {
   if (user_access(FB_PERM_ADMINISTER, $account))
     return TRUE;
@@ -129,6 +132,9 @@ function fb_app_access($op, $node, $account) {
   }
 }
 
+/**
+ * Implementation of hook_form().
+ */
 function fb_app_form(&$node, &$param) {
   // Helpful link
   if (!$node->nid) {
@@ -210,6 +216,9 @@ function fb_app_form(&$node, &$param) {
   return $form;
 }
 
+/**
+ * Implementation of hook_validate().
+ */
 function fb_app_validate($node) {
   // TODO: check label is unique, and role name will be unique.
   // check apikey is unique, canvas page is unique
@@ -238,6 +247,9 @@ function fb_app_load($node) {
   );
 }
 
+/**
+ * Implementation of hook_view().
+ */
 function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
   $node = node_prepare($node, $teaser);
   

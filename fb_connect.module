@@ -1,4 +1,11 @@
 <?php
+/**
+ * @file
+ * Support for Facebook Connect features
+ * 
+ * Note that Facebook connect will work properly only with themes that are
+ * Facebook Connect aware.
+ */
 
 // Drupal variables
 define('FB_CONNECT_VAR_PRIMARY', 'fb_connect_primary_nid');
@@ -9,11 +16,7 @@ define('FB_CONNECT_VAR_THEME_USERPIC1', 'fb_connect_theme_userpic_1');
 define('FB_CONNECT_VAR_THEME_USERPIC_2', 'fb_connect_theme_userpic_2');
 
 /**
- * @file
- * Support for Facebook Connect features
- * 
- * Note that Facebook connect will work properly only with themes that are
- * Facebook Connect aware.
+ * Implementation of hook_menu().
  */
 function fb_connect_menu() {
   $items = array();

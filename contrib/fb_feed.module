@@ -222,7 +222,7 @@ function fb_feed_node_info() {
  * Use same permissions as fb_app module.
  */
 function fb_feed_access($op, $node) {
-  if (user_access('administer fb apps'))
+  if (user_access(FB_PERM_ADMINISTER))
     return TRUE;
   if ($op == 'create' && user_access('create fb apps'))
     return TRUE;
