@@ -9,6 +9,11 @@
 function fb_connect_admin_settings() {
   $options = array(0 => t('<none>')) +
     fb_get_app_options(FALSE);
+  if (count($options) == 1) {
+    drupal_set_message(t('Start by <a href=!href>creating a Facebook Application</a>.', array('!href' => url('node/add/fb-app'))),
+                       'error');
+  }
+
   $form[FB_CONNECT_VAR_PRIMARY] = array(
     '#type' => 'select',
     '#options' => $options,
