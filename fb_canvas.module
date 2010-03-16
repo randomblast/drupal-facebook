@@ -13,9 +13,33 @@
 define('FB_CANVAS_OPTION_ALLOW_ANON', 1);
 define('FB_CANVAS_OPTION_REQUIRE_LOGIN', 2);
 
+define('FB_CANVAS_VAR_PROCESS_FBML', 'fb_canvas_process_fbml');
+define('FB_CANVAS_VAR_PROCESS_FBML_FORM', 'fb_canvas_process_fbml_form');
+define('FB_CANVAS_VAR_PROCESS_IFRAME', 'fb_canvas_process_iframe');
 
 /**
- * Implementation of hook_fb.
+ * Implementation of hook_menu().
+ */
+function fb_canvas_menu() {
+  $items = array();
+
+  // Admin pages
+  $items['admin/fb/fb_canvas'] = array(
+    'title' => 'Canvas Pages',
+    'description' => t('Configure Canvas Pages'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fb_canvas_admin_settings'),
+    'access arguments' => array(FB_PERM_ADMINISTER),
+    'file' => 'fb_canvas.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_fb().
  */
 function fb_canvas_fb($op, $data, &$return) {
   static $original_uid;
@@ -48,16 +72,18 @@ function fb_canvas_fb($op, $data, &$return) {
     $fb_canvas_data = $fb_app_data['fb_canvas'];
     
     $is_canvas = FALSE;
-    
+
     // Set an app-specific theme.
     global $custom_theme; // Set by this function.
     if (fb_canvas_is_fbml()) {
       $custom_theme = $fb_canvas_data['theme_fbml'];
       $is_canvas = TRUE;
+      $use_ob = variable_get(FB_CANVAS_VAR_OB_FBML, TRUE);
     }
     else if (fb_canvas_is_iframe()) {
       $custom_theme = $fb_canvas_data['theme_iframe'];
       $is_canvas = TRUE;
+      $use_ob = variable_get(FB_CANVAS_VAR_OB_IFRAME, TRUE);
     }
     
     if ($is_canvas) {
@@ -83,12 +109,17 @@ function fb_canvas_fb($op, $data, &$return) {
       }
     }
     
-    // Special handling for forms, as they are submitted directly to us, not
-    // to apps.facebook.com/canvas
-    // we will buffer, and later cache, the results.
-    if (fb_canvas_handling_form())
-      ob_start();
+    // Use buffer for form posts.
+    if (!$use_ob && fb_canvas_handling_form()) {
+      $use_ob = variable_get(FB_CANVAS_VAR_PROCESS_FBML_FORM, TRUE);
+    }
     
+    // Store entire page in output buffer.  Will post-process on exit.
+    if ($use_ob) {
+      ob_start();
+      $GLOBALS['fb_canvas_post_process'] = TRUE;
+    }
+
     if ($is_canvas && $_GET['q'] == drupal_get_normal_path(variable_get('site_frontpage', 'node'))) {
       if ($fb->get_loggedin_user()) {
         if ($fb->api_client->users_isAppUser())
@@ -107,7 +138,6 @@ function fb_canvas_fb($op, $data, &$return) {
     if (isset($original_uid) && 
         $original_uid != $user->uid) {
       // The user has changed, presumably fb_user.module recognized the facebookuser.  We need to refresh canvas pages.
-
 
       if(!(arg(0) == 'fb_app' && arg(1) == 'event')) {
         // In order to ensure that drupal handles
@@ -129,12 +159,27 @@ function fb_canvas_fb($op, $data, &$return) {
     if (isset($_REQUEST['fb_canvas_destination'])) {
       $_REQUEST['destination'] = $_REQUEST['fb_canvas_destination'];
     }
+    
+    // Give FBML themes a chance to render tabs.
+    if (fb_canvas_is_fbml()) {
+      _fb_canvas_menu_hack();
+    }
   }
   else if ($op == FB_OP_EXIT) {
     $destination = $return;
-    if (fb_canvas_is_fbml()) {
+
+    if ($GLOBALS['fb_canvas_post_process']) {
       $output = ob_get_contents();
       ob_end_clean();
+      if (fb_canvas_is_fbml()) {
+        $output = fb_canvas_process($output, array('force_absolute_canvas' => TRUE));
+      }
+      else if (fb_canvas_is_iframe()) {
+        $output = fb_canvas_process($output, array('add_target' => TRUE));
+      }
+    }
+    
+    if (fb_canvas_is_fbml()) {
       
       if ($destination) {
         // Fully qualified URLs need to be modified to point to facebook app.
@@ -151,6 +196,7 @@ function fb_canvas_fb($op, $data, &$return) {
         }
       }
       else if (fb_canvas_handling_form()) {
+
         // Save the results to show the user later
         $token = uniqid('fb_');
         $cid = session_id() . "_$token";
@@ -176,6 +222,9 @@ function fb_canvas_fb($op, $data, &$return) {
 
         drupal_goto($dest, implode('&', $query), NULL, 303); // appears to work
       }
+    }
+    if (isset($output)) {
+      print($output);
     }
   }
   else if ($op == FB_OP_SET_PROPERTIES) {
@@ -364,7 +413,7 @@ function fb_canvas_form_action_via_facebook(&$form) {
 
 function fb_canvas_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   if ($op == 'view' && $node->type == 'fb_app') {
-    if (user_access('administer fb apps') && $node->fb_app->canvas) {
+    if (user_access(FB_PERM_ADMINISTER) && $node->fb_app->canvas) {
       $fb_app = $node->fb_app;
       $url = 'http://apps.facebook.com/' . $fb_app->canvas;
       $output = theme('dl', 
@@ -715,17 +764,6 @@ function fb_canvas_theme() {
  */
 function fb_canvas_theme_registry_alter(&$theme_registry) {
   // Ideally, we'd do this only on themes which will certainly be used for FBML canvas pages.
-  
-  if ($theme_registry['page']['type'] == 'theme_engine') {
-    // Override theme page.
-    $theme_registry['fb_canvas_page_orig'] = $theme_registry['page'];
-    $theme_registry['page'] = array(
-      'arguments' => $theme_registry['fb_canvas_page_orig']['arguments'],
-      'function' => 'fb_canvas_theme_page_override',
-      'type' => 'module',
-    );
-  }
-  
   if ($theme_registry['username']['type'] == 'module') {
     // Override theme_username
     $theme_registry['fb_canvas_username_orig'] = $theme_registry['username'];
@@ -749,14 +787,9 @@ function fb_canvas_theme_registry_alter(&$theme_registry) {
 }
 
 /**
- * Override theme('page',...).  Wrap the original code in our hacks.
- *
- * The first hack sets a global variable which we test for when
- * theming tabs.
- *
- * The second hack calls fb_canvas_process() to munge the entire page.
+ * Build tabs in facebook-aware theme.
  */
-function fb_canvas_theme_page_override($content, $show_blocks = TRUE, $show_messages = TRUE) {
+function _fb_canvas_menu_hack() {
   if (fb_canvas_is_fbml()) {
     // We have to go out of our way here to theme the tabs.
     // The code in menu.inc that themes them is complex,
@@ -771,17 +804,6 @@ function fb_canvas_theme_page_override($content, $show_blocks = TRUE, $show_mess
     menu_tab_root_path();
     $_fb_canvas_state = NULL;
   }
-  
-  $output = theme('fb_canvas_page_orig', $content, $show_blocks, $show_messages);
-  
-  if (fb_canvas_is_fbml()) {
-    $output = fb_canvas_process($output, array('force_absolute_canvas' => TRUE));
-  }
-  else if (fb_canvas_is_iframe()) {
-    $output = fb_canvas_process($output, array('add_target' => TRUE));  
-  }
-  
-  return $output;
 }
 
 /**
