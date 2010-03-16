@@ -24,7 +24,12 @@ function fb_requirements($phase) {
       $status['value'] = $t('Not included');
     }
     $status['severity'] = REQUIREMENT_ERROR;
-    $status['description'] = $t('Add something like <strong>include "%path";</strong> to your settings.php.', array('%path' => drupal_get_path('module', 'fb') . '/fb_settings.inc'));
+    $path = drupal_get_path('module', 'fb');
+    if (!$path)
+      // Not set during install.php
+      $path = 'modules/fb';
+
+    $status['description'] = $t('Add something like <strong>include "%path";</strong> to your settings.php.', array('%path' => $path . '/fb_settings.inc'));
   }
   $items[] = $status;
   
