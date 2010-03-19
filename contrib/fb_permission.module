@@ -66,7 +66,7 @@ function fb_permission_user($op, &$edit, &$account, $category = NULL) {
     if ($fb_app) {
       $map = fb_permission_map(); // All known permissions.
       // Show only permissions we've configured for this app.
-      $fb_app_data = fb_app_get_data($fb_app);
+      $fb_app_data = fb_get_app_data($fb_app);
       $fb_permission_data = $fb_app_data['fb_permission'];
       if (is_array($fb_permission_data['map'])) {
         foreach ($fb_permission_data['map'] as $key => $value) {
@@ -156,7 +156,7 @@ function fb_permission_form_alter(&$form, $state, $id) {
   // Add settings to fb_app form
   if (isset($form['fb_app_data'])) {
     $node = $form['#node'];
-    $fb_app_data = fb_app_get_data($node->fb_app);
+    $fb_app_data = fb_get_app_data($node->fb_app);
     $fb_permission_data = $fb_app_data['fb_permission'];
     $form['fb_app_data']['fb_permission'] = array(
       '#type' => 'fieldset',
@@ -211,7 +211,7 @@ function fb_permission_fb($op, $data, &$return) {
     if ($data['event_type'] == FB_APP_EVENT_POST_AUTHORIZE) {
       // User has authorized the application.
       $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
-      $fb_app_data = fb_app_get_data($fb_app);
+      $fb_app_data = fb_get_app_data($fb_app);
       $fb_permission_data = $fb_app_data['fb_permission'];
       
       if (is_array($fb_permission_data['prompt'])) {

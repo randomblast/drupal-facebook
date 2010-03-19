@@ -265,7 +265,7 @@ function fb_feed_form(&$node, &$param) {
   }
 
   // Now we define the form elements specific to our node type. 
-  
+  // BROKEN.  renamed to fb_admin_get_app_options.  But this module will die soon, so not fixing.
   $options = fb_get_app_options(FALSE);
   $form['fb_app_nid'] = 
     array('#type' => 'select',

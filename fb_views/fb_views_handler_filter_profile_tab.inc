@@ -18,8 +18,6 @@ class fb_views_handler_filter_profile_tab extends views_handler_filter_boolean_o
       list($module, $authname) = _fb_user_get_authmap($fb_app, $profile_fbu);
       if ($authname) {
         $profile_account = user_external_load($authname);
-        dpm($profile_account, "fb_views_handler_filter_profile_tab got account for fbu $profile_fbu and authname $authname"); // debug
-        
         $this->ensure_my_table();
         $this->query->add_where(0, $this->table_alias . ".authname='%s'", $authname);
       }

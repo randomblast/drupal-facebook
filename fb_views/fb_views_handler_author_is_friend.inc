@@ -18,7 +18,6 @@ class fb_views_handler_author_is_friend extends views_handler_argument_user_uid 
         $friends = fb_get_friends($fbu, $fb_app);
         
         if (is_array($friends) && count($friends)) {
-          dpm($friends, "fb_views_handler_author_is_friend limiting query by friends ");
           $this->ensure_my_table();
           $this->query->add_where(0, 'fb_user_app.fbu IN (%s)', implode(',', $friends));
         }

@@ -4,6 +4,10 @@
 // hook_fb
 define('FB_HOOK', 'fb');
 
+// Paths.
+define('FB_PATH_ADMIN', 'admin/build/fb');
+define('FB_PATH_ADMIN_APPS', 'admin/build/fb/apps');
+
 // permissions
 define('FB_PERM_ADMINISTER', 'administer fb apps');
 define('FB_PERM_CREATE', 'create fb apps');
@@ -25,9 +29,6 @@ define('FB_OP_GET_USER_SESSION', 'get_user_sess');
 define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
 define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
 define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has authorized an app.  Triggers creation of user accounts or authmap entries
-
-define('FB_OP_SET_PROPERTIES', 'set_props'); // build props for admin.setAppProperties
-define('FB_OP_LIST_PROPERTIES', 'list_props'); // list of known properties for admin.getAppProperties
 
 define('FB_OP_CONNECT_JS_INIT', 'fb_connect_js_init'); // A chance to customize fbConnect javascript
 define('FB_OP_CANVAS_FBJS_INIT', 'fb_canvas_js_init'); // A chance to customize FBJS.
@@ -113,7 +114,7 @@ function fb_init() {
   
   // Ask other modules for app detail
   $fb_app = fb_invoke(FB_OP_CURRENT_APP);
-  
+
   if ($fb_app) {
     // we are in a callback
     
@@ -376,6 +377,7 @@ function fb_is_fbml_canvas() {
     }
   }
 }
+
 /**
  * Determine whether current page is iframe canvas page.
  */
@@ -389,6 +391,14 @@ function fb_is_iframe_canvas() {
     }
   }
 }
+
+/**
+ * Helper tells other modules when to load admin hooks.
+ */
+function fb_is_fb_admin_page() {
+  return (arg(0) == 'admin' && (arg(1) == 'fb' || arg(2) == 'fb'));
+}
+
 /**
  * Determine whether we are rendering a profile tab.
  */
@@ -427,7 +437,7 @@ function fb_get_fbu($uid, $fb_app = NULL) {
     return $uid->fbu;
   else if (is_object($uid))
     $uid = $uid->uid;
-
+  
   if ($uid) {
     // User management is handled by another module.  Use our hook to ask for mapping.
     $fbu = fb_invoke(FB_OP_GET_FBU, array('fb_app' => $fb_app,
@@ -478,7 +488,7 @@ function fb_get_object_fbu($object) {
  * TODO: This code will probably not handle every case and may need some work.
  */
 function fb_get_callback_url($fb_app) {
-  $url = url('', array('absolute' => TRUE)) . FB_SETTINGS_APP_NID . '/'. $fb_app->nid . '/';
+  $url = url('', array('absolute' => TRUE)) . FB_SETTINGS_APP_LABEL . '/'. $fb_app->label . '/';
   return $url;
 }
 
@@ -495,26 +505,20 @@ function fb_get_app($search_data) {
 }
 
 /**
- * Convenience method to return a list of all known apps, suitable for form
- * elements.
- *
- * TODO: move this to fb.admin.inc.
+ * Convenience method for other modules to attach data to the fb_app
+ * object.  
+ * 
+ * It is assumed the fb_app implementation will fill in the data
+ * field.  We really should clean up the separation between modules,
+ * or merge fb_app.module into this one.
  */
-function fb_get_app_options($include_current = FALSE, $key = 'nid') {
-  $apps = fb_get_all_apps();
-  $options = array();
-  if ($include_current)
-    $options[FB_APP_CURRENT] = t('<current>');
-  foreach ($apps as $app) {
-    if ($key == 'apikey') {
-      $options[$app->apikey] = $app->title;
-    }
-    else {
-      $options[$app->nid] = $app->title;
-    }
+function fb_get_app_data(&$fb_app) {
+  if (!isset($fb_app->fb_app_data)) {
+    $fb_app->fb_app_data = isset($fb_app->data) ? unserialize($fb_app->data) : array();
   }
-  return $options;
+  return $fb_app->fb_app_data;
 }
+
 
 /**
  * Convenience method to return array of all know fb_apps.
@@ -640,22 +644,24 @@ function fb_form_alter(&$form, &$form_state, $form_id) {
   }
 }
 
-
+/**
+ * Implementation of hook_menu().
+ */
 function fb_menu() {
   $items = array();
   
   // Admin pages
-  $items['admin/fb'] = array(
-    'title' => 'Facebook Apps',
+  $items[FB_PATH_ADMIN] = array(
+    'title' => 'Facebook Applications',
     'description' => t('Facebook Applications'),
     'page callback' => 'fb_admin_page',
     'access arguments' => array(FB_PERM_ADMINISTER),
     'file' => 'fb.admin.inc',
     'type' => MENU_NORMAL_ITEM,
   );
-  $items['admin/fb/apps'] = array(
-    'title' => 'Apps',
-    'weight' => -1,
+  $items[FB_PATH_ADMIN_APPS] = array(
+    'title' => 'List',
+    'weight' => -2,
     'type' => MENU_DEFAULT_LOCAL_TASK,
   );
   
@@ -722,9 +728,9 @@ function fb_session_key_form() {
 /**
  * Invoke hook_fb.
  */
-function fb_invoke($op, $data = NULL, $return = NULL) {
-  foreach (module_implements(FB_HOOK) as $name) {
-    $function = $name . '_' . FB_HOOK;
+function fb_invoke($op, $data = NULL, $return = NULL, $hook = FB_HOOK) {
+  foreach (module_implements($hook) as $name) {
+    $function = $name . '_' . $hook;
     try {
       $function($op, $data, $return);
     }
@@ -743,7 +749,7 @@ function fb_invoke($op, $data = NULL, $return = NULL) {
  * the extra information.
  */
 function fb_scrub_urls($content) {
-  foreach (array(FB_SETTINGS_APP_NID, FB_SETTINGS_PAGE_TYPE) as $key) {
+  foreach (array(FB_SETTINGS_APP_LABEL, FB_SETTINGS_PAGE_TYPE) as $key) {
     $patterns[] = "|$key/[^/]*/|";
     $replacements[] = "";
   }
@@ -982,11 +988,8 @@ function fb_url_outbound_alter(&$path, &$options, $original_path) {
  * 
  */
 function fb_url_inbound_alter(&$result, $path, $path_language){
-  //$origpath = $path;
-  //watchdog('fb_settings', "fb_settings_url_rewrite_inbound($result, $path, $path_language)", array(), WATCHDOG_DEBUG);
-  
   // See if this is a request for us.
-  if (strpos($path, FB_SETTINGS_APP_NID . '/') === 0) {
+  if (strpos($path, FB_SETTINGS_APP_LABEL . '/') === 0) {
     // Too soon for arg() function.
     $args = explode('/', $path);
     while (count($args) && in_array($args[0], _fb_settings_url_rewrite_prefixes())) {
@@ -994,7 +997,7 @@ function fb_url_inbound_alter(&$result, $path, $path_language){
       $value = array_shift($args);
       $app_nid = fb_settings($key, $value); // Store for use later.
     }
-    if ($app_nid = fb_settings(FB_SETTINGS_APP_NID)) {
+    if ($app_label = fb_settings(FB_SETTINGS_APP_LABEL)) {
       if (count($args)) {
         $path = implode('/', $args); // remaining args
         $alias = drupal_lookup_path('source', $path, $path_language); //can't use drupal_get_normal_path, it calls custom_url_rewrite_inbound
@@ -1016,7 +1019,7 @@ function fb_url_inbound_alter(&$result, $path, $path_language){
     if ($alias) 
       $path = $alias;
   }
-  
+
   $result = $path;
 }
 
@@ -1045,5 +1048,3 @@ function fb_username_alter(&$name, $account) {
     }
   }
 }
-
-?>

@@ -1,10 +1,9 @@
 <?php
-  /**
-   * @file
-   * Installs database tables and settings required by fb_app module.
-   * 
-   */
-  // TODO: some of these tables should be created by othe module install files.
+/**
+ * @file
+ * Installs database tables and settings required by fb_app module.
+ * 
+ */
 
 /**
  * hook_install()
@@ -13,7 +12,8 @@ function fb_app_install() {
   // Create tables.
   drupal_install_schema('fb_app');
   
-  drupal_set_message(t('Facebook Application module installed. Please grant yourself <a href="!perm">permissions</a> and then browse to <a href="!create">Create Content => Facebook Application</a> to get started.', array('!perm' => url('admin/user/permissions'), '!create' => url('node/add/fb-app'))));
+  drupal_set_message(t('Facebook Application module installed. Please grant yourself <a href="!perm">permissions</a> and then browse to <a href="!create">Admin >> Facebook Applications</a> to get started.', array('!perm' => url('admin/user/permissions'), '!create' => url(FB_PATH_ADMIN))));
+
 }
 
 /**
@@ -26,32 +26,64 @@ function fb_app_uninstall() {
 
 function fb_app_schema() {
   $schema['fb_app'] = array(
-    'description' => 'Main FB_APP table',
+    'description' => 'Main fb_app table',
     'fields' => array(
+      'fba_id' => array(
+        'description' => 'The primary identifier for an app.',
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE),
+      'status' => array(
+        'description' => 'Boolean indicating whether the app is enabled.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 1),
+      
+      // nid for backward-compatibility only.  DEPRECATED and will be removed!
       'nid' => array('type' => 'int', 'not null' => TRUE, ),
-      'label' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, ),
-      'apikey' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, ),
-      'id' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, ),
-      'secret' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, ),
-      'canvas' => array('type' => 'varchar', 'length' => 255, 'not null' => TRUE, ),
-      'data' => array('type' => 'text', 'size' => 'big', ),
+
+      'label' => array(
+        'type' => 'varchar', 
+        'length' => 255, 
+        'not null' => TRUE, 
+        'description' => 'Unique textual id for app.',
+      ),
+      'apikey' => array(
+        'type' => 'varchar', 
+        'length' => 255, 
+        'not null' => TRUE, 
+        'description' => 'Provided by facebook',
+      ),
+      'id' => array(
+        'type' => 'varchar', 
+        'length' => 255, 
+        'not null' => TRUE, 
+        'description' => 'Provided by facebook',
+      ),
+      'secret' => array(
+        'type' => 'varchar', 
+        'length' => 255, 
+        'not null' => TRUE, 
+        'description' => 'Provided by facebook',
+      ),
+      'canvas' => array(
+        'type' => 'varchar', 
+        'length' => 255, 
+        'not null' => TRUE, 
+        'description' => 'Provided by facebook',
+      ),
+      'data' => array(
+        'type' => 'text', 
+        'size' => 'big', 
+        'description' => 'Module-specific additional settings.'),
     ),
     'unique keys' => array(
       'apikey' => array('apikey'),
+      'label' => array('label'),
     ),
-    'primary key' => array('nid'),
+    'primary key' => array('fba_id'),
   );
-  $schema['fb_app_block'] = array(
-    'fields' => array(
-      'nid' => array('type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, ),
-      'delta' => array('type' => 'varchar', 'length' => 32, 'not null' => TRUE, ),
-      'format' => array('type' => 'int', 'default' => 0, ),
-      'body' => array('type' => 'text', 'size' => 'big', 'not null' => TRUE, ),
-    ),
-    'primary key' => array('nid', 'delta'),
-  );
-  $schema['fb_cache_filter'] = drupal_get_schema_unprocessed('system', 'cache');
-
+  
   return $schema;  
 }
 
@@ -84,3 +116,37 @@ function fb_app_update_6202() {
   return $ret;
 }
 
+function fb_app_update_6203() {
+  $ret = array();
+  db_drop_primary_key($ret, 'fb_app'); // replace primary key nid with fba_id.
+  db_add_field($ret, 'fb_app', 'fba_id', 
+               array(
+                 'type' => 'int', 
+                 'type' => 'serial', 
+                 'unsigned' => TRUE, 
+                 'not null' => TRUE, 
+               ),
+               array(
+                 'unique keys' => array(
+                   // This should have been a unique key all along.
+                   'label' => array('label'),
+                 ),
+                 'primary key' => array('fba_id'),
+               )
+  );
+  return $ret;
+}
+
+function fb_app_update_6204() {
+  $ret = array();
+  db_add_field($ret, 'fb_app', 'status', array(
+                 'type' => 'int',
+                 'not null' => TRUE,
+                 'default' => 1,
+               ));
+  $result = db_query("SELECT n.nid, n.status FROM {node} n WHERE type = 'fb_app'");
+  while ($data = db_fetch_object($result)) {
+    $ret[] = update_sql("UPDATE {fb_app} SET status = %d WHERE nid = %d", $data->status, $data->nid);
+  }
+  return $ret;
+}

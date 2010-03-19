@@ -8,8 +8,8 @@
  */
 
 // Drupal variables
-define('FB_CONNECT_VAR_PRIMARY', 'fb_connect_primary_nid');
-define('FB_CONNECT_VAR_LOGIN', 'fb_connect_login_nid');
+define('FB_CONNECT_VAR_PRIMARY', 'fb_connect_primary_label');
+define('FB_CONNECT_VAR_LOGIN', 'fb_connect_login_label');
 define('FB_CONNECT_VAR_THEME_USERNAME_1', 'fb_connect_theme_username_1');
 define('FB_CONNECT_VAR_THEME_USERNAME_2', 'fb_connect_theme_username_2');
 define('FB_CONNECT_VAR_THEME_USERPIC1', 'fb_connect_theme_userpic_1');
@@ -36,7 +36,7 @@ function fb_connect_menu() {
   );
 
   // Admin pages
-  $items['admin/fb/fb_connect'] = array(
+  $items[FB_PATH_ADMIN . '/fb_connect'] = array(
     'title' => 'Facebook Connect',
     'description' => t('Configure Facebook Connect'),
     'page callback' => 'drupal_get_form',
@@ -154,13 +154,13 @@ function fb_connect_fb($op, $data, &$return) {
   //dpm(func_get_args(), "fb_connect_fb($op)");
   if ($op == FB_OP_CURRENT_APP && !$return) {
     // This will cause fb.module to set the global $fb when user is logged in via fbConnect.
-    if ($nid = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
-      $return = fb_get_app(array('nid' => $nid));
+    if ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
+      $return = fb_get_app(array('label' => $label));
     }
   }
   else if ($op == FB_OP_POST_INIT) {
-    if ($nid = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
-      if ($data['fb_app']->nid == $nid) {
+    if ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
+      if ($data['fb_app']->label == $label) {
         $fb_app = $data['fb_app'];
         // Init Facebook javascript for primary app
         _fb_connect_add_js();
@@ -170,18 +170,15 @@ function fb_connect_fb($op, $data, &$return) {
         fb_connect_init_option('ifUserNotConnected', "{FB_Connect.on_not_connected}", $fb_app);
       }
     }
+    // Include our admin hooks.
+    if (fb_is_fb_admin_page()) {
+      require drupal_get_path('module', 'fb_connect') . '/fb_connect.admin.inc';
+    }
   }
   else if ($op == FB_OP_CONNECT_JS_INIT) {
     foreach (fb_connect_init_js() as $js) {
       $return[] = $js;
     }
-  }
-  else if ($op == FB_OP_SET_PROPERTIES) {
-    // We need to set the Facebook Connect URL, but currently Facebook's APIs do not allow it.
-    $return['connect_url'] = fb_connect_get_connect_url($data['fb_app']);
-  }
-  else if ($op == FB_OP_LIST_PROPERTIES) {
-    $return[t('Connect URL')] = 'connect_url';
   }
 }
 
@@ -419,7 +416,7 @@ function fb_connect_footer($is_front) {
 function fb_connect_get_connect_url($fb_app) {
   // absolute URL with no rewriting applied
   global $base_url;
-  $suffix = FB_SETTINGS_APP_NID . '/' . $fb_app->nid . '/';
+  $suffix = FB_SETTINGS_APP_LABEL . '/' . $fb_app->label . '/';
   
   // In regular pages, we need to add the suffix.
   $url = $base_url . '/' . $suffix;
@@ -553,39 +550,39 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
 function fb_connect_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
-    $node = $form['#node'];
-    $fb_app_data = fb_app_get_data($node->fb_app);
+    $fb_app = $form['#fb_app'];
+    $fb_app_data = fb_get_app_data($fb_app);
     $fb_connect_data = $fb_app_data['fb_connect'];
-   
+    
     $form['fb_app_data']['fb_connect'] = array(
       '#type' => 'fieldset',
       '#title' => 'Facebook Connect',
       '#tree' => TRUE,
       '#collapsible' => TRUE,
-      '#collapsed' => $node->nid ? TRUE : FALSE,
+      '#collapsed' => $node->label ? TRUE : FALSE,
     );
-
+    
     // "Primary" will be initialized on every non-canvas page.
-    $primary_nid = variable_get(FB_CONNECT_VAR_PRIMARY, NULL);
+    $primary_label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL);
     $form['fb_app_data']['fb_connect']['primary'] = array(
       '#type' => 'checkbox',
       '#title' => t('Primary'),
       '#description' => t('Initialize fbConnect javascript on all (non-canvas) pages.  If this site supports multiple Facebook Apps, this may be checked for at most one.'),
-      '#default_value' => isset($node->nid) && ($primary_nid == $node->nid),
+      '#default_value' => isset($fb_app->label) && ($primary_label == $fb_app->label),
     );
-    if (($primary_nid) && ($primary_nid != $node->nid)) {
-      $primary = fb_get_app(array('nid' => $primary_nid));
+    if (($primary_label) && ($primary_label != $fb_app->label)) {
       $form['fb_app_data']['fb_connect']['primary']['#description'] .= '<br/>' . 
-        t('Note that checking this will replace %app as the primary Facebook Connect app.', array('%app' => $primary ? $primary->title : $primary_nid));
+        t('Note that checking this will replace %app as the primary Facebook Connect app.', array('%app' => $primary_label));
     }
+    $form['#submit'][] = 'fb_connect_app_submit';
   }
-
+  
   // Add button to login form.
   if (($form_id == 'user_login_block' || $form_id == 'user_login') &&
       !fb_is_fbml_canvas()) {
-    if ($app_nid = variable_get(FB_CONNECT_VAR_LOGIN, NULL)) {
-      $fb_app = fb_get_app(array('nid' => $app_nid));
-
+    if ($app_label = variable_get(FB_CONNECT_VAR_LOGIN, NULL)) {
+      $fb_app = fb_get_app(array('label' => $app_label));
+      
       // Ensure that facebook javascript is in the page closure.
       if ($fb = fb_connect_app_init($fb_app)) {
         fb_connect_require_feature('XFBML', $fb_app);
@@ -609,22 +606,18 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
   }
 }
 
-/**
- * Implementation of hook_nodeapi().
- *
- * Set a variable if this is the primary connect app.
- */
-function fb_connect_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
-  if (($op == 'insert' || $op == 'update') && $node->type == 'fb_app') {
-    //dpm(func_get_args(), "fb_connect_nodeapi($op)"); // debug
-    if ($node->fb_app_data['fb_connect']['primary']) {
-      variable_set(FB_CONNECT_VAR_PRIMARY, $node->nid);
-      drupal_set_message(t('!node is the primary Facebook Connect application.', array('!node' => l($node->title, 'node/' . $node->nid))));
-    }
-    else if ($node->nid == variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
-      // This app was the primary one, but the user has unchecked it.
-      variable_set(FB_CONNECT_VAR_PRIMARY, NULL);
-    }
+
+function fb_connect_app_submit($form, &$form_state) {
+  $values = $form_state['values'];
+  $label = $values['label'];
+  $data = $values['fb_app_data']['fb_connect'];
+  if ($data['primary']) {
+    variable_set(FB_CONNECT_VAR_PRIMARY, $label);
+    drupal_set_message(t('%label is the primary Facebook Connect application.', array('%label' => $label)));
+  }
+  else if ($label == variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
+    // This app was the primary one, but the user has unchecked it.
+    variable_set(FB_CONNECT_VAR_PRIMARY, NULL);    
   }
 }
 

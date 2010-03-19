@@ -37,30 +37,39 @@ function fb_devel_init() {
 function fb_devel_fb($op, $data, &$return) {
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
-  
+  $errors = 0;
+
   if ($op == FB_OP_INITIALIZE) {
+    $label = fb_settings(FB_SETTINGS_APP_LABEL);
+    // deprecated nid check.
+    if ($label == $fb_app->nid) {
+      $message = t('Facebook callback is using deprecated node id (%nid) instead of application label (%label).  <a href="!url">Editing the application</a> will usually correct this problem, which was caused by an update to the Drupal for Facebook modules.  Sorry for the inconvenience.', array('%nid' => $fb_app->nid, '%label' => $fb_app->label, '!url' => url(FB_PATH_ADMIN)));
+      drupal_set_message($message, 'warning');
+      watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
+      $errors++;
+    }
     // Sanity check.
-    $nid = fb_settings(FB_SETTINGS_APP_NID);
-    if ($nid && $nid != $fb_app->nid) {
+    else if ($label && $label != $fb_app->label) {
       $message = t('fb_app id (%fb_app_id) does not equal fb settings id (%fb_settings_id).  This is usually caused by the wrong callback url on your <a href="!url">facebook application settings form</a>.',
-                   array('%fb_app_id' => $fb_app->nid,
-                         '%fb_settings_id' => $nid,
+                   array('%fb_app_id' => $fb_app->label,
+                         '%fb_settings_id' => $label,
                          '!url' => "http://www.facebook.com/developers/apps.php",
                    ));
-      drupal_set_message($message, 'error');
-      watchdog('fb_devel', $message, array(), WATCHDOG_ERROR);
+      drupal_set_message($message, 'warning');
+      watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
+      $errors++;
     }
     
-    // Theme sanity check
+    // Theme sanity check.  Earlier errors cause this to fail.
     global $theme; // for debug message
-    if (isset($theme) && !variable_get('site_offline', FALSE)) {
+    if (!$errors && isset($theme) && !variable_get('site_offline', FALSE)) {
       $message = t('Drupal for Facebook is unable to override the theme settings.  This is usually because some module causes theme_init() to be invoked before fb_init().  See the !readme.',
                    array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
                          // This link should work with clean URLs
                          // disabled.
                          '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>'));
       drupal_set_message($message, 'error');
-      watchdog('fb_devel', $message, array(), WATCHDOG_ERROR);
+      watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
     }
     
     // path replacement sanity check
@@ -105,7 +114,7 @@ function fb_devel_fb($op, $data, &$return) {
     }
   
     // Require login sanity check.
-    $fb_app_data = fb_app_get_data($fb_app);
+    $fb_app_data = fb_get_app_data($fb_app);
     if (isset($fb_app_data['fb_user']) && $fb_app_data['fb_user']['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN) {
       $message = 'Drupal for Facebook options for require login have changed.  You must manually <a href=!url>edit your application</a>.  Look for the require login options under canvas page options.  No longer under user options.';
       $args = array('!url' => url('node/' . $fb_app->nid . '/edit'));
@@ -285,15 +294,15 @@ function fb_devel_info() {
   global $base_path;
 
   $info = array();
-  $nid = fb_settings(FB_SETTINGS_APP_NID);
-
+  $label = fb_settings(FB_SETTINGS_APP_LABEL);
+  
   if ($fb) {
     if ($fb->in_fb_canvas())
       $info['Page Status'] = t('Rendering FBML canvas page.');
     else if ($fb->in_frame()) {
       $info['Page Status'] = t('Rendering iframe.');
     }
-    else if ($nid) {
+    else if ($label) {
       // Followed a link from within an iframe.
       $info['Page Status'] = t('Global fb instance is set (followed link in iframe, or handling a form).');
       $info['fb'] = $fb;
@@ -301,7 +310,7 @@ function fb_devel_info() {
     else {
       $info['Page Status'] = t('Connected via Facebook Connect');
     }
-
+    
     $info['fb_facebook_user'] = fb_facebook_user();
     $fbu = fb_facebook_user();
     if (fb_api_check_session($fb)) {

@@ -1,5 +1,24 @@
 <?php
 
+
+/**
+ * Implementation of hook_fb_admin().
+ */
+function fb_canvas_fb_admin($op, $data, &$return) {
+  $fb = isset($data['fb']) ? $data['fb'] : NULL;
+  $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
+
+  if ($op == FB_ADMIN_OP_SET_PROPERTIES) {
+    // Compute properties which we can set automatically.
+    $callback_url = url('',array('absolute' => TRUE)) . FB_SETTINGS_APP_LABEL . '/' . $fb_app->label . '/';
+    $return['callback_url'] = $callback_url;
+  }
+  else if ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
+    $return[t('Callback URL')] = 'callback_url';
+  }
+}
+
+
 /**
  * Form builder; Configure settings for this site.
  *
@@ -31,5 +50,7 @@ function fb_canvas_admin_settings() {
   );
   return system_settings_form($form);
 }
+
+
 
 ?>

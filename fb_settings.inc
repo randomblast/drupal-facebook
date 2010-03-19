@@ -1,7 +1,7 @@
 <?php
 // The URL prefix will look something like fb_cb/NID.
 // Or in complex cases fb_cb/NID/fb_cb_type/TYPE, or even fb_cb/NID/fb_sess/SESSION.
-define('FB_SETTINGS_APP_NID', 'fb_cb');
+define('FB_SETTINGS_APP_LABEL', 'fb_cb');
 define('FB_SETTINGS_PAGE_TYPE', 'fb_cb_type');
 define('FB_SETTINGS_SESSION_KEY', 'fb_sess');
 
@@ -15,19 +15,19 @@ $conf['fb_settings_check'] = TRUE;
 // Ensure unique session for facebook app.
 $conf['session_inc'] = dirname(__FILE__) . '/fb_session.inc';
 
-if ($nid = _fb_settings_parse(FB_SETTINGS_APP_NID))
+if ($label = _fb_settings_parse(FB_SETTINGS_APP_LABEL)) {
   // We're providing a canvas page or connect callback.
-
-  if (isset($_REQUEST['fb_sig']) && isset($_REQUEST['fb_sig_in_canvas'])) {
-  // It's a facebook callback to an FBML page.
-  
-  // Force clean URLs.  Necessary for canvas pages.
-  $conf['clean_url'] = 1;
-  
-  // Force the admin theme to be our facebook theme.
-  // TODO: find a way to make this configurable.  I.e. to support iframe apps.
-  $conf['admin_theme'] = 'fb_fbml';
-  
+  if (isset($_REQUEST['fb_sig']) && 
+      isset($_REQUEST['fb_sig_in_canvas'])) {
+    // It's a facebook callback to an FBML page.
+    
+    // Force clean URLs.  Necessary for canvas pages.
+    $conf['clean_url'] = 1;
+    
+    // Force the admin theme to be our facebook theme.
+    // TODO: find a way to make this configurable.  I.e. to support iframe apps.
+    $conf['admin_theme'] = 'fb_fbml';
+  }
 }
 
 /**
@@ -48,7 +48,7 @@ function _fb_settings_url_rewrite_prefixes() {
   static $prefixes;
   if (!isset($prefixes)) {
     $prefixes = array(
-      FB_SETTINGS_APP_NID, 
+      FB_SETTINGS_APP_LABEL,
       FB_SETTINGS_PAGE_TYPE, 
       FB_SETTINGS_SESSION_KEY,
     );

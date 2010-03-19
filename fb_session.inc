@@ -16,14 +16,12 @@
  *
  * See also fb_session_impl.inc, which is based on drupal's
  * session.inc but modified for canvas pages and connect pages.
-
- 
  *
- *Actually, we try not
- * to change things, unless we're servicing a facebook app.  We
- * include drupal's session.inc at the end of this file so that
- * default behavior will take place.  But first we detect whether
- * we're handling a facebook app and if so we do a few special things.
+ * Actually, we try not to change things, unless we're servicing a
+ * facebook app.  We include drupal's session.inc at the end of this
+ * file so that default behavior will take place.  But first we detect
+ * whether we're handling a facebook app and if so we do a few special
+ * things.
  *
  * We need to handle several cases: FBML canvas pages, iframe canvas
  * pages, and facebook connect pages.
@@ -66,24 +64,26 @@ if (isset($_COOKIE[$orig_session_name]))
   $orig_session_id = $_COOKIE[$orig_session_name];
 else
   $orig_session_id = '';
+// debug
+$_REQUEST['sb_session.inc orig session name'] = $orig_session_name;
 
-$nid = _fb_settings_parse(FB_SETTINGS_APP_NID);
+$label = _fb_settings_parse(FB_SETTINGS_APP_LABEL);
 
-if ($nid && isset($_REQUEST['fb_sig_api_key'])) {
+if ($label && isset($_REQUEST['fb_sig_api_key'])) {
   // Canvas page or event callback
   
   // If facebook provides a session key, us it.  Allows us to share
   // a session between FBML and iframe, and when forms are submitted
   // from FBML canvas pages.
-  $new_session_name = "fb_canvas_{$nid}_" . $orig_session_name;
+  $new_session_name = "fb_canvas_{$label}_" . $orig_session_name;
   if (isset($_REQUEST['fb_sig_session_key']))
-    $new_session_id = "fb_canvas_{$nid}_" . $_REQUEST['fb_sig_session_key'];
+    $new_session_id = "fb_canvas_{$label}_" . $_REQUEST['fb_sig_session_key'];
   else if (isset($_REQUEST['fb_sig_profile_session_key'])) {
-    $new_session_id = "fb_profile_{$nid}_" . $_REQUEST['fb_sig_profile_session_key'];
+    $new_session_id = "fb_profile_{$label}_" . $_REQUEST['fb_sig_profile_session_key'];
   }
   else if ($orig_session_id) {
     // When user is logged into facebook, but not authorized app, cookies are honored.  NO! This may have once been true, but no longer.
-    $new_session_id = "fb_canvas_{$nid}_" . $orig_session_id;
+    $new_session_id = "fb_canvas_{$label}_" . $orig_session_id;
   }
   else {
     // User is not logged into facebook, or has not authorized app.  We have no session.  Equivalent to browser not supporting cookies.
@@ -96,12 +96,12 @@ if ($nid && isset($_REQUEST['fb_sig_api_key'])) {
     fb_settings(FB_SETTINGS_SESSION_KEY, $_REQUEST['fb_sig_session_key']);
   }
  }
- else if ($nid && variable_get('fb_session_cookieless_iframe', FALSE) && 
+ else if ($label && variable_get('fb_session_cookieless_iframe', FALSE) && 
           ($sess_key = _fb_settings_parse(FB_SETTINGS_SESSION_KEY))) {
    // using sessionless iframes
    // similar logic to clause above, using session key in url path
-   $new_session_id = "fb_canvas_{$nid}_" . $sess_key;
-   $new_session_name = "fb_canvas_{$nid}_" . $orig_session_name;   
+   $new_session_id = "fb_canvas_{$label}_" . $sess_key;
+   $new_session_name = "fb_canvas_{$label}_" . $orig_session_name;   
  }
  else {
    // Try to learn session key from cookies (Facebook Connect)
@@ -122,7 +122,7 @@ if ($nid && isset($_REQUEST['fb_sig_api_key'])) {
      $GLOBALS['fb_connect_apikey'] = $apikey;
      
      // Rename the session id, so the Facebook Connect session is distinct from the original drupal session.
-     $new_session_id = 'fb_connect_' . $_COOKIE[$apikey . '_session_key'];
+     $new_session_id = 'fb_connect.' . $_COOKIE[$apikey . '_session_key'];
      
    }
  }
@@ -159,7 +159,7 @@ if (isset($new_session_id)) {
    }
    else if (strpos($orig_session_id, 'fb_connect') === 0) {
      // Canvas session should not be deleted as it could be a user visiting both the website and an iframe app
-     if (!$nid)
+     if (!$label)
        session_id(md5(uniqid(microtime()) . $_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']));     
    }
  }

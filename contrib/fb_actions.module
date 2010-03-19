@@ -36,15 +36,16 @@ function fb_actions_action_info() {
  * exist, so there may no longer be a need for this.
  */
 function fb_actions_cron_per_user_form($values) {
+  include drupal_get_path('module', 'fb') . '/fb.admin.inc';
   $form['description'] = array('#value' => t('This action will iterate through user\'s of a Facebook Application, attempt to log into the Facebook API as that user, and execute additional actions.  Use this to perform per-user actions during a Facebook cron job.'));
   
-  $options = fb_get_app_options(FALSE);
-  $form['fb_app_nids'] = 
+  $options = fb_admin_get_app_options(FALSE);
+  $form['fb_app_labels'] = 
     array('#type' => 'select',
           '#title' => t('Application'),
           '#multiple' => TRUE,
           '#required' => TRUE,
-          '#default_value' => $values['fb_app_nids'],
+          '#default_value' => $values['fb_app_labels'],
           '#options' => $options,
           '#description' => t('Perform these actions for each user of which applications?'),
     );
@@ -70,7 +71,7 @@ function fb_actions_cron_per_user_form($values) {
 }
 
 function fb_actions_cron_per_user_submit($form_id, $values) {
-  return array('fb_app_nids' => $values['fb_app_nids'],
+  return array('fb_app_labels' => $values['fb_app_labels'],
                'actions' => $values['actions'],
                'throttle' => $values['throttle'],
   );
@@ -85,8 +86,8 @@ function fb_actions_cron_per_user($obj, $values) {
   //$args = func_get_args();
   //watchdog('fb_action_debug', "fb_actions_cron_per_user" . dpr($args, 1), WATCHDOG_ERROR);
   
-  foreach ($values['fb_app_nids'] as $nid) {
-    $fb_app = fb_get_app(array('nid' => $nid));
+  foreach ($values['fb_app_labels'] as $label) {
+    $fb_app = fb_get_app(array('label' => $label));
     // Set paths as if on a canvas page.
     
     // perform per-user actions by manipulating the global user variable.

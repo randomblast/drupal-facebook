@@ -23,4 +23,28 @@ function fb_connect_update_6200() {
   }
   return $items;
 }
+
+function fb_connect_update_6201() {
+  $items = array();
+  foreach (array('fb_connect_primary', 'fb_connect_login') as $prefix) {
+    $oldvar = $prefix . '_nid';
+    $newvar = $prefix . '_label';
+    // Variable fb_connect_primary_apikey is now fb_connect_primary_nid
+    if ($old = variable_get($oldvar, NULL)) {
+      $result = db_query("SELECT * FROM fb_app WHERE nid = %d",
+                         $old);
+      $data = db_fetch_object($result);
+      if ($data->label) {
+        variable_set($newvar, $data->label);
+        $items[] = array('success' => TRUE, 'query' => "updated $newvar to be $data->label");
+        variable_del($oldvar);
+      }
+      else {
+        $items[] = array('success' => FALSE, 'query' => "Could not find $oldvar by nid ($old)");
+      }
+    }
+  }
+  return $items;
+}
+
 ?>

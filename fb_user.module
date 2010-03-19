@@ -26,7 +26,7 @@ function fb_user_perm() {
  * Returns configuration for this module, on a per-app basis.
  */
 function _fb_user_get_config($fb_app) {
-  $fb_app_data = fb_app_get_data($fb_app);
+  $fb_app_data = fb_get_app_data($fb_app);
   $fb_user_data = $fb_app_data['fb_user'] ? $fb_app_data['fb_user'] : array();
 
   // Merge in defaults
@@ -512,8 +512,8 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     
     // Iterate through all facebook apps, because they do not all use the same
     // map scheme.
-    $result = _fb_app_query_all();
-    while ($fb_app = db_fetch_object($result)) {
+    $apps = fb_get_all_apps();
+    foreach ($apps as $fb_app) {
       $fb_user_data = _fb_user_get_config($fb_app);
       
       $fbu = _fb_user_get_fbu($account->uid, $fb_app);

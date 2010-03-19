@@ -1,7 +1,12 @@
 <?php
 /**
  * @file
- *   Defines a custom node type that stores a facebook application configuration.
+ * Implementation of Drupal for Facebook application.
+ *
+ * For maximum flexibility, DFF allows multiple implementations of the
+ * "application" logic.  The important bit is our implementation of
+ * hook_fb().  This module should suffice for just about everyone, but
+ * if you want to implement your own, go right ahead.
  */
 
 define('FB_APP_REQ_API_KEY', 'fb_sig_api_key');
@@ -13,63 +18,76 @@ define('FB_APP_PATH_EVENT', 'fb_app/event');
 define('FB_APP_OP_EVENT', 'fb_app_event');
 
 /**
- * hook_fb
+ * Implementation of hook_fb().
  */
 function fb_app_fb($op, $data, &$return) {
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   
   if ($op == FB_OP_GET_APP) {
-    // Load app data, using the criteria passed in
-    if (isset($data['nid']))
-      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE fb.nid=%d and status=1",
-                                         $data['nid']));
-    else if (isset($data['apikey'])) {
-      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE apikey='%s' and status=1",
-                                         $data['apikey']));
+    // Load app data, using the criteria passed in.
+    $args = array();
+    $where = array();
+    
+    // This implementation uses 'label' as the unique id.
+    foreach (array(FB_SETTINGS_APP_LABEL, 'label') as $key) {
+      if (isset($data[$key]) &&
+          is_numeric($data[$key])) {
+        // DEPRECATED
+        // for backward compatibility we accept the nid, but that will go away in a later release!
+        $where[] = "(label = '%s' || nid = '%d')";
+        $args[] = $data[$key];
+        $args[] = $data[$key];
+      }
+      else if (isset($data[$key])) {
+        // This is the right way, using label.
+        $where[] = "label = '%s'";
+        $args[] = $data[$key];
+      }
     }
-    else if ($data['label']) {
-      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE label='%s' and status=1",
-                                         $data['label']));
+
+    // We also support these ways to query an app.
+    foreach (array(
+               'fba_id' => '%d', 
+               'apikey' => "'%s'", 
+               'nid' => '%d', // DEPRECATED
+             ) as $key => $type) {
+      if (isset($data[$key])) {
+        $where[] = "$key = $type";
+        $args[] = $data[$key];
+      }
     }
-    if ($fb_app)
+    // Status is a special query.  Admin pages include disabled apps.
+    if (isset($data['status'])) {
+      $where[] = "status >= %d";
+      $args[] = $data['status'];
+    }
+    else {
+      $where[] = "status > 0";
+    }
+    
+    if (count($args)) {
+      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fba WHERE " . implode(' AND ', $where), $args));
+    }
+    if ($fb_app) {
       $return = $fb_app;
-    // If we didn't find the app, maybe someone else has written a module that
-    // stores app info in a different way.
+    }
   }
   else if ($op == FB_OP_GET_ALL_APPS) {
-    // Return all known applications
-    $result = _fb_app_query_all();
+    // Return all known applications, including disabled.
+    $result = db_query("SELECT fba.* FROM {fb_app} fba");
     while ($app = db_fetch_object($result)) {
       $return[] = $app;
     }
   }
-  else if ($op == FB_OP_SET_PROPERTIES) {
-    $url = url(FB_SETTINGS_APP_NID . '/' . $fb_app->nid . '/' . FB_APP_PATH_EVENT, array('absolute' => TRUE)) . '/';
-    $return['uninstall_url'] = $url . FB_APP_EVENT_POST_REMOVE;
-    $return['authorize_url'] = $url . FB_APP_EVENT_POST_AUTHORIZE;
-  }
-  else if ($op == FB_OP_LIST_PROPERTIES) {
-    $return[t('Application Name')] = 'application_name';
-    $return[t('About URL')] = 'about_url';
-    $return[t('Post-Authorize Callback URL')] = 'authorize_url';
-    $return[t('Post-Remove Callback URL')] = 'uninstall_url';
+  else if ($op == FB_OP_POST_INIT) {
+    // Include our admin hooks.
+    if (fb_is_fb_admin_page()) {
+      require drupal_get_path('module', 'fb_app') . '/fb_app.admin.inc';
+    }
   }
 }
 
-
-/**
- * Implementation of something_load() to create custom loader for hook_menu().
- *
- * see "Defining your own wildcard loader" - http://drupal.org/node/209056
- * passing $nid not needed if menu_get_object() were to work.
- */
-function fb_app_nid_load($nid) {
-  $node = node_load($nid);
-  if ($node->type == 'fb_app') {
-    return $node;
-  }
-}
 
 /**
  * Implementation of hook_menu().
@@ -77,15 +95,36 @@ function fb_app_nid_load($nid) {
 function fb_app_menu() {
   $items = array();
   // Allow facebook to notify on various events, like adding or removing an app.
-  $items[FB_APP_PATH_EVENT] = 
-    array('access callback' => TRUE,
-          'page callback' => 'fb_app_event_cb',
-          'type' => MENU_CALLBACK,                     
-    );
+  $items[FB_APP_PATH_EVENT] = array(
+    'access callback' => TRUE,
+    'page callback' => 'fb_app_event_cb',
+    'type' => MENU_CALLBACK,                     
+  );
   
-
+  // Administration.
+  $items[FB_PATH_ADMIN . '/fb_app_create'] = array(
+    'title' => 'Add Application',
+    'description' => t('Host an application on this server.'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fb_app_edit_form'),
+    'access arguments' => array(FB_PERM_ADMINISTER),
+    'file' => 'fb_app.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => -1,
+  );
+  $items[FB_PATH_ADMIN . '/fb_app/%'] = array(
+    'title' => 'Edit Application',
+    'description' => t('Add Facebook Application'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fb_app_edit_form', 4),
+    'access arguments' => array(FB_PERM_ADMINISTER),
+    'file' => 'fb_app.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  
   return $items;
 }
+
 
 /**
  * Callback for FB_APP_PATH_EVENT.
@@ -94,9 +133,14 @@ function fb_app_menu() {
  * hook_fb.  Other modules are thus notified of the event and can take action.
  */
 function fb_app_event_cb($event_type) {
-  fb_invoke(FB_APP_OP_EVENT, array('event_type' => $event_type,
-				   'fb_app' => $GLOBALS['fb_app'],
-				   'fb' => $GLOBALS['fb']));
+  fb_invoke(FB_APP_OP_EVENT, 
+            array(
+              'event_type' => $event_type,
+              'fb_app' => $GLOBALS['fb_app'],
+              'fb' => $GLOBALS['fb']),
+            NULL
+  );
+
   // This page is called by facebook, not a user's browser.
   print('Thanks Facebook, for your fancy API!');
   // Problems if we save session during Facebook Connect, because the event callback's share session with normal pages.
@@ -104,187 +148,6 @@ function fb_app_event_cb($event_type) {
   exit();
 }
 
-/**
- * hook_node_info.
- */
-function fb_app_node_info() {
-  return array('fb_app' =>
-               array('name' => t('Facebook Application'),
-                     'module' => 'fb_app',
-                     'description' => t('Information such as apikey and secret for a facebook.com application.'),
-                     'help' => t('Configure the behavior of your Facebook Application.'),
-               ),
-  );
-}
-
-/**
- * Implementation of hook_access().
- */
-function fb_app_access($op, $node, $account) {
-  if (user_access(FB_PERM_ADMINISTER, $account))
-    return TRUE;
-  if ($op == 'create' && user_access(FB_PERM_CREATE, $account))
-    return TRUE;
-  else if ($op == 'update' || $op == 'delete') {
-    if ($node->uid == $account->uid && 
-        user_access(FB_PERM_EDIT_OWN, $account))
-      return TRUE;
-  }
-}
-
-/**
- * Implementation of hook_form().
- */
-function fb_app_form(&$node, &$param) {
-  // Helpful link
-  if (!$node->nid) {
-    drupal_set_message(t("Before completing this form, <a href=!url>create your application</a> on Facebook.",
-                         array('!url' => 'http://www.facebook.com/developers/editapp.php?new')));
-  }
-  $form = array();
-  $type = node_get_types('type', $node);
-  // We need to define form elements for the node's title and body. 
-  $form['title'] = array('#type' => 'textfield', 
-                         '#title' => check_plain($type->title_label), 
-                         '#required' => TRUE, 
-                         '#default_value' => $node->title, 
-                         '#weight' => -5,
-                         '#description' => t('Identifies the application to site administrators.'),
-  );
-  // We want the body and filter elements to be adjacent. We could try doing 
-  // this by setting their weights, but another module might add elements to the 
-  // form with the same weights and end up between ours. By putting them into a 
-  // sub-array together, we're able force them to be rendered together. 
-  $form['body_filter']['body'] = 
-    array('#type' => 'textarea', 
-          '#title' => check_plain($type->body_label), 
-          '#default_value' => $node->body, 
-          '#required' => FALSE,
-          '#description' => 'A brief description of the application.',
-    ); 
-  $form['body_filter']['filter'] = filter_form($node->format); 
-  
-  // Now we define the form elements specific to our node type. 
-  
-  $form['fb_app'] = array('#tree' => TRUE,
-                          '#weight' => -4,
-                          '#validate' => array('fb_app_validate_fb_app' => array()),
-  );
-  $form['fb_app']['label'] = array('#type' => 'textfield',
-                                   '#title' => t('Label'),
-                                   '#required' => TRUE,
-                                   '#default_value' => $node->fb_app->label,
-                                   '#description' => t('Used behind the scenes, for naming roles, styles, etc.  Use no spaces or weird characters.<br/>Working with multiple copies of a site (i.e. development, staging, production)?  Use the <strong>same</strong> label for each.  Node id and apikey will change from server to server, but the label remains the same.'),
-  );
-  $form['fb_app']['apikey'] = array('#type' => 'textfield',
-                                    '#title' => t('API Key'),
-                                    '#required' => TRUE,
-                                    '#default_value' => $node->fb_app->apikey,
-                                    '#description' => t('Facebook will generate this value when you create the application.'),
-  );
-  $form['fb_app']['secret'] = array('#type' => 'textfield',
-                                    '#title' => t('Secret'),
-                                    '#required' => TRUE,
-                                    '#default_value' => $node->fb_app->secret,
-                                    '#description' => t('Facebook will generate this value when you create the application.'),
-  );
-  
-  $form['fb_app']['id'] = array('#type' => 'textfield',
-                                '#title' => t('Facebook App ID'),
-                                '#required' => FALSE,
-                                '#default_value' => $node->fb_app->id,
-                                '#description' => t('To learn this number, visit your app\'s About Page (or other links from Facebook\'s Developer App).  The URL will end in ?id=1234...  Enter the number that follows "?id=" here.'),
-  );
-  
-  // fb_app_data is a placeholder to make it easier for other module to attach
-  // various settings to the node.
-  $form['fb_app_data'] = array('#tree' => TRUE);  
-
-  // Add our own fields to fb_app_data.  Other modules use hook_form_alter to do this.
-  $fb_app_data = fb_app_get_data($node->fb_app);
-  $data = $fb_app_data['fb_app'];
-  if (!$data)
-    $data = array('set_app_props' => TRUE); // defaults
-
-  $form['fb_app_data']['fb_app']['set_app_props'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Set Application Properties Automatically'),
-    '#description' => t('Automatically update Facebook settings for this application.  Disable to prevent customized settings from being overwritten.'),
-    '#default_value' => $data['set_app_props'],
-  );
-
-  return $form;
-}
-
-/**
- * Implementation of hook_validate().
- */
-function fb_app_validate($node) {
-  // TODO: check label is unique, and role name will be unique.
-  // check apikey is unique, canvas page is unique
-  
-  $fb_app = (object) $node->fb_app;
-  fb_app_get_app_properties($fb_app);
-  if (!$fb_app->application_name) {
-    form_set_error('fb_app][apikey', t('Unable to get application properties.  Confirm both apikey and secret.'));
-  }
-}
-
-function fb_app_validate_fb_app() {
-  //dpm(func_get_args(), 'fb_app_validate_fb_app');
-}
-
-
-/**
- * Implementation of hook_load().
- */
-function fb_app_load($node) {
-  $fb_app = db_fetch_object(db_query('SELECT * FROM {fb_app} WHERE nid=%d',
-                                     $node->nid));
-  $fb_app_data = fb_app_get_data($fb_app);
-  return array('fb_app' => $fb_app,
-               'fb_app_data' => $fb_app_data,
-  );
-}
-
-/**
- * Implementation of hook_view().
- */
-function fb_app_view($node, $teaser=FALSE, $page=FALSE) {
-  $node = node_prepare($node, $teaser);
-  
-  $fb_app = (object) $node->fb_app; // cast in case of preview
-  fb_app_get_app_properties($fb_app);
-  // Perhaps this info should be hidden, unless user can edit node.
-  if (user_access(FB_PERM_ADMINISTER)) {
-    if(isset($fb_app->edit_url)) {
-      $node->content['edit_link'] = array(
-        '#value' => '<p>' . t('<a href="!url">Edit this application</a> on Facebook.', array('!url' => $fb_app->edit_url)) . '</p>',
-        '#type' => 'markup',
-      );
-    }
-
-    $node->content['fb_app'] = 
-      array('#value' => theme('fb_app', $fb_app),
-            '#weight' => 1);
-    
-  }
-  return $node;
-}
-
-function fb_app_theme() {
-  return array(
-    'fb_app' => array(
-      'arguments' => array('data' => NULL),
-      ),
-    'dl' => array(
-      'arguments' => array('items' => NULL),
-      ),
-    'fb_app_user_info' => array(
-      'arguments' => array('fb_app' => NULL, 'info' => NULL),
-      ),
-  );
-}
 
 function fb_app_get_about_url($fb_app) {
   if ($fb_app->id)
@@ -292,13 +155,14 @@ function fb_app_get_about_url($fb_app) {
                array('query' => array('id' => $fb_app->id)));
 }
 
+// Not currently used, AFAIK.
 function theme_fb_app($fb_app) {
   // Get known properties
   $props_map = fb_invoke(FB_OP_LIST_PROPERTIES, array('fb_app' => $fb_app), array());
   $data = array(
     t('Label') => $fb_app->label,
     t('API Key') => $fb_app->apikey,
-    t('Secret') => $fb_app->secret,
+    //t('Secret') => $fb_app->secret,
   );
   foreach ($props_map as $name => $key) {
     if (isset($fb_app->$key))
@@ -309,141 +173,7 @@ function theme_fb_app($fb_app) {
   return $output;
 }
 
-// this belongs elsewhere
-function theme_dl($items) {
-  if (count($items)) {
-    $output = "<dl>\n";
-    foreach ($items as $term => $data) {
-      $output .= "  <dt>$term</dt><dd>$data</dd>\n";
-    }
-    $output .= "</dl>\n";
-    return $output;
-  }
-}
 
-/**
- * Get properties from Facebook.  Fills in the data that we need to
- * know by querying facebook.
- */
-function fb_app_get_app_properties(&$fb_app) {
-  static $cache;
-  static $props_map;
-  if (!isset($cache)) {
-    $cache = array();
-    // http://wiki.developers.facebook.com/index.php/ApplicationProperties
-    $props_map = array(
-      t('About URL') => 'about_url',
-      t('Application Name') => 'application_name',
-      t('Edit URL') => 'edit_url',
-    );
-    $props_map = fb_invoke(FB_OP_LIST_PROPERTIES, array('fb_app' => $fb_app), $props_map);
-  }
-  
-  if (!isset($cache[$fb_app->apikey])) {
-    if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
-      try {
-        $props = $fb->api_client->admin_getAppProperties(array_values($props_map));
-        $cache[$fb_app->apikey] = $props;
-      } catch (Exception $e) {
-        fb_log_exception($e, t('Failed to get application properties from Facebook'));
-      }
-    }
-  }
-  else {
-    $props = $cache[$fb_app->apikey];
-  }
-  
-  // Update $fb_app with the values we got from facebook api.
-  foreach ($props_map as $key) {
-    if ($props[$key]) {
-      $fb_app->$key = $props[$key];
-    }
-  }
-}
-
-function fb_app_set_app_properties($fb_app) {
-  $fb_app_data = fb_app_get_data($fb_app);
-  if ($fb_app_data['fb_app']['set_app_props']) {
-    $props = fb_invoke(FB_OP_SET_PROPERTIES, array('fb_app' => $fb_app), array());
-    if (count($props)) {
-      if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
-        try {
-          $fb->api_client->admin_setAppProperties($props);
-        } catch (Exception $e) {
-          fb_log_exception($e, t('Failed to set application properties on Facebook'));
-        }
-      }
-    }
-  }
-}
-
-function fb_app_insert($node) {
-  $fb_app = (object) $node->fb_app;
-  fb_app_get_app_properties($fb_app); // Get canvas and possible other props
-  $fb_app->data = serialize($node->fb_app_data);
-  $fb_app->nid = $node->nid;
-  
-  db_query("INSERT INTO {fb_app} (nid, label, apikey, secret, id, canvas, data) VALUES (%d, '%s', '%s', '%s', '%s', '%s', '%s')",
-           $node->nid, $fb_app->label, $fb_app->apikey, $fb_app->secret,
-           $fb_app->id,
-           $fb_app->canvas_name,
-           $fb_app->data
-  );
-
-  watchdog('fb_app', 'Created Facebook Application %label.',
-           array('%label' => $fb_app->label,
-           ),
-           WATCHDOG_NOTICE,
-           l($node->title, 'node/'.$node->nid));
-  
-  fb_app_set_app_properties($fb_app); // Set callback URL, etc.
-}
-
-function fb_app_update($node) {
-  $fb_app = (object) $node->fb_app;
-  fb_app_get_app_properties($fb_app); // Get canvas and possible other props
-  $fb_app->data = serialize($node->fb_app_data);
-  $fb_app->nid = $node->nid;
-  
-  db_query("UPDATE {fb_app} SET label='%s', apikey='%s', secret='%s', id='%s', canvas='%s', data='%s' WHERE nid=%d",
-           $fb_app->label, $fb_app->apikey, $fb_app->secret,
-           $fb_app->id,
-           $fb_app->canvas_name,
-           $fb_app->data,
-           $node->nid);
-  
-  fb_app_set_app_properties($fb_app); // Set callback URL, etc.
-}
-
-function fb_app_delete($node) {
-  db_query('DELETE FROM {fb_app} WHERE nid=%d',
-           $node->nid);
-  // Should we unset properties on facebook?
-}
-
-
-/**
- * Convenience method for other modules to attach data to the fb_app object.
- */
-function fb_app_get_data(&$fb_app) {
-  if (!isset($fb_app->fb_app_data)) {
-    $fb_app->fb_app_data = isset($fb_app->data) ? unserialize($fb_app->data) : array();
-  }
-  return $fb_app->fb_app_data;
-}
-
-/**
- * Helper function returns a database query for all apps.
- */
-function _fb_app_query_all() {
-  $result = db_query("SELECT fb.*, n.title FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE status=1");
-  return $result;
-}
-function _fb_app_query_by_label($label) {
-  $result = db_query("SELECT fb.*, n.title FROM {fb_app} fb INNER JOIN {node} n ON n.nid=fb.nid WHERE n.status=1 AND fb.label = '%s'", 
-                     $label);
-  return $result;
-}
 
 /**
  * Implementation of hook_user.
@@ -451,8 +181,8 @@ function _fb_app_query_by_label($label) {
 function fb_app_user($op, &$edit, &$account, $category = NULL) {
   $items = array();
   if ($op == 'view') {
-    $result = _fb_app_query_all();
-    while ($fb_app = db_fetch_object($result)) {
+    $apps = fb_get_all_apps();
+    foreach ($apps as $fb_app) {
       // Learn this user's FB id
       $fbu = fb_get_fbu($account->uid, $fb_app);
       if ($fbu) {
@@ -474,6 +204,7 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
 	  }
         }
         if (isset($info) && count($info)) {
+          // Is this working properly??? TODO!
           $output = theme('fb_app_user_info', $fb_app, $info[0]);
           
           $items[$fb_app->label] = array('title' => $fb_app->title,
