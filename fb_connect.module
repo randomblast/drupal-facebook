@@ -740,16 +740,17 @@ function theme_fb_connect_fbml_username($fbu, $object, $orig) {
   if (!$fbu) {
     return $orig;
   }
-  $ifcantsee = $object->name;
-  $fbml = "<fb:name linked=false useyou=false uid=\"$fbu\" ifcantsee=\"$ifcantsee\"></fb:name>";
+
   $wrap_pre = "<span class=fb_connect_hide>$orig</span><span class=fb_connect_show style='display:none'>";
   $wrap_post = "</span>\n";
   if ($object->uid && user_access('access user profiles')) {
     // Provide link if local account.
     $wrap_pre = $wrap_pre . '<a href="' . url('user/' . $object->uid) . '">';
     $wrap_post = '</a>' . $wrap_post;
+    $ifcantsee = 'ifcantsee="' . addslashes(check_plain($object->name)) . '"';
   }
-  $output =  $wrap_pre . $fbml . $wrap_post;
+  
+  $fbml = "<fb:name linked=false useyou=false uid=\"$fbu\" $ifcantsee></fb:name>";  $output =  $wrap_pre . $fbml . $wrap_post;
 
   return $output;
 }
