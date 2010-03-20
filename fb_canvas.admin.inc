@@ -29,25 +29,31 @@ function fb_canvas_admin_settings() {
 
   $form['process_settings'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Special Text Processing'),
-    '#description' => t('Automatically re-write links in canvas pages?  Recommended you leave these items checked, unless you are quite sure your theme has been specially written to handle it.'),
+    '#title' => t('URL processing'),
+    '#description' => t('This option alters links, so that instead of referring directly to this server, they point to <em>apps.facebook.com/APP/...</em>.  While this impedes the performance of your server, it is recommended unless you are quite sure your theme and/or code has been specially written to handle this some other way.'),
   );
   $form['process_settings'][FB_CANVAS_VAR_PROCESS_FBML] = array(
     '#type' => 'checkbox',
     '#title' => t('Enable on all FBML canvas pages.'),
     '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_FBML, TRUE),
   );
-  $form['process_settings'][FB_CANVAS_VAR_PROCESS_FBML_FORM] = array(
+  $form['process_settings'][FB_CANVAS_VAR_PROCESS_IFRAME] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Enable on iframe pages and iframes embedded in FBML.'),
+    '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_IFRAME, TRUE),
+  );
+  $form['form_settings'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Form handling'),
+    '#description' => t('On canvas pages, forms can be submitted to a URL that starts <em>apps.facebook.com/APP/...</em>.  However, this allows facebook.com to observe all data posted by your users.  <em>And</em> prevents file uploads from working.  <em>And</em> prevents Drupal\'s #value fields such as those used in <em>captcha</em> from working properly.  By selecting this option, forms will instead submit directly to this server, and the user then redirected back to <em>apps.facebook.com/APP/...</em> where they should see the page they were intended to see.  (It\'s magic that should <em>just work</em>.)'),
+  );
+  $form['form_settings'][FB_CANVAS_VAR_PROCESS_FBML_FORM] = array(
     '#type' => 'checkbox',
     '#title' => t('Enable on FBML pages, when form submitted.'),
     '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_FBML_FORM, TRUE),
-    '#description' => t('Leave this <strong>checked</strong> unless you have made other modifications for form submissions on canvas pages.'),
+    '#description' => t('Leave this <strong>checked</strong> unless you have made other modifications to support form submissions on canvas pages.'),
   );
-  $form['process_settings'][FB_CANVAS_VAR_PROCESS_IFRAME] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Enable on all iframe canvas pages.'),
-    '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_IFRAME, TRUE),
-  );
+  
   return system_settings_form($form);
 }
 

@@ -181,7 +181,7 @@ function fb_canvas_fb($op, $data, &$return) {
        but so far have not figured another way.  And so far no
        problems... if problems arise, please post to issue queue.
     */
-
+    
     $destination = $return;
     
     if ($GLOBALS['fb_canvas_post_process']) {
@@ -195,12 +195,14 @@ function fb_canvas_fb($op, $data, &$return) {
       }
     }
     
-    if (fb_canvas_handling_form()) {
+    if (fb_canvas_handling_form() && $output) {
+      // Avoid infinite loop if we get called from drupal_goto.
+      fb_canvas_handling_form(FALSE);
+      
       // Special handling for forms submitted to Drupal from FBML canvas pages.
       // Cache the results to show the user later.
       $token = uniqid('fb_');
       $cid = session_id() . "_$token";
-      watchdog('fb', "Storing cached form page $cid, then redirecting");
       cache_set($cid, $output, 'cache_page', time() + (60 * 5), drupal_get_headers()); // (60 * 5) == 5 minutes
       
       $dest = 'http://apps.facebook.com/' . $fb_app->canvas . "/fb/form_cache/$cid";
@@ -213,13 +215,16 @@ function fb_canvas_fb($op, $data, &$return) {
           $query[] = $key . '=' . $_REQUEST[$key];
       }
       
-      //drupal_goto honors $_REQUEST['destination'], but we only want that when no errors occurred
+      // drupal_goto honors $_REQUEST['destination'], but we only want
+      // that when no errors occurred.
       if (form_get_errors()) {
         unset($_REQUEST['destination']);
         if ($_REQUEST['edit'])
           unset($_REQUEST['edit']['destination']);
       }
-      
+      if (fb_verbose() == 'extreme') {
+        watchdog('fb', "Storing cached form page $cid, then redirecting to $dest, query is " . implode('&', $query));
+      }
       drupal_goto($dest, implode('&', $query), NULL, 303); // appears to work
     }
     if (fb_canvas_is_fbml() || fb_canvas_is_iframe()) {
@@ -375,22 +380,17 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
     // We're in a facebook callback
     
     if (!isset($form['fb_canvas_form_handler'])) {
-      $form['fb_canvas_form_handler'] = array();
+      // Use the form data structure to keep track of whether data is
+      // posted directly to us, via absolute URL, or instead via
+      // relative URL on apps.facebook.com/...
+      $form['fb_canvas_form_handler'] = array(
+        '#action_fb' => $form['#action'],
+        '#action_local' => _fb_canvas_make_form_action_local($form['#action']),
+      );
       
-      // This variable tells us to handle the form on submit.
-      // Can't use 'fb_handling_form' because facebook strips it.
-      $form['fb_canvas_form_handler']['_fb_handling_form'] = array('#value' => TRUE,
-								   '#type' => 'hidden');
-      
-      // We need to make sure the action goes to our domain and not apps.facebook.com, so here we tweak the form action.
-      $form['fb_canvas_form_handler']['#action_old'] = isset($form['action']) ? $form['action'] : NULL;
-      if ($form['#action'] == '') {
-	$form['#action'] = $_GET['q'];
-      }
-      $form['#action'] = _fb_canvas_make_form_action_local($form['#action']);
-
-      $form['fb_canvas_form_handler']['#action_new'] = $form['#action'];
-      // We've stored #action_old and #action_new so custom modules have the option to change it back.
+      // This helper function allows third-party modules to control
+      // where the post goes.  By default use local server.
+      fb_canvas_form_action_via_facebook($form, FALSE);      
     }
     
     // Drupal includes wacky markup for javascript junk in node forms.  It
@@ -421,11 +421,21 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
  * Call this from your form_alter hook to prevent changes to the
  * form's default action.
  */
-function fb_canvas_form_action_via_facebook(&$form) {
-  if ($form['fb_canvas_form_handler']) {
-    $form['#action'] = $form['fb_canvas_form_handler']['#action_old'];
+function fb_canvas_form_action_via_facebook(&$form, $use_facebook = TRUE) {
+  if (isset($form['fb_canvas_form_handler'])) {
+    if ($use_facebook) {
+      $form['#action'] = $form['fb_canvas_form_handler']['#action_fb'];
+      $form['fb_canvas_form_handler']['_fb_handling_form'] = array(
+        '#value' => FALSE,
+        '#type' => 'hidden');
+    }
+    else {
+      $form['#action'] = $form['fb_canvas_form_handler']['#action_local'];      
+      $form['fb_canvas_form_handler']['_fb_handling_form'] = array(
+        '#value' => TRUE,
+        '#type' => 'hidden');
+    }
   }
-  $form['fb_canvas_form_handler'] = array();
 }
 
 
@@ -469,20 +479,29 @@ function fb_canvas_is_iframe() {
   }
 }
 
-function fb_canvas_handling_form() {
+function fb_canvas_handling_form($value = NULL) {
   global $fb;
   
   // Test whether a form has been submitted via facebook canvas page.
-  if ($fb && isset($_REQUEST['_fb_handling_form']))
-    return TRUE;
+  if ($fb && isset($_REQUEST['_fb_handling_form'])) {
+    $result = $_REQUEST['_fb_handling_form'];
+  }
+  if (isset($value)) {
+    $_REQUEST['_fb_handling_form'] = $value;
+  }
+  return $result;
 }
 
 
 // This may need work
-function _fb_canvas_make_form_action_local($action) {
+function _fb_canvas_make_form_action_local($action = NULL) {
   //dpm($action, "_fb_canvas_make_form_action_local");
   global $base_path;
 
+  if (!isset($action)) {
+    $action = $_GET['q'];
+  }
+  
   // If action is fully qualified, do not change it
   if (strpos($action, ':'))
     return $action;

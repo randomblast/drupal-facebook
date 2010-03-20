@@ -737,8 +737,10 @@ function _fb_form_cache_cb($cid) {
   // Facebook started appending a '?', we need to get rid of it.
   if ($pos = strpos($cid, '?'))
     $cid = substr($cid, 0, $pos);
-
-  watchdog('fb', "Returning cached form page $cid");
+  
+  if (fb_verbose() == 'extreme') {
+    watchdog('fb', "Returning cached form page $cid"); // debug
+  }
   $cache = cache_get($cid, 'cache_page');
   // Don't clear, as user may refresh browser.  Cache will expire eventually.
   // cache_clear_all($cid, 'cache_page');
