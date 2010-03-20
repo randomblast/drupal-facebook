@@ -75,25 +75,25 @@ function fb_init() {
     // Session sanity check.  This is relevant on iframe pages when user once
     // had the app added, but has since removed it.  This is a bit of a hack
     // because we rely on the fb_... params passed by facebook.
-    if (isset($_SESSION['fb_frame_params']) &&
-	$_REQUEST['fb_sig']) {
+    if (isset($_SESSION['fb_frame_params']) && $_REQUEST['fb_sig']) {
       if (!isset($_REQUEST['fb_sig_session_key']) ||
           $_REQUEST['fb_sig_session_key'] != $_SESSION['fb_frame_params']['session_key']) {
-	// The session key from facebook has changed.  Treat this as a new session.
-	$req = array();
-	foreach ($_REQUEST as $key => $val) {
-	  if (strpos($key, 'fb_') === 0)
-	    $req[] = $key . '=' . $val;
-	}
+        // The session key from facebook has changed.  Treat this as a new session.
+        $req = array();
+        foreach ($_REQUEST as $key => $val) {
+          if (strpos($key, 'fb_') === 0)
+            $req[] = $key . '=' . $val;
+        }
         $url = url($_REQUEST['q'], array('query' => $req, 'absolute' => TRUE));
-	if (fb_verbose())
-	  watchdog('fb_debug', 'Facebook session key was "%old", now "%new".  Destroying session and sending user to %url.',
-                   array('%old' => $_SESSION['fb_frame_params']['session_key'],
-                         '%new' => $_REQUEST['fb_sig_session_key'],
-                         '%url' => $url));
-	
-	session_destroy();
-	drupal_goto($url);
+        if (fb_verbose() == 'extreme')
+          watchdog('fb_debug', 'Facebook session key was "%old", now "%new".  Destroying session and sending user to %url.', array(
+              '%old' => $_SESSION['fb_frame_params']['session_key'],
+              '%new' => $_REQUEST['fb_sig_session_key'],
+              '%url' => $url,
+            ));
+        
+        session_destroy();
+        drupal_goto($url);
       }
     }
   }
@@ -114,25 +114,27 @@ function fb_init() {
                                '!readme' => '<a href='. base_path() . drupal_get_path('module', 'fb') .'/README.txt>README.txt</a>')), 'error');
   }
   
-  // Ask other modules for app detail
+  // Ask other modules for app details.
   $fb_app = fb_invoke(FB_OP_CURRENT_APP);
 
   if ($fb_app) {
     // we are in a callback
     
-    // For canvas pages, use current user, never infinite session.
+    // For canvas and connect pages, use current user.
     $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
     
     if ($fb) {
       // Give other modules a chance to initialize, require login, etc...
-      fb_invoke(FB_OP_INITIALIZE, array('fb_app' => $fb_app,
-                                        'fb' => $fb));
+      fb_invoke(FB_OP_INITIALIZE, array(
+          'fb_app' => $fb_app,
+          'fb' => $fb));
       
       // See if the facebook user id is known
       if ($fbu = $fb->get_loggedin_user()) {
-	fb_invoke(FB_OP_APP_IS_AUTHORIZED, array('fb_app' => $fb_app,
-						 'fb' => $fb,
-						 'fbu' => $fbu));
+        fb_invoke(FB_OP_APP_IS_AUTHORIZED, array(
+            'fb_app' => $fb_app,
+            'fb' => $fb,
+            'fbu' => $fbu));
       }
     }
     else
@@ -391,6 +393,18 @@ function fb_is_iframe_canvas() {
     if (isset($GLOBALS['fb'])) {
       return $GLOBALS['fb']->in_frame();
     }
+  }
+}
+
+function fb_is_connect() {
+  // fb_settings.inc sets this global.
+  if (isset($GLOBALS['_fb_connect_apikey'])) {
+    return $GLOBALS['_fb_connect_apikey'];
+  }
+  elseif (function_exists('fb_connect_get_app')) {
+    $fb_app = fb_connect_get_app();
+    if (isset($fb_app))
+      return $fb_app->apikey;
   }
 }
 

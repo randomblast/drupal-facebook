@@ -41,6 +41,7 @@ function fb_devel_fb($op, $data, &$return) {
 
   if ($op == FB_OP_INITIALIZE) {
     $label = fb_settings(FB_SETTINGS_APP_LABEL);
+
     // deprecated nid check.
     if ($label == $fb_app->nid) {
       $message = t('Facebook callback is using deprecated node id (%nid) instead of application label (%label).  <a href="!url">Editing the application</a> will usually correct this problem, which was caused by an update to the Drupal for Facebook modules.  Sorry for the inconvenience.', array('%nid' => $fb_app->nid, '%label' => $fb_app->label, '!url' => url(FB_PATH_ADMIN)));
@@ -70,6 +71,18 @@ function fb_devel_fb($op, $data, &$return) {
                          '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>'));
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
+    }
+
+    // Catch badly formed links ASAP.
+    if ($label && (fb_is_connect() && !fb_is_iframe_canvas())) {
+      // Skip check on callbacks from facebook.
+      if ((arg(0) != 'fb_app') || (arg(1) != 'event')) {
+        $message = t('URL starts with %prefix.  This should never happen on connect pages.  Did the previous page have a badly formed link?', array(
+                     '%prefix' => FB_SETTINGS_APP_LABEL . '/' . $label,
+                   ));
+        drupal_set_message($message, 'error');
+        $errors++;
+      }
     }
     
     // path replacement sanity check

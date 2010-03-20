@@ -117,9 +117,9 @@ if ($label && isset($_REQUEST['fb_sig_api_key'])) {
    
    if ($apikey && isset($_COOKIE[$apikey . '_ss'])) {
      // We're logged into Facebook Connect.
-     
+       
      // Use globals to remember some values, for fb_connect.module to use.
-     $GLOBALS['fb_connect_apikey'] = $apikey;
+     $GLOBALS['_fb_connect_apikey'] = $apikey;
      
      // Rename the session id, so the Facebook Connect session is distinct from the original drupal session.
      $new_session_id = 'fb_connect.' . $_COOKIE[$apikey . '_session_key'];
@@ -140,7 +140,7 @@ if (isset($new_session_id)) {
   }
   if ($new_session_id != $orig_session_id) {
     session_id($new_session_id);
-    if (isset($GLOBALS['fb_connect_apikey'])) {
+    if (isset($GLOBALS['_fb_connect_apikey'])) {
       // We can preserve the session state when going into fbconnect
       db_query("DELETE FROM {sessions} WHERE sid='%s'", $new_session_id);
       db_query("UPDATE {sessions} SET sid = '%s' WHERE sid = '%s'", $new_session_id, $orig_session_id);

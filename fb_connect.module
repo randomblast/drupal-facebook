@@ -101,22 +101,25 @@ HTML;
  */
 function fb_connect_app_init($fb_app) {
   if (isset($GLOBALS['fb_app']) && fb_is_iframe_canvas() &&
-      $GLOBALS['fb_app']->apikey != $fb_app->apikey) {
+    $GLOBALS['fb_app']->apikey != $fb_app->apikey) {
     // If we're in an iframe, only support connect for the iframe app.
     return;
   }
-
+  
   if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
     $fbu = $fb->get_loggedin_user();
     // TODO: sometimes this method indicates we are logged in when we really are not.  Find a way to verify.
     if ($fbu &&
-        (!isset($GLOBALS['fb_app']) || $GLOBALS['fb_app']->apikey != $fb_app->apikey)) {
+      (!isset($GLOBALS['fb_app']) || $GLOBALS['fb_app']->apikey != $fb_app->apikey)) {
       // The user has authorized the app and we now know something about them.  Use a hook to trigger the actions of other modules.
       fb_invoke(FB_OP_APP_IS_AUTHORIZED, array('fbu' => $fbu,
-                                               'fb_app' => $fb_app,
-                                               'fb' => $fb));
+          'fb_app' => $fb_app,
+          'fb' => $fb));
     }
     
+    // Remember which app we've initialized.
+    _fb_connect_set_app($fb_app);
+
     // Store state in session
     if (!isset($_SESSION['fb_connect'])) {
       $_SESSION['fb_connect'] = array();
@@ -125,6 +128,23 @@ function fb_connect_app_init($fb_app) {
     
   }
   return $fb;
+}
+
+/**
+ * Helper function for other modules to know page is connected.
+ * 
+ * Note that this may return data on connect pages and in iframe apps
+ * (depending on how iframe is configured).
+ */
+function fb_connect_get_app() {
+  return _fb_connect_set_app();
+}
+function _fb_connect_set_app($fb_app = NULL) {
+  static $cache;
+  if (isset($fb_app)) {
+    $cache = $fb_app;
+  }
+  return $cache;
 }
 
 /**
@@ -190,20 +210,19 @@ function _fb_connect_add_js() {
   static $just_once;
   if (!isset($just_once)) {
     $base = drupal_get_path('module', 'fb_connect');
-    if (isset($GLOBALS['fb_connect_apikey'])) {
+    if (isset($GLOBALS['_fb_connect_apikey'])) {
       // If here, fb connect cookies are set.
-      $fbu = $_COOKIE[$GLOBALS['fb_connect_apikey'] . "_user"];
+      $fbu = $_COOKIE[$GLOBALS['_fb_connect_apikey'] . "_user"];
     }
     else {
       $fbu = NULL;
     }
     drupal_add_js(array('fb_connect' => array(
-                          'front_url' => url('<front>'),
-                          'fbu' => $fbu,
-                          // Is there a better way to keep track of iframe?
-                          'in_iframe' => (isset($_REQUEST['fb_sig_in_iframe']) && $_REQUEST['fb_sig_in_iframe']),
-                        ),
-                  ), 'setting');
+          'front_url' => url('<front>'),
+          'fbu' => $fbu,
+          'in_iframe' => fb_is_iframe_canvas(),
+        ),
+                       ), 'setting');
     drupal_add_js($base . '/fb_connect.js');
     $just_once = TRUE;
   }
