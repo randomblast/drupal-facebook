@@ -1,4 +1,10 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Admin pages and forms for connect settings.
+ * 
+ */
 
 /**
  * Implementation of hook_fb_admin().
@@ -8,7 +14,7 @@ function fb_connect_fb_admin($op, $data, &$return) {
     // We need to set the Facebook Connect URL, but currently Facebook's APIs do not allow it.
     $return['connect_url'] = fb_connect_get_connect_url($data['fb_app']);
   }
-  else if ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
+  elseif ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
     $return[t('Connect URL')] = 'connect_url';
   }
 }
@@ -71,4 +77,3 @@ function fb_connect_admin_settings() {
   return system_settings_form($form);
 }
 
-?>

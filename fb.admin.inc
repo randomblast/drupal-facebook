@@ -1,4 +1,12 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Admin pages and forms for Drupal for Facebook.
+ * 
+ */
+
+
 define('FB_ADMIN_HOOK', 'fb_admin');
 
 define('FB_ADMIN_OP_SET_PROPERTIES', 'set_props'); // build props for admin.setAppProperties

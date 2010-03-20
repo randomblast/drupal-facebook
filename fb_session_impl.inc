@@ -1,5 +1,5 @@
 <?php
-
+// $Id$
 /**
  * @file
  * Re-write of Drupal's session.inc, for facebook-controlled sessions.
@@ -99,7 +99,7 @@ function sess_regenerate() {
  * @return  int
  *   The number of users with sessions.
  */
-function sess_count($timestamp = 0, $anonymous = true) {
+function sess_count($timestamp = 0, $anonymous = TRUE) {
   $query = $anonymous ? ' AND uid = 0' : ' AND uid > 0';
   return db_result(db_query('SELECT COUNT(sid) AS count FROM {sessions} WHERE timestamp >= %d'. $query, $timestamp));
 }

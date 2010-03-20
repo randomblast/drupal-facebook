@@ -39,7 +39,7 @@ function fb_app_fb($op, $data, &$return) {
         $args[] = $data[$key];
         $args[] = $data[$key];
       }
-      else if (isset($data[$key])) {
+      elseif (isset($data[$key])) {
         // This is the right way, using label.
         $where[] = "label = '%s'";
         $args[] = $data[$key];
@@ -73,14 +73,14 @@ function fb_app_fb($op, $data, &$return) {
       $return = $fb_app;
     }
   }
-  else if ($op == FB_OP_GET_ALL_APPS) {
+  elseif ($op == FB_OP_GET_ALL_APPS) {
     // Return all known applications, including disabled.
     $result = db_query("SELECT fba.* FROM {fb_app} fba");
     while ($app = db_fetch_object($result)) {
       $return[] = $app;
     }
   }
-  else if ($op == FB_OP_POST_INIT) {
+  elseif ($op == FB_OP_POST_INIT) {
     // Include our admin hooks.
     if (fb_is_fb_admin_page()) {
       require drupal_get_path('module', 'fb_app') . '/fb_app.admin.inc';
@@ -104,7 +104,7 @@ function fb_app_menu() {
   // Administration.
   $items[FB_PATH_ADMIN . '/fb_app_create'] = array(
     'title' => 'Add Application',
-    'description' => t('Host an application on this server.'),
+    'description' => 'Host an application on this server.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fb_app_edit_form'),
     'access arguments' => array(FB_PERM_ADMINISTER),
@@ -114,7 +114,7 @@ function fb_app_menu() {
   );
   $items[FB_PATH_ADMIN_APPS . '/%fb/fb_app'] = array(
     'title' => 'Edit',
-    'description' => t('Add Facebook Application'),
+    'description' => 'Add Facebook Application',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fb_app_edit_form', FB_PATH_ADMIN_APPS_ARGS),
     'access arguments' => array(FB_PERM_ADMINISTER),
@@ -190,27 +190,28 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app, FB_FBU_ANY);
         if (fb_facebook_user($fb)) {
-	  try {
-	    $info = $fb->api_client->users_getInfo(array($fbu), 
-						   array('about_me',
-							 'affiliations',
-							 'name',
-							 'is_app_user',
-							 'pic_big',
-							 'profile_update_time',
-							 'status',
-							 ));
-	  } catch (Exception $e) {
-	    fb_log_exception($e, "Failed to get Facebook user info for account $fbu");
-	  }
+          try {
+            $info = $fb->api_client->users_getInfo(array($fbu), array(
+                      'about_me',
+                      'affiliations',
+                      'name',
+                      'is_app_user',
+                      'pic_big',
+                      'profile_update_time',
+                      'status',
+                    ));
+          } catch (Exception $e) {
+            fb_log_exception($e, "Failed to get Facebook user info for account $fbu");
+          }
         }
         if (isset($info) && count($info)) {
           // Is this working properly??? TODO!
           $output = theme('fb_app_user_info', $fb_app, $info[0]);
           
-          $items[$fb_app->label] = array('title' => $fb_app->title,
-                                         'value' => $output,
-                                         'class' => 'fb_app');
+          $items[$fb_app->label] = array(
+            'title' => $fb_app->title,
+            'value' => $output,
+            'class' => 'fb_app');
         }
         else
           fb_report_errors($fb);
@@ -223,17 +224,23 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
 
 function theme_fb_app_user_info($fb_app, $info) {
   if (isset($info['pic_big']))
-    $output = '<p><img src="'.$info['pic_big'].'" /></p>';
-  $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', array('query' => 'id=' . $info['uid']));
-  if ($info['is_app_user'])
-    $output .= '<p>' . t('!fb_link uses %title',
-                         array('!fb_link' => $fb_link,
-                               '%title' => $fb_app->title)) . '</p>';
-  else
-    $output .= '<p>'. t('!fb_link does not use %title',
-                        array('!fb_link' => $fb_link,
-                              '%title' => $fb_app->title)) . '</p>';
+    $output = '<p><img src="'. $info['pic_big'] .'" /></p>';
 
+  $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', array(
+               'query' => 'id=' . $info['uid']));
+  if ($info['is_app_user'])
+    $output .= '<p>' . 
+      t('!fb_link uses %title', array(
+          '!fb_link' => $fb_link,
+          '%title' => $fb_app->title)) . 
+      '</p>';
+  else
+    $output .= '<p>'. 
+      t('!fb_link does not use %title', array(
+          '!fb_link' => $fb_link,
+          '%title' => $fb_app->title)) . 
+      '</p>';
+  
   return $output;
 }
 
@@ -250,8 +257,7 @@ function fb_app_token_values($type = 'all', $object = NULL) {
   if ($type == 'fb_app' && $object) {
     $fb_app = $object;
     $values['fb-app-label'] = $fb_app->label;
-    $values['fb-app-url'] = 'http://apps.facebook.com/'.$fb_app->canvas;
+    $values['fb-app-url'] = 'http://apps.facebook.com/'. $fb_app->canvas;
   }
   return $values;
 }
-?>

@@ -38,7 +38,7 @@ function fb_connect_menu() {
   // Admin pages
   $items[FB_PATH_ADMIN . '/fb_connect'] = array(
     'title' => 'Facebook Connect',
-    'description' => t('Configure Facebook Connect'),
+    'description' => 'Configure Facebook Connect',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fb_connect_admin_settings'),
     'access arguments' => array(FB_PERM_ADMINISTER),
@@ -68,9 +68,8 @@ function fb_connect_js_cb() {
  * Supports SSL, http://wiki.developers.facebook.com/index.php/Facebook_Connect_Via_SSL.
  */
 function fb_connect_receiver() {
-  global $facebook_config;
-  
-  $src_suffix = $facebook_config['debug'] 
+  // facebook_config global comes from facebook's API.
+  $src_suffix = $GLOBALS['facebook_config']['debug'] 
     ? '.debug'
     : '' ;
   
@@ -179,7 +178,7 @@ function fb_connect_fb($op, $data, &$return) {
       $return = fb_get_app(array('label' => $label));
     }
   }
-  else if ($op == FB_OP_POST_INIT) {
+  elseif ($op == FB_OP_POST_INIT) {
     if ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
       if ($data['fb_app']->label == $label) {
         $fb_app = $data['fb_app'];
@@ -196,7 +195,7 @@ function fb_connect_fb($op, $data, &$return) {
       require drupal_get_path('module', 'fb_connect') . '/fb_connect.admin.inc';
     }
   }
-  else if ($op == FB_OP_CONNECT_JS_INIT) {
+  elseif ($op == FB_OP_CONNECT_JS_INIT) {
     foreach (fb_connect_init_js() as $js) {
       $return[] = $js;
     }
@@ -245,12 +244,12 @@ function fb_connect_user($op, &$edit, &$account, $category = NULL) {
     $apps = fb_connect_enabled_apps();
     foreach ($apps as $fb_app) {
       try {
-	$fb = fb_api_init($fb_app, FB_FBU_CURRENT);
-	
-	if ($fb && $fb->api_client->session_key) {
-	  // Log out of facebook
-	  $session_key = $fb->api_client->session_key;
-
+        $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
+        
+        if ($fb && $fb->api_client->session_key) {
+          // Log out of facebook
+          $session_key = $fb->api_client->session_key;
+          
           // Figure out where to send the user.
           if ($_REQUEST['destination']) {
             $next = url($_REQUEST['destination'], array('absolute' => TRUE));
@@ -261,12 +260,12 @@ function fb_connect_user($op, &$edit, &$account, $category = NULL) {
             $next = url('<front>', array('absolute' => TRUE));
           }
           
-	  // http://forum.developers.facebook.com/viewtopic.php?id=21879
-	  // Use next parameter to expire session.
-	  drupal_goto("http://www.facebook.com/logout.php?app_key={$fb_app->apikey}&session_key={$session_key}&next=" . $next);
-	}
+          // http://forum.developers.facebook.com/viewtopic.php?id=21879
+          // Use next parameter to expire session.
+          drupal_goto("http://www.facebook.com/logout.php?app_key={$fb_app->apikey}&session_key={$session_key}&next=" . $next);
+        }
       } catch (Exception $e) {
-	fb_log_exception($e, t('Failed to log out of fbConnect session'));
+        fb_log_exception($e, t('Failed to log out of fbConnect session'));
       }
     }
   }
@@ -304,8 +303,9 @@ function fb_connect_require_feature($feature = NULL, $fb_app = NULL) {
   if (!$features)
     $features = array();
   if ($fb_app && !isset($features[$fb_app->apikey]))
-    $features[$fb_app->apikey] = array('fb_app' => $fb_app,
-				       'features' => array());
+    $features[$fb_app->apikey] = array(
+      'fb_app' => $fb_app,
+      'features' => array());
   if ($feature)
     $features[$fb_app->apikey]['features'][$feature] = $feature;
   return $features;
@@ -359,7 +359,7 @@ function fb_connect_init_js($js = NULL) {
     $cache->data[] = $js;
     cache_set($cid, $cache->data, 'cache', time() + 60000); // Update cache
   }
-  else if ($js === NULL) {
+  elseif ($js === NULL) {
     cache_clear_all($cid, 'cache');
   }
   
@@ -398,7 +398,7 @@ function fb_connect_footer($is_front) {
       $options = str_replace('}"', '', $options);
       
       // drupal_add_js cannot add external javascript, so we use hook_footer instead.
-      $output = '<script src="'.$fb_feature_src.'" type="text/javascript"></script>';
+      $output = '<script src="'. $fb_feature_src .'" type="text/javascript"></script>';
       $output .= "\n";
       $feature_list = '["' . implode('","', $features) . '"]';
       // Put together the URL for the receiver.  The prefix must be identical to the apps connect URL.
@@ -482,11 +482,12 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
     }
     return $items;
   }
-  else if ($op == 'configure') {
+  elseif ($op == 'configure') {
     $orig_defaults = _fb_connect_block_login_defaults();
     $defaults = variable_get('fb_connect_block_' . $delta, $orig_defaults);
     $form['config'] = array('#tree' => TRUE);
-    foreach(array('anon_not_connected', 'user_not_connected', 'connected') as $key) {
+    // Settings for each user status that we can detect.
+    foreach (array('anon_not_connected', 'user_not_connected', 'connected') as $key) {
       $form['config'][$key] = array(
         '#type' => 'fieldset',
         // title and description below
@@ -522,11 +523,11 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
 
     return $form;
   }
-  else if ($op == 'save') {
+  elseif ($op == 'save') {
     $edit['config']['format'] = $edit['format'];
     variable_set('fb_connect_block_' . $delta, $edit['config']);
   }
-  else if ($op == 'view') {
+  elseif ($op == 'view') {
     if (strpos($delta, 'login_') === 0) {
       // Login block
       $label = substr($delta, 6); // length of 'login_'
@@ -544,13 +545,16 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
           $content = $defaults['connected']['body'];
           // substitute %fbu
           $content = str_replace('!fbu', $fbu, $content);
-        } else if ($GLOBALS['user']->uid > 1) {
+        } 
+        elseif ($GLOBALS['user']->uid > 1) {
           $subject = $defaults['user_not_connected']['title'];
           $content = $defaults['user_not_connected']['body'];
-        } else if ($GLOBALS['user']->uid == 1) {
+        } 
+        elseif ($GLOBALS['user']->uid == 1) {
           $subject = $defaults['user_not_connected']['title'];
           $content = '<em>' . t('Facebook Connect login disabled for user #1.') . '</em>';
-        } else {
+        } 
+        else {
           $subject = $defaults['anon_not_connected']['title'];
           $content = $defaults['anon_not_connected']['body'];
         }
@@ -640,7 +644,7 @@ function fb_connect_app_submit($form, &$form_state) {
     variable_set(FB_CONNECT_VAR_PRIMARY, $label);
     drupal_set_message(t('%label is the primary Facebook Connect application.', array('%label' => $label)));
   }
-  else if ($label == variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
+  elseif ($label == variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
     // This app was the primary one, but the user has unchecked it.
     variable_set(FB_CONNECT_VAR_PRIMARY, NULL);    
   }
@@ -723,7 +727,7 @@ function fb_connect_theme_username_override($object) {
   if (fb_is_fbml_canvas()) {
     return $orig;
   }
-  else if ($fbu = fb_get_object_fbu($object)) {
+  elseif ($fbu = fb_get_object_fbu($object)) {
     // Theme the username with XFBML, using original username as backup.
     return theme('fb_connect_fbml_username', $fbu, $object, $orig);
   }

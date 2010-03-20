@@ -155,5 +155,3 @@ function fb_actions_cron_per_user($obj, $values) {
   }
 }
 
-
-?>

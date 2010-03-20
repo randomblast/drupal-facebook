@@ -1,4 +1,10 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Install functions for fb_connect.module.
+ * 
+ */
 
 
 function fb_connect_update_6200() {
@@ -8,16 +14,20 @@ function fb_connect_update_6200() {
     $newvar = $prefix . '_nid';
     // Variable fb_connect_primary_apikey is now fb_connect_primary_nid
     if ($apikey = variable_get($oldvar, NULL)) {
-      $result = db_query("SELECT * FROM fb_app WHERE apikey = '%s'",
+      $result = db_query("SELECT * FROM {fb_app} WHERE apikey = '%s'",
                          $apikey);
       $data = db_fetch_object($result);
       if ($data->nid) {
         variable_set($newvar, $data->nid);
-        $items[] = array('success' => TRUE, 'query' => "updated $newvar to be $data->label ($data->nid)");
+        $items[] = array(
+          'success' => TRUE, 
+          'query' => "updated $newvar to be $data->label ($data->nid)");
         variable_del($oldvar);
       }
       else {
-        $items[] = array('success' => FALSE, 'query' => "Could not find $oldvar by apikey ($apikey)");
+        $items[] = array(
+          'success' => FALSE, 
+          'query' => "Could not find $oldvar by apikey ($apikey)");
       }
     }
   }
@@ -31,20 +41,23 @@ function fb_connect_update_6201() {
     $newvar = $prefix . '_label';
     // Variable fb_connect_primary_apikey is now fb_connect_primary_nid
     if ($old = variable_get($oldvar, NULL)) {
-      $result = db_query("SELECT * FROM fb_app WHERE nid = %d",
-                         $old);
+      $result = db_query("SELECT * FROM {fb_app} WHERE nid = %d",
+                $old);
       $data = db_fetch_object($result);
       if ($data->label) {
         variable_set($newvar, $data->label);
-        $items[] = array('success' => TRUE, 'query' => "updated $newvar to be $data->label");
+        $items[] = array(
+          'success' => TRUE, 
+          'query' => "updated $newvar to be $data->label");
         variable_del($oldvar);
       }
       else {
-        $items[] = array('success' => FALSE, 'query' => "Could not find $oldvar by nid ($old)");
+        $items[] = array(
+          'success' => FALSE, 
+          'query' => "Could not find $oldvar by nid ($old)");
       }
     }
   }
   return $items;
 }
 
-?>

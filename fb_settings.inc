@@ -1,6 +1,18 @@
 <?php
-// The URL prefix will look something like fb_cb/NID.
-// Or in complex cases fb_cb/NID/fb_cb_type/TYPE, or even fb_cb/NID/fb_sess/SESSION.
+// $Id$
+/**
+ * @file
+ * This file is to be included from your sites/.../settings.php file.
+ * 
+ * In this code we set up special session management and url
+ * rewriting.  These things must be done before modules are loaded, so
+ * the code is here instead of fb.module. And that is why this
+ * must be include from setttings.php.
+ * 
+ */
+
+// The URL prefix will look something like fb_cb/LABEL.
+// Or in complex cases fb_cb/LABEL/fb_cb_type/TYPE, or even fb_cb/LABEL/fb_sess/SESSION.
 define('FB_SETTINGS_APP_LABEL', 'fb_cb');
 define('FB_SETTINGS_PAGE_TYPE', 'fb_cb_type');
 define('FB_SETTINGS_SESSION_KEY', 'fb_sess');
@@ -70,10 +82,10 @@ function _fb_settings_parse($key) {
       $args = explode('/', $path);
       $i = 0;
       while (isset($args[$i]) && isset($args[$i+1])) {
-	if ($args[$i] == $key)
-	  // Found the value we're interested in.
-	  return $args[$i+1];
-	$i = $i + 2;
+        if ($args[$i] == $key)
+          // Found the value we're interested in.
+          return $args[$i+1];
+        $i = $i + 2;
       }
     }
   }

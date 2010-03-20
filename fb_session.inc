@@ -1,7 +1,8 @@
 <?php
-
+// $Id$
 /**
- * This file overrides Drupal's session management.
+ * @file
+ * This file changes Drupal's default session management.
  *
  * If we are handling an FBMl canvas page request, cookies are not
  * available.  Instead we rely on a session key provided by facebook.
@@ -78,10 +79,10 @@ if ($label && isset($_REQUEST['fb_sig_api_key'])) {
   $new_session_name = "fb_canvas_{$label}_" . $orig_session_name;
   if (isset($_REQUEST['fb_sig_session_key']))
     $new_session_id = "fb_canvas_{$label}_" . $_REQUEST['fb_sig_session_key'];
-  else if (isset($_REQUEST['fb_sig_profile_session_key'])) {
+  elseif (isset($_REQUEST['fb_sig_profile_session_key'])) {
     $new_session_id = "fb_profile_{$label}_" . $_REQUEST['fb_sig_profile_session_key'];
   }
-  else if ($orig_session_id) {
+  elseif ($orig_session_id) {
     // When user is logged into facebook, but not authorized app, cookies are honored.  NO! This may have once been true, but no longer.
     $new_session_id = "fb_canvas_{$label}_" . $orig_session_id;
   }
@@ -96,7 +97,7 @@ if ($label && isset($_REQUEST['fb_sig_api_key'])) {
     fb_settings(FB_SETTINGS_SESSION_KEY, $_REQUEST['fb_sig_session_key']);
   }
  }
- else if ($label && variable_get('fb_session_cookieless_iframe', FALSE) && 
+ elseif ($label && variable_get('fb_session_cookieless_iframe', FALSE) && 
           ($sess_key = _fb_settings_parse(FB_SETTINGS_SESSION_KEY))) {
    // using sessionless iframes
    // similar logic to clause above, using session key in url path
@@ -157,7 +158,7 @@ if (isset($new_session_id)) {
      db_query("DELETE FROM {sessions} WHERE sid='%s'", $orig_session_id);
      session_id(md5(uniqid(microtime()) . $_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']));
    }
-   else if (strpos($orig_session_id, 'fb_connect') === 0) {
+   elseif (strpos($orig_session_id, 'fb_connect') === 0) {
      // Canvas session should not be deleted as it could be a user visiting both the website and an iframe app
      if (!$label)
        session_id(md5(uniqid(microtime()) . $_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']));     
@@ -173,4 +174,3 @@ else {
   require('includes/session.inc');
 }
 
-?>

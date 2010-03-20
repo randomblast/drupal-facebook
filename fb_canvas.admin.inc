@@ -1,4 +1,10 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Admin pages and forms for canvas apps.
+ * 
+ */
 
 
 /**
@@ -10,10 +16,10 @@ function fb_canvas_fb_admin($op, $data, &$return) {
 
   if ($op == FB_ADMIN_OP_SET_PROPERTIES) {
     // Compute properties which we can set automatically.
-    $callback_url = url('',array('absolute' => TRUE)) . FB_SETTINGS_APP_LABEL . '/' . $fb_app->label . '/';
+    $callback_url = url('', array('absolute' => TRUE)) . FB_SETTINGS_APP_LABEL . '/' . $fb_app->label . '/';
     $return['callback_url'] = $callback_url;
   }
-  else if ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
+  elseif ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
     $return[t('Callback URL')] = 'callback_url';
   }
 }
@@ -57,6 +63,3 @@ function fb_canvas_admin_settings() {
   return system_settings_form($form);
 }
 
-
-
-?>

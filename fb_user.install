@@ -1,4 +1,10 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Install file for fb_user.module.
+ * 
+ */
 
 /**
  * Implementation of hook_install().
@@ -128,4 +134,3 @@ function fb_user_update_6005() {
   drupal_set_message(t('Note that if you see a warning about "Can\'t DROP ...", it is safe to ignore that message.  See fb_user.install.'));
   return $ret;
 }
-?>

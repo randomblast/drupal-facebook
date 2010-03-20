@@ -1,7 +1,12 @@
 <?php
-
+// $Id$
 /**
- * @file Register User features
+ * @file
+ * This code aims to prevent duplicate accounts. 
+ * 
+ * If a user has an account both locally and on facebook, when they
+ * first authorize an app, this code attemps to link the two accounts
+ * rather than create a new local account for the facebook user.
  *
  * http://wiki.developers.facebook.com/index.php/Linking_Accounts_and_Finding_Friends
  */

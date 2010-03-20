@@ -1,4 +1,10 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Install file for fb_devel.module.
+ * 
+ */
 
 
 /**
@@ -87,5 +93,3 @@ function fb_devel_requirements($phase) {
   return $items;
 }
 
-
-?>

@@ -26,7 +26,7 @@ function fb_canvas_menu() {
   // Admin pages
   $items[FB_PATH_ADMIN .'/fb_canvas'] = array(
     'title' => 'Canvas Pages',
-    'description' => t('Configure Canvas Pages'),
+    'description' => 'Configure Canvas Pages',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fb_canvas_admin_settings'),
     'access arguments' => array(FB_PERM_ADMINISTER),
@@ -65,7 +65,7 @@ function fb_canvas_fb($op, $data, &$return) {
     if ($fb_app)
       $return = $fb_app;
   }
-  else if ($op == FB_OP_INITIALIZE) {
+  elseif ($op == FB_OP_INITIALIZE) {
     // Get our configuration settings.
     $fb_app_data = fb_get_app_data($fb_app);
     $fb_canvas_data = $fb_app_data['fb_canvas'];
@@ -79,7 +79,7 @@ function fb_canvas_fb($op, $data, &$return) {
       $is_canvas = TRUE;
       $use_ob = variable_get(FB_CANVAS_VAR_OB_FBML, TRUE);
     }
-    else if (fb_canvas_is_iframe()) {
+    elseif (fb_canvas_is_iframe()) {
       $custom_theme = $fb_canvas_data['theme_iframe'];
       $is_canvas = TRUE;
       $use_ob = variable_get(FB_CANVAS_VAR_OB_IFRAME, TRUE);
@@ -135,12 +135,12 @@ function fb_canvas_fb($op, $data, &$return) {
         menu_set_active_item(drupal_get_normal_path($front));
     }
   }
-  else if ($op == FB_OP_POST_INIT) {
+  elseif ($op == FB_OP_POST_INIT) {
     if (isset($original_uid) && 
         $original_uid != $user->uid) {
       // The user has changed, presumably fb_user.module recognized the facebookuser.  We need to refresh canvas pages.
 
-      if(!(arg(0) == 'fb_app' && arg(1) == 'event')) {
+      if (!(arg(0) == 'fb_app' && arg(1) == 'event')) {
         // In order to ensure that drupal handles
         // permissions properly, the user must make the request all over
         // again.  Skip this for the profile tab, as facebook does not allow
@@ -171,7 +171,7 @@ function fb_canvas_fb($op, $data, &$return) {
       require drupal_get_path('module', 'fb_canvas') . '/fb_canvas.admin.inc';
     }
   }
-  else if ($op == FB_OP_EXIT) {
+  elseif ($op == FB_OP_EXIT) {
     /* We do some unpleasant stuff in this hook... on FBML canvas
        pages we might use $fb->redirect(), in which case other
        modules' hook_exit() might not be called.
@@ -190,7 +190,7 @@ function fb_canvas_fb($op, $data, &$return) {
       if (fb_canvas_is_fbml()) {
         $output = fb_canvas_process($output, array('force_absolute_canvas' => TRUE));
       }
-      else if (fb_canvas_is_iframe()) {
+      elseif (fb_canvas_is_iframe()) {
         $output = fb_canvas_process($output, array('add_target' => TRUE));
       }
     }
@@ -503,13 +503,13 @@ function _fb_canvas_make_form_action_local($action = NULL) {
   }
   
   $relative = url('');
-  $absolute = url('', array('absolute'=>TRUE));
+  $absolute = url('', array('absolute' => TRUE));
   global $_fb_app;
   
   if (strpos($action, FB_SETTINGS_APP_LABEL)) {
     $action = $absolute . substr($action, strlen($relative));
   }
-  else if (strpos($action, $relative) === 0) {
+  elseif (strpos($action, $relative) === 0) {
     // Replace relative action with absolute.
     // Include fb settings
     // TODO: FB_SETTINGS_PAGE_TYPE
@@ -672,8 +672,8 @@ function fb_canvas_process($output, $options = array()) {
       // URLs that do not include the canvas (that is, not matched by previous
       // patterns).
       if ($base_path != "/{$_fb_app->canvas}/") {
-        $patterns[] = '|="'.$base_path."(?!{$_fb_app->canvas})|";
-        $replacements[] = '="'.$base_url.'/';
+        $patterns[] = '|="'. $base_path . "(?!{$_fb_app->canvas})|";
+        $replacements[] = '="'. $base_url .'/';
       }
 
       // Experimental!  Change 1234@facebook to an <fb:name> tag.  This is our
@@ -682,19 +682,20 @@ function fb_canvas_process($output, $options = array()) {
       // http://drupal.org/node/102679.  In the meantime, this may help for
       // canvas pages only.
       
-      // Regexp avoids "1234@facebook" (surrounded by quotes) because that can
-      // appear in some forms.  Also avoids 1234@facebook.com, which can also
-      // appear in forms because it is used in authmaps.  TODO: investigate
-      // the efficiency of this regexp (and/or make it optional)
+      // Regexp avoids "1234@facebook" (surrounded by quotes) because
+      // that can appear in forms and FBML tags.  Also avoids
+      // 1234@facebook.com, which can also appear in forms because it
+      // is used in authmaps.  TODO: investigate the efficiency of
+      // this regexp (and/or make it optional)
       $patterns[] = '|(?<!["\d])([\d]*)@facebook(?!\.com)|';
       $replacements[] = '<fb:name uid=$1 linked=false ifcantsee="$1@facebook" useyou=false />';
-
-      // Drupal has a habit of adding ?destination=... to some URLs.  And Facebook for no good reason screws up when you do that. 
+      
+      // Drupal has a habit of adding ?destination=... to some URLs.
+      // And Facebook for no good reason screws up when you do that.
       $patterns[] = "|href=\"([^\"]*)\?(.*)(destination)=|";
       $replacements[] = 'href="$1?$2fb_canvas_destination=';
     }
-    else if (fb_canvas_is_iframe()) {
-      // In iframe
+    elseif (fb_canvas_is_iframe()) {
       // Add target=_top so that entire pages do not appear within an iframe.
       // TODO: make these pattern replacements more sophisticated, detect whether target is already set.
       if (isset($options['add_target']) && $options['add_target']) {
@@ -704,7 +705,7 @@ function fb_canvas_process($output, $options = array()) {
         // Do not change local forms, but do change external ones
         $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
         $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
-	
+        
         // Make internal links point to canvas pages
         $patterns[] = "|<a([^>]*)href=\"{$base}|";
         $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$_fb_app->canvas}/";
@@ -720,12 +721,7 @@ function fb_canvas_process($output, $options = array()) {
     }
   }
   if (count($patterns)) {
-    //dpm($patterns, "fb_canvas_process patterns");
-    //dpm($replacements, "fb_canvas_process replacements");
-
-    $return = preg_replace($patterns,
-			   $replacements,
-			   $output);
+    $return = preg_replace($patterns, $replacements, $output);
     return $return;
   }
   else
@@ -887,4 +883,3 @@ function theme_fb_canvas_fbml_user_picture($fbu, $object, $orig) {
   return $wrap_pre . $fbml . $wrap_post;
 }
 
-?>

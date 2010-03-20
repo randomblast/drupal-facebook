@@ -1,4 +1,10 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Admin pages and forms for facebook applications.
+ * 
+ */
 
 include drupal_get_path('module', 'fb') . '/fb.admin.inc';
 
@@ -15,7 +21,7 @@ function fb_app_fb_admin($op, $data, &$return) {
     $return['uninstall_url'] = $url . FB_APP_EVENT_POST_REMOVE;
     $return['authorize_url'] = $url . FB_APP_EVENT_POST_AUTHORIZE;
   }
-  else if ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
+  elseif ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
     $return[t('Application Name')] = 'application_name';
     $return[t('About URL')] = 'about_url';
     $return[t('Post-Authorize Callback URL')] = 'authorize_url';
@@ -23,7 +29,7 @@ function fb_app_fb_admin($op, $data, &$return) {
     // Learn canvas name regardless of whether fb_canvas is enabled.
     $return[t('Canvas Name')] = 'canvas_name';
   }
-  else if (($op == FB_ADMIN_OP_LOCAL_PROPERTIES) && isset($fb_app->fba_id)) {
+  elseif (($op == FB_ADMIN_OP_LOCAL_PROPERTIES) && isset($fb_app->fba_id)) {
     // Path to edit this app.
     $return[FB_ADMIN_LOCAL_EDIT] = FB_PATH_ADMIN . '/fb_app/' . $fb_app->label;
     // TODO!!! Support delete, and maybe view.
@@ -38,25 +44,25 @@ function fb_app_fb_admin($op, $data, &$return) {
 function fb_app_edit_form($form_state, $fb_app = NULL) {
   // If app is managed by this module, it has fba_id.
   if (isset($fb_app) && !$fb_app->fba_id) {
-    drupal_set_message(t('Application %label not found.',
-        array('%label' => $label)),
-      'warning');
+      drupal_set_message(t('Application %label not found.', array(
+			       '%label' => $label)),
+			 'warning');
     drupal_not_found();
     exit();
   }
   
   if (!isset($fb_app)) {
-    // Defaults for new app.
-    $fb_app = (object) array(
-      'label' => NULL,
-      'apikey'=> NULL,
-      'canvas' => NULL,
-      'fba_id' => NULL,
-      'id' => NULL,
-      'status' => 1,
-      'data' => serialize(array('fb_app' => array('set_app_props' => TRUE))),
-    );
-    drupal_set_title(t('Create Facebook Application'));
+      // Defaults for new app.
+      $fb_app = (object) array(
+	  'label' => NULL,
+	  'apikey' => NULL,
+	  'canvas' => NULL,
+	  'fba_id' => NULL,
+	  'id' => NULL,
+	  'status' => 1,
+	  'data' => serialize(array('fb_app' => array('set_app_props' => TRUE))),
+      );
+      drupal_set_title(t('Create Facebook Application'));
   }
   else {
     //drupal_set_title(t('Edit %label', array('%label' => $fb_app->label)));
@@ -233,7 +239,7 @@ function fb_app_set_app_properties($fb_app) {
         }
       }
     }
-    else if (fb_verbose()) {
+    elseif (fb_verbose()) {
       drupal_set_message(t('The following recommended properties for %label application have <strong>not been set automatically</strong>:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))), 'warning');
     }
   }
