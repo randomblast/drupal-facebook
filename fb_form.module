@@ -63,8 +63,8 @@ function fb_ahah_bind_form( $form ) {
   // Facebook javascript appears to work only when the user is logged in.  Not
   // sure whether this is on purpose or not.  So we only activate AHAH when
   // user is logged in.
-  global $fb;
-  if ($fb && $fb->api_client->added && function_exists('ahah_forms_scan_form_children')) {
+  global $_fb;
+  if ($_fb && $_fb->api_client->added && function_exists('ahah_forms_scan_form_children')) {
     $bindings = array();	
     ahah_forms_scan_form_children( $form, $form['#id'],  $bindings );
     //drupal_set_message( "After Scan: Wrapper Bindings = " . print_r( $bindings, TRUE ) ); 
@@ -114,7 +114,7 @@ function fb_ahah_bind_form( $form ) {
  * - the current user has added the application (not sure about this)
  */
 function fb_form_invite_page() {
-  global $fb, $fb_app;
+  global $_fb, $_fb_app;
 
   if (!fb_is_fbml_canvas()) {
     drupal_set_message('Unable to display page.  FBML required.', 'error');
@@ -122,9 +122,9 @@ function fb_form_invite_page() {
     exit();
   }
   
-  if ($fb_app) {
+  if ($_fb_app) {
     drupal_set_title(t('Invite friends to use %application',
-                       array('%application' => $fb_app->title)));
+                       array('%application' => $_fb_app->label)));
   }
   
   $output = drupal_get_form('fb_form_multi_add_invite_form');
@@ -140,14 +140,14 @@ function fb_form_invite_page() {
  * The FBML for this form requires the <fb:request-form> tag where the <form> tag would normally be.  Also the form provides its own buttons.  These two things make it difficult to use Drupal's Form API to build the form.  Still, we use FAPI, because we want modules to be able to alter the form (i.e. to add descriptive text).  Alteration that rely on #submit or even additional input fields will probably not work properly, however.
  */
 function fb_form_multi_add_invite_form() {
-  global $fb, $fb_app;
+  global $_fb, $_fb_app;
   
   // TODO: confirm that we're displaying an FBML canvas page.
   
-  if ($fbu = fb_facebook_user($fb)) {
+  if ($fbu = fb_facebook_user($_fb)) {
     // Exclude friends who have already installed app.
     // http://wiki.developers.facebook.com/index.php/Fb:request-form
-    $rs = $fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)");
+    $rs = $_fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)");
     $arFriends = "";
     //  Build an delimited list of users...
     if ($rs) {
@@ -161,21 +161,21 @@ function fb_form_multi_add_invite_form() {
   }
   
   // Use node body in invite message.
-  $node = node_load($fb_app->nid);
+  $node = node_load($_fb_app->nid);
   $node = node_prepare($node);
   $content = $node->teaser;
   
   // Do we need to append &next=[someURL] to the url here?
-  $content .= "<fb:req-choice url=\"http://www.facebook.com/add.php?api_key={$fb_app->apikey}\" label=\"" . t('Add !title application.',
-                                                                                                              array('!title' => $fb_app->title)) . "\" />";
+  $content .= "<fb:req-choice url=\"http://www.facebook.com/add.php?api_key={$_fb_app->apikey}\" label=\"" . t('Add !title application.',
+                                                                                                              array('!title' => $_fb_app->label)) . "\" />";
   
   // form type fb:request-form
   $form = array('#fb_form_type_hack' => 'fb_form_request', /* becomes #type during form_alter */
-                '#attributes' => array('type' => $fb_app->title,
+                '#attributes' => array('type' => $_fb_app->label,
                                        'content' => htmlentities($content),
                                        'invite' => 'true',
                 ),
-                '#action' => 'http://apps.facebook.com/' . $fb_app->canvas,
+                '#action' => 'http://apps.facebook.com/' . $_fb_app->canvas,
   );
   
   $form['friends'] =
@@ -196,12 +196,12 @@ function fb_form_multi_add_invite_form() {
  * DEPRECATED
  */
 function fb_form_request_form($config = array()) {
-  global $fb, $fb_app; // only works on canvas pages.
+  global $_fb, $_fb_app; // only works on canvas pages.
   
   // Default config
-  $config = array_merge(array('type' => $fb_app->title,
+  $config = array_merge(array('type' => $_fb_app->label,
                               'content' => 'INVITE CONTENT XXX',
-                              'action' => 'http://apps.facebook.com/' . $fb_app->canvas,
+                              'action' => 'http://apps.facebook.com/' . $_fb_app->canvas,
                               'invite' => 'true',
                               'method' => 'POST',
                         ), $config);
@@ -253,12 +253,12 @@ function fb_form_group_options($fbu) {
 
 // TODO: make this work whether in canvas page or not.
 function fb_form_friend_options($fbu) {
-  global $fb;
+  global $_fb;
   $items = array();
 
-  if ($fb) {
+  if ($_fb) {
     $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=$fbu)"; //TODO: db_query this to be safe?
-    $result = $fb->api_client->fql_query($query);
+    $result = $_fb->api_client->fql_query($query);
     
     // TODO: sort results by name
     foreach ($result as $data) {
@@ -269,17 +269,17 @@ function fb_form_friend_options($fbu) {
 }
 
 function fb_form_group_member_options($fbg, $fbu) {
-  global $fb;
+  global $_fb;
 
   $query = "SELECT uid FROM group_member WHERE gid=$fbg"; //TODO: db_query this?
-  $result = $fb->api_client->fql_query($query);
+  $result = $_fb->api_client->fql_query($query);
   drupal_set_message("fb_form_group_member_options($fbg, $fbu) query $query returns" . dpr($result, 1));
 
 
 
 
   $query = "SELECT uid, first_name, last_name FROM user WHERE uid IN (SELECT uid FROM group_member WHERE gid=$fbg)"; //TODO: db_query to be safe?
-  $result = $fb->api_client->fql_query($query);
+  $result = $_fb->api_client->fql_query($query);
   drupal_set_message("fb_form_group_member_options($fbg, $fbu) query $query returns" . dpr($result, 1));
 
   // TODO: sort results by name
@@ -315,7 +315,7 @@ function fb_form_elements() {
  * Use this to select friends when sending an invite or request.
  */
 function fb_form_process_request_selector($orig) {
-  global $fb;
+  global $_fb;
   // replace with FBML markup
   $element = array('#type' => 'markup',
                    '#value' => '<fb:multi-friend-selector ',
@@ -348,8 +348,7 @@ function fb_form_friend_selector_process($orig) {
   // TODO: use fb:friend-selector on FBML pages.
 
   // TODO: support fb_app specified in element.  Perhaps using Facebook Connect.
-  if (!$fb)
-    $fb = $GLOBALS['fb']; // Global is set on canvas pages.
+  $fb = $GLOBALS['_fb']; // Global is set on canvas pages.
 
   if (!$fb)
     // TODO: Generate an error.

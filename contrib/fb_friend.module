@@ -41,14 +41,14 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
   }
   else if ($op == 'view') {
     try { // Calls to facebook can fail.
-
+      
       // None of our blocks are shown if user is not logged in.
       $fbu = fb_facebook_user();
       if (!$fbu)
         return;
-
+      
       // Our blocks use current application
-      global $fb, $fb_app;
+      global $_fb, $_fb_app;
       
       if ($delta == FB_FRIEND_DELTA_INVITE_PAGE) {
         if ($xfbml = fb_friend_invite_page_fbml('fb_friend_invite_page')) {
@@ -85,7 +85,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
           ));
       
         // Exclude users who have already installed.
-        $rs = $fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)");
+        $rs = $_fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)");
         $arFriends = '';
         $exclude_ids = '';
         //  Build an delimited list of users...
@@ -133,7 +133,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       
         if ($fbu = fb_facebook_user()) {
           // Get list of friends who have authorized this app.
-          $rs = $fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 AND uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)");
+          $rs = $_fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 AND uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)");
         
           if (isset($rs) && is_array($rs)) {
             foreach ($rs as $friend_data) {
@@ -143,11 +143,12 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
             }
           }
         
-          $subject = t('Friends who use !app',
-                       array('!app' => $GLOBALS['fb_app']->title));
-        
-          return array('subject' => $subject,
-                       'content' => $content);
+          $subject = t('Friends who use !app', array(
+                       '!app' => $GLOBALS['_fb_app']->label));  // TODO - fix title
+          
+          return array(
+            'subject' => $subject,
+            'content' => $content);
         }
       }
     }

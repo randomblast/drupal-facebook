@@ -137,8 +137,8 @@ function fb_app_event_cb($event_type) {
   fb_invoke(FB_APP_OP_EVENT, 
             array(
               'event_type' => $event_type,
-              'fb_app' => $GLOBALS['fb_app'],
-              'fb' => $GLOBALS['fb']),
+              'fb_app' => $GLOBALS['_fb_app'],
+              'fb' => $GLOBALS['_fb']),
             NULL
   );
 

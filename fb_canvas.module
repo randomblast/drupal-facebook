@@ -352,26 +352,25 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
     foreach ($themes as $theme) {
       $theme_options[$theme->name] = $theme->name;
     }
-    $form['fb_app_data']['fb_canvas']['theme_fbml'] =
-      array('#type' => 'select',
-            '#title' => t('Theme for FBML pages'),
-            '#description' => t('Choose only a theme that is FBML-aware.'),
-            '#options' => $theme_options,
-            '#required' => TRUE,
-            '#default_value' => $fb_canvas_data['theme_fbml'],
-      );
-    $form['fb_app_data']['fb_canvas']['theme_iframe'] =
-      array('#type' => 'select',
-            '#title' => t('Theme for iframe pages'),
-            '#description' => t('Choose only a facebook-aware theme'),
-            '#options' => $theme_options,
-            '#required' => TRUE,
-            '#default_value' => $fb_canvas_data['theme_iframe'],
-      );
+    $form['fb_app_data']['fb_canvas']['theme_fbml'] = array(
+      '#type' => 'select',
+      '#title' => t('Theme for FBML pages'),
+      '#description' => t('Choose only a theme that is FBML-aware.'),
+      '#options' => $theme_options,
+      '#required' => TRUE,
+      '#default_value' => $fb_canvas_data['theme_fbml'],
+    );
+    $form['fb_app_data']['fb_canvas']['theme_iframe'] = array(
+      '#type' => 'select',
+      '#title' => t('Theme for iframe pages'),
+      '#description' => t('Choose only a facebook-aware theme'),
+      '#options' => $theme_options,
+      '#required' => TRUE,
+      '#default_value' => $fb_canvas_data['theme_iframe'],
+    );
   }
   
   
-  global $fb, $fb_app;
   // We will send all form submission directly to us, not via
   // apps.facebook.com/whatever.
   if (fb_canvas_is_fbml()) {
@@ -401,19 +400,7 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
       unset($form['body_field']['teaser_js']);
       unset($form['body_field']['teaser_include']);            
     }
-
-  }
-  else if (fb_canvas_is_iframe() && !isset($form['fb_canvas_form_handler']) && FALSE) { // XXX
-    // It's a form within an iframe that will be send directly to our server.
-    // Duplicate the request parameters that facebook would send us.
-    foreach ($_REQUEST as $key => $value) {
-      if (strpos($key, 'fb_') === 0 && !isset($_COOKIE[$key])) {
-        $form['fb_canvas'][$key] = array(
-          '#type' => 'value',
-          '#value' => $value,
-        );
-      }
-    }
+    
   }
 }
 
@@ -448,8 +435,8 @@ function fb_canvas_form_action_via_facebook(&$form, $use_facebook = TRUE) {
 function fb_canvas_footer($main = 0) {
   if (fb_canvas_is_fbml()) {
     // Add FBJS only to FBML pages.
-    global $fb, $fb_app;
-    $data = array('fb' => $fb, 'fb_app' => $fb_app);
+    global $_fb, $_fb_app;
+    $data = array('fb' => $_fb, 'fb_app' => $_fb_app);
     $extra = fb_invoke(FB_OP_CANVAS_FBJS_INIT, $data, array());
     
     if (count($extra)) {
@@ -462,28 +449,28 @@ function fb_canvas_footer($main = 0) {
 
 
 function fb_canvas_is_fbml() {
-  global $fb, $fb_app;
-  if ($fb && $fb_app) {
+  global $_fb, $_fb_app;
+  if ($_fb && $_fb_app) {
     // Facebook events are not canvas pages
     if (arg(0) == 'fb_app' && arg(1) == 'event')
       return FALSE;
     else
-      return ($fb->in_fb_canvas() || fb_canvas_handling_form());
+      return ($_fb->in_fb_canvas() || fb_canvas_handling_form());
   }
 }
 
 function fb_canvas_is_iframe() {
-  global $fb, $fb_app;
-  if ($fb && $fb_app) {
-    return ($fb->in_frame() && !fb_canvas_is_fbml());
+  global $_fb, $_fb_app;
+  if ($_fb && $_fb_app) {
+    return ($_fb->in_frame() && !fb_canvas_is_fbml());
   }
 }
 
 function fb_canvas_handling_form($value = NULL) {
-  global $fb;
+  global $_fb;
   
   // Test whether a form has been submitted via facebook canvas page.
-  if ($fb && isset($_REQUEST['_fb_handling_form'])) {
+  if ($_fb && isset($_REQUEST['_fb_handling_form'])) {
     $result = $_REQUEST['_fb_handling_form'];
   }
   if (isset($value)) {
@@ -517,7 +504,7 @@ function _fb_canvas_make_form_action_local($action = NULL) {
   
   $relative = url('');
   $absolute = url('', array('absolute'=>TRUE));
-  global $fb_app;
+  global $_fb_app;
   
   if (strpos($action, FB_SETTINGS_APP_LABEL)) {
     $action = $absolute . substr($action, strlen($relative));
@@ -526,7 +513,7 @@ function _fb_canvas_make_form_action_local($action = NULL) {
     // Replace relative action with absolute.
     // Include fb settings
     // TODO: FB_SETTINGS_PAGE_TYPE
-    $action = $absolute . FB_SETTINGS_APP_LABEL . '/' . $fb_app->label . '/' . substr($action, strlen($relative));
+    $action = $absolute . FB_SETTINGS_APP_LABEL . '/' . $_fb_app->label . '/' . substr($action, strlen($relative));
   }
   
   //dpm($action, '_fb_canvas_make_form_action_local returning');
@@ -537,13 +524,13 @@ function _fb_canvas_make_form_action_local($action = NULL) {
 }
 
 /**
- * Uses $fb->redirect on canvas pages, otherwise drupal_goto.
+ * Uses $_fb->redirect on canvas pages, otherwise drupal_goto.
  */
 function fb_canvas_goto($path) {
-  global $fb, $fb_app;
-  if ($fb && (fb_canvas_is_fbml() || fb_canvas_is_iframe())) {
-    $url = fb_canvas_fix_url(url($path, array('absolute' => TRUE)), $fb_app);
-    $fb->redirect($url);
+  global $_fb, $_fb_app;
+  if ($_fb && (fb_canvas_is_fbml() || fb_canvas_is_iframe())) {
+    $url = fb_canvas_fix_url(url($path, array('absolute' => TRUE)), $_fb_app);
+    $_fb->redirect($url);
   }
   else {
     drupal_goto($path);
@@ -582,11 +569,12 @@ function fb_canvas_fix_url($url, $fb_app) {
   return $url;
 }
 
+// This dates back to 5.x code and may no longer work!
 function fb_canvas_primary_links() {
-  global $fb_app;
+  global $_fb_app;
   $mid = 0;
-  if ($fb_app) {
-    $fb_app_data = fb_get_app_data($fb_app);
+  if ($_fb_app) {
+    $fb_app_data = fb_get_app_data($_fb_app);
     $fb_canvas_data = $fb_app_data['fb_canvas'];
     $mid = $fb_canvas_data['primary_links'];
   }
@@ -595,11 +583,11 @@ function fb_canvas_primary_links() {
   else
     return menu_primary_links();
 }
-
+// This dates back to 5.x code and may no longer work!
 function fb_canvas_secondary_links() {
-  global $fb_app;
-  if ($fb_app) {
-    $fb_app_data = fb_get_app_data($fb_app);
+  global $_fb_app;
+  if ($_fb_app) {
+    $fb_app_data = fb_get_app_data($_fb_app);
     $fb_canvas_data = $fb_app_data['fb_canvas'];
     $mid1 = $fb_canvas_data['primary_links'];
     $mid2 = $fb_canvas_data['secondary_links'];
@@ -637,12 +625,12 @@ function fb_canvas_secondary_links() {
  */
 function fb_canvas_process($output, $options = array()) {
   global $base_path, $base_url;
-  global $fb, $fb_app;
+  global $_fb, $_fb_app;
   
   $patterns = array();
   $replacements = array();
   
-  if ($fb) {
+  if ($_fb) {
     $base_before_rewrite = '';
     $rewrite_options = array();
     $base = $base_path . fb_url_outbound_alter($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.
@@ -666,25 +654,25 @@ function fb_canvas_process($output, $options = array()) {
         // Change links to use canvas on Facebook
         // Links ending in #something:
         $patterns[] = "|=\"{$base}([^\"]*#)|";
-        $replacements[] = "=\"http://apps.facebook.com/{$fb_app->canvas}/$1app{$fb_app->id}_";
+        $replacements[] = "=\"http://apps.facebook.com/{$_fb_app->canvas}/$1app{$_fb_app->id}_";
         // Other links
         $patterns[] = "|=\"{$base}|";
-        $replacements[] = "=\"http://apps.facebook.com/{$fb_app->canvas}/";
+        $replacements[] = "=\"http://apps.facebook.com/{$_fb_app->canvas}/";
       }
       else {
         // Change links to use canvas on Facebook
         // Links ending in #something:
         $patterns[] = "|=\"{$base}([^\"]*#)|";
-        $replacements[] = "=\"/{$fb_app->canvas}/$1app{$fb_app->id}_";
+        $replacements[] = "=\"/{$_fb_app->canvas}/$1app{$_fb_app->id}_";
         // Other links
         $patterns[] = "|=\"{$base}|";
-        $replacements[] = "=\"/{$fb_app->canvas}/";
+        $replacements[] = "=\"/{$_fb_app->canvas}/";
       }
       // Change paths to files to fully qualified URLs. This matches relative
       // URLs that do not include the canvas (that is, not matched by previous
       // patterns).
-      if ($base_path != "/{$fb_app->canvas}/") {
-        $patterns[] = '|="'.$base_path."(?!{$fb_app->canvas})|";
+      if ($base_path != "/{$_fb_app->canvas}/") {
+        $patterns[] = '|="'.$base_path."(?!{$_fb_app->canvas})|";
         $replacements[] = '="'.$base_url.'/';
       }
 
@@ -719,7 +707,7 @@ function fb_canvas_process($output, $options = array()) {
 	
         // Make internal links point to canvas pages
         $patterns[] = "|<a([^>]*)href=\"{$base}|";
-        $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$fb_app->canvas}/";
+        $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$_fb_app->canvas}/";
       }
       else {
         // Add target=_top to only external links

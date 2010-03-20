@@ -10,7 +10,7 @@ class fb_views_handler_filter_friends extends views_handler_filter_boolean_opera
   }
   
   function query() {
-    $fb_app = $GLOBALS['fb_app']; // Set on Canvas and Connect pages.
+    $fb_app = $GLOBALS['_fb_app']; // Set on Canvas and Connect pages.
     
     $uid = $GLOBALS['user']->uid;
     

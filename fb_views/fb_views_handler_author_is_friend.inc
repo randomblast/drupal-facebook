@@ -7,7 +7,7 @@ class fb_views_handler_author_is_friend extends views_handler_argument_user_uid 
 
   function query() {
     //dpm($this, 'fb_views_handler_author_is_friend->query');
-    $fb_app = $GLOBALS['fb_app']; // Set on Canvas and Connect pages.
+    $fb_app = $GLOBALS['_fb_app']; // Set on Canvas and Connect pages.
     
     $uid = $this->argument;
 

@@ -10,7 +10,7 @@ class fb_views_handler_filter_profile_tab extends views_handler_filter_boolean_o
   }
   
   function query() {
-    $fb_app = $GLOBALS['fb_app']; // Set on Canvas and Connect pages.
+    $fb_app = $GLOBALS['_fb_app']; // Set on Canvas and Connect pages.
     
     $profile_fbu = $_REQUEST['fb_sig_profile_id']; // Set by facebook.
     

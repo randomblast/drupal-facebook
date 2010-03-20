@@ -44,7 +44,7 @@ function fb_devel_fb($op, $data, &$return) {
 
     // deprecated nid check.
     if ($label == $fb_app->nid) {
-      $message = t('Facebook callback is using deprecated node id (%nid) instead of application label (%label).  <a href="!url">Editing the application</a> will usually correct this problem, which was caused by an update to the Drupal for Facebook modules.  Sorry for the inconvenience.', array('%nid' => $fb_app->nid, '%label' => $fb_app->label, '!url' => url(FB_PATH_ADMIN)));
+      $message = t('Facebook callback is using deprecated node id (%nid) instead of application label (%label).  <a href="!url">Editing the application</a> will usually correct this problem, which was caused by an update to the Drupal for Facebook modules.  Sorry for the inconvenience.', array('%nid' => $fb_app->nid, '%label' => $fb_app->label, '!url' => url(FB_PATH_ADMIN_APPS . '/' . $fb_app->label)));
       drupal_set_message($message, 'warning');
       watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
       $errors++;
@@ -130,7 +130,7 @@ function fb_devel_fb($op, $data, &$return) {
     $fb_app_data = fb_get_app_data($fb_app);
     if (isset($fb_app_data['fb_user']) && $fb_app_data['fb_user']['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN) {
       $message = 'Drupal for Facebook options for require login have changed.  You must manually <a href=!url>edit your application</a>.  Look for the require login options under canvas page options.  No longer under user options.';
-      $args = array('!url' => url('node/' . $fb_app->nid . '/edit'));
+      $args = array('!url' => url(FB_PATH_ADMIN_APPS . '/' . $fb_app->label));
       if (user_access('access administration pages')) {
         drupal_set_message(t($message, $args), 'error');
       }
@@ -159,22 +159,22 @@ function fb_devel_fb($op, $data, &$return) {
  * 
  */
 function fb_devel_page() {
-  global $fb, $fb_app;
+  global $_fb, $_fb_app;
   global $user;
 
   if (isset($_REQUEST['require_login']) && $_REQUEST['require_login'])
-    $fb->require_login();
+    $_fb->require_login();
   
-  if ($fb) {
+  if ($_fb) {
     // These will work in a canvas page.
-    drupal_set_message("in_fb_canvas returns " . $fb->in_fb_canvas());
-    drupal_set_message("get_loggedin_user returns " . $fb->get_loggedin_user());
-    drupal_set_message("current_url returns " . $fb->current_url());
+    drupal_set_message("in_fb_canvas returns " . $_fb->in_fb_canvas());
+    drupal_set_message("get_loggedin_user returns " . $_fb->get_loggedin_user());
+    drupal_set_message("current_url returns " . $_fb->current_url());
     
     drupal_set_message("base_url: " . $GLOBALS['base_url']);
     drupal_set_message("base_path: " . $GLOBALS['base_path']);
     drupal_set_message("url() returns: " . url());
-    drupal_set_message("session_key is " . $fb->api_client->session_key);
+    drupal_set_message("session_key is " . $_fb->api_client->session_key);
   }
 
   if ($fbu = fb_get_fbu($user)) {
@@ -191,7 +191,7 @@ function fb_devel_page() {
 
   dpm($_COOKIE, 'cookie');
   dpm($_REQUEST, "Request");
-  //dpm($fb_app, "fb_app");
+  //dpm($_fb_app, "fb_app");
   drupal_set_message("session_id returns " . session_id());
   //dpm($_SESSION, "session:");
 
@@ -301,7 +301,7 @@ function fb_devel_block($op = 'list', $delta = 0, $edit = array()) {
 }
 
 function fb_devel_info() {
-  global $fb, $fb_app;
+  global $_fb, $_fb_app;
   global $user;
   global $base_url;
   global $base_path;
@@ -309,16 +309,16 @@ function fb_devel_info() {
   $info = array();
   $label = fb_settings(FB_SETTINGS_APP_LABEL);
   
-  if ($fb) {
-    if ($fb->in_fb_canvas())
+  if ($_fb) {
+    if ($_fb->in_fb_canvas())
       $info['Page Status'] = t('Rendering FBML canvas page.');
-    else if ($fb->in_frame()) {
+    else if ($_fb->in_frame()) {
       $info['Page Status'] = t('Rendering iframe.');
     }
     else if ($label) {
       // Followed a link from within an iframe.
       $info['Page Status'] = t('Global fb instance is set (followed link in iframe, or handling a form).');
-      $info['fb'] = $fb;
+      $info['fb'] = $_fb;
     }
     else {
       $info['Page Status'] = t('Connected via Facebook Connect');
@@ -326,11 +326,11 @@ function fb_devel_info() {
     
     $info['fb_facebook_user'] = fb_facebook_user();
     $fbu = fb_facebook_user();
-    if (fb_api_check_session($fb)) {
+    if (fb_api_check_session($_fb)) {
       try {
         // users_isAppUser() may be unreliable!
-        $info['users_isAppUser'] = $fb->api_client->users_isAppUser();
-        $info["users_isAppUser($fbu)"] = $fb->api_client->users_isAppUser($fbu);
+        $info['users_isAppUser'] = $_fb->api_client->users_isAppUser();
+        $info["users_isAppUser($fbu)"] = $_fb->api_client->users_isAppUser($fbu);
       }
       catch (Exception $e) {
         fb_log_exception($e, t('fb_devel unable to call users_isAppUser().'));
@@ -357,12 +357,12 @@ function fb_devel_info() {
 
   $info['request'] = $_REQUEST;
   $info['user'] = $GLOBALS['user'];
-  $info['fb_app'] = $fb_app;
+  $info['fb_app'] = $_fb_app;
   $info['session'] = $_SESSION;
   $info['cookies'] = $_COOKIE;
 
-  if ($fb) {
-    $info['api_client'] = $fb->api_client;
+  if ($_fb) {
+    $info['api_client'] = $_fb->api_client;
   }
 
   $form = array();

@@ -100,8 +100,8 @@ HTML;
  * total hissy-fit if you tried.
  */
 function fb_connect_app_init($fb_app) {
-  if (isset($GLOBALS['fb_app']) && fb_is_iframe_canvas() &&
-    $GLOBALS['fb_app']->apikey != $fb_app->apikey) {
+  if (isset($GLOBALS['_fb_app']) && fb_is_iframe_canvas() &&
+    $GLOBALS['_fb_app']->apikey != $fb_app->apikey) {
     // If we're in an iframe, only support connect for the iframe app.
     return;
   }
@@ -110,9 +110,10 @@ function fb_connect_app_init($fb_app) {
     $fbu = $fb->get_loggedin_user();
     // TODO: sometimes this method indicates we are logged in when we really are not.  Find a way to verify.
     if ($fbu &&
-      (!isset($GLOBALS['fb_app']) || $GLOBALS['fb_app']->apikey != $fb_app->apikey)) {
+      (!isset($GLOBALS['_fb_app']) || $GLOBALS['_fb_app']->apikey != $fb_app->apikey)) {
       // The user has authorized the app and we now know something about them.  Use a hook to trigger the actions of other modules.
-      fb_invoke(FB_OP_APP_IS_AUTHORIZED, array('fbu' => $fbu,
+      fb_invoke(FB_OP_APP_IS_AUTHORIZED, array(
+          'fbu' => $fbu,
           'fb_app' => $fb_app,
           'fb' => $fb));
     }
@@ -173,7 +174,7 @@ function fb_connect_enabled_apps() {
 function fb_connect_fb($op, $data, &$return) {
   //dpm(func_get_args(), "fb_connect_fb($op)");
   if ($op == FB_OP_CURRENT_APP && !$return) {
-    // This will cause fb.module to set the global $fb when user is logged in via fbConnect.
+    // This will cause fb.module to set the global $_fb when user is logged in via fbConnect.
     if ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
       $return = fb_get_app(array('label' => $label));
     }
@@ -271,13 +272,18 @@ function fb_connect_user($op, &$edit, &$account, $category = NULL) {
   }
 }
 
+/**
+ * Here we attempt to log the user out of facebook connect, not just Drupal.
+ * If we fail, the user will be reconnected right away, because
+ * connect cookies are still in place.
+ */
 function fb_connect_exit($url = NULL) {
   if (isset($GLOBALS['fb_connect_logging_out'])) {
-    global $fb;
+    global $_fb;
     session_write_close(); // drupal_goto calls this, so why not us?
     if (!isset($url))
       $url = url('<front>', NULL, NULL, TRUE);
-    $fb->logout($url);
+    $_fb->logout($url);
   }
 }
 
@@ -287,8 +293,8 @@ function fb_connect_exit($url = NULL) {
  * called.
  */
 function fb_connect_require_feature($feature = NULL, $fb_app = NULL) {
-  if ($feature && !isset($fb_app) && isset($GLOBALS['fb_app']))
-    $fb_app = $GLOBALS['fb_app'];
+  if ($feature && !isset($fb_app) && isset($GLOBALS['_fb_app']))
+    $fb_app = $GLOBALS['_fb_app'];
   
   // some features may apply without an app, but for now let's enforce that an app is required.
   if ($feature && !isset($fb_app))
@@ -310,7 +316,7 @@ function fb_connect_require_feature($feature = NULL, $fb_app = NULL) {
  */
 function fb_connect_init_option($option = NULL, $value = NULL, $fb_app = NULL) {
   if ($option && !isset($fb_app))
-    $fb_app = $GLOBALS['fb_app'];
+    $fb_app = $GLOBALS['_fb_app'];
   if ($option && !$fb_app)
     return;
   
@@ -341,7 +347,7 @@ function fb_connect_init_option($option = NULL, $value = NULL, $fb_app = NULL) {
  */
 function fb_connect_init_js($js = NULL) {
   $fbu = fb_facebook_user();
-  $fb_app = $GLOBALS['fb_app'];
+  $fb_app = $GLOBALS['_fb_app'];
   $cid = 'fb_connect_init_js_' . $fb_app->apikey . '_' . $fbu;
   $cache = cache_get($cid, 'cache');
   if (!isset($cache->data)) {

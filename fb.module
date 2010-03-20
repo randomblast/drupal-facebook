@@ -63,7 +63,9 @@ define('FB_APP_CURRENT', '000_app_current'); // Canvas pages only.  000 makes it
  * 
  */
 function fb_init() {
-  global $fb, $fb_app; // Set by this function.
+  // Globals provided for internal use and convenience to third-parties.
+  global $_fb;
+  global $_fb_app;
   
   // http://drupal.org/node/329810
   if (!function_exists('arg')) {
@@ -115,25 +117,31 @@ function fb_init() {
   }
   
   // Ask other modules for app details.
-  $fb_app = fb_invoke(FB_OP_CURRENT_APP);
+  $_fb_app = fb_invoke(FB_OP_CURRENT_APP);
 
-  if ($fb_app) {
+  // DEPRECATED global $fb_app has been renamed to $_fb_app.
+  $GLOBALS['fb_app'] = $_fb_app; // For compatibility with old third-party modules.
+
+  if ($_fb_app) {
     // we are in a callback
     
     // For canvas and connect pages, use current user.
-    $fb = fb_api_init($fb_app, FB_FBU_CURRENT);
-    
-    if ($fb) {
+    $_fb = fb_api_init($_fb_app, FB_FBU_CURRENT);
+
+    // DEPRECATED global $fb has been renamed to $_fb.
+    $GLOBALS['fb'] = $_fb; // For compatibility with old third-party modul    
+
+    if ($_fb) {
       // Give other modules a chance to initialize, require login, etc...
       fb_invoke(FB_OP_INITIALIZE, array(
-          'fb_app' => $fb_app,
-          'fb' => $fb));
+          'fb_app' => $_fb_app,
+          'fb' => $_fb));
       
       // See if the facebook user id is known
-      if ($fbu = $fb->get_loggedin_user()) {
+      if ($fbu = $_fb->get_loggedin_user()) {
         fb_invoke(FB_OP_APP_IS_AUTHORIZED, array(
-            'fb_app' => $fb_app,
-            'fb' => $fb,
+            'fb_app' => $_fb_app,
+            'fb' => $_fb,
             'fbu' => $fbu));
       }
     }
@@ -142,8 +150,8 @@ function fb_init() {
     
   }
   
-  fb_invoke(FB_OP_POST_INIT, array('fb_app' => $fb_app,
-                                   'fb' => $fb));
+  fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
+                                   'fb' => $_fb));
 }
 
 
@@ -184,29 +192,29 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
   if (!count($cache)) {
     $filename = variable_get('fb_api_file', 'facebook-platform/php/facebook.php');
     if (!include($filename)) {
-      $message = t('Failed to find the Facebook client libraries at %filename.  Read the !readme and follow the instructions carefully.',
-                   array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
-                         // This link should work with clean URLs disabled.
-                         '!readme' => '<a href='.base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>',
-                         '%filename' => $filename,
-                   ));
+      $message = t('Failed to find the Facebook client libraries at %filename.  Read the !readme and follow the instructions carefully.', array(
+                   '!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
+                   // This link should work with clean URLs disabled.
+                   '!readme' => '<a href='. base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>',
+                   '%filename' => $filename,
+                 ));
       drupal_set_message($message, 'error');
       watchdog('fb', $message);
       return NULL;
     }
   }
   
-  global $facebook_config;
-  $facebook_config['debug'] = variable_get('fb_debug', FALSE); // set TRUE for debug output from FB API
+  // This global comes from facebook's client API.
+  $GLOBAL['facebook_config']['debug'] = variable_get('fb_debug', FALSE); // set TRUE for debug output from FB API
   
   if (!isset($cache[$fb_app->apikey])) {
     $cache[$fb_app->apikey] = array();
   }
   $fbu_orig = $fbu;
   
-  // Avoid E_NOTICE errors and keep code below clean.  PHP sux.
-  if (isset($GLOBALS['fb'])) {
-    $global_fb = $GLOBALS['fb'];
+  // Avoid E_NOTICE errors and keep code below clean.
+  if (isset($GLOBALS['_fb'])) {
+    $global_fb = $GLOBALS['_fb'];
   }
   else {
     $global_fb = (object) array('api_key' => NULL);
@@ -215,32 +223,32 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
   // Determine the actual facebook user id to use.
   if ($global_fb->api_key == $fb_app->apikey && 
       ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY ||
-       $fbu == $GLOBALS['fb']->get_loggedin_user())) {
-    return $GLOBALS['fb'];
+       $fbu == $GLOBALS['_fb']->get_loggedin_user())) {
+    return $GLOBALS['_fb'];
   }
-  else if ($global_fb->api_key == $fb_app->apikey && 
-           ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) 
-           && isset($_SESSION['fb_frame_params']) && !$_REQUEST['fb_sig']) {
+  elseif ($global_fb->api_key == $fb_app->apikey && 
+          ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY) && 
+          isset($_SESSION['fb_frame_params']) && !$_REQUEST['fb_sig']) {
     $params = $_SESSION['fb_frame_params'];
     $fbu = $params['user'];
     $session = $params['session_key'];
   }
-  else if ($global_fb->api_key == $fb_app->apikey &&
-           $fbu == FB_FBU_CURRENT) {
+  elseif ($global_fb->api_key == $fb_app->apikey && $fbu == FB_FBU_CURRENT) {
     // No current user to use, probably anonymous canvas page.
-    return $GLOBALS['fb'];
+    return $GLOBALS['_fb'];
   }
-  else if ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
+  elseif ($fbu == FB_FBU_INFINITE_SESSION || $fbu == FB_FBU_ANY) {
     // Learn the infinite session id and key
-    $data = fb_invoke(FB_OP_GET_INFINITE_SESSION, array('fb_app' => $fb_app,
-							'fb' => $GLOBALS['fb']),
-		      array());
+    $data = fb_invoke(FB_OP_GET_INFINITE_SESSION, array(
+              'fb_app' => $fb_app,
+							'fb' => $GLOBALS['_fb']),
+            array());
     if (count($data) && $data[0] && $data[1]) {
       $fbu = $data[0];
       $session = $data[1];
     }
   }
-  else if (is_numeric($fbu)) {
+  elseif (is_numeric($fbu)) {
     // FB user id passed in.  If we happen to have valid session info for
     // them, we can log in as them.
     $data = fb_invoke(FB_OP_GET_USER_SESSION,
@@ -271,11 +279,11 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
       if ($fbu && isset($session)) {
         $fb->set_user($fbu, $session);
       }
-      else if ($fbu && $fbu == $fb->get_loggedin_user()) {
+      elseif ($fbu && $fbu == $fb->get_loggedin_user()) {
         // Canvas page or Connect page, current user is logged in already.
         // Nothing to do here.
       }
-      else if ($fbu == FB_FBU_NO_SESSION) {
+      elseif ($fbu == FB_FBU_NO_SESSION) {
         $fb->set_user(NULL, NULL);
       }
 
@@ -313,7 +321,7 @@ function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
  * This is for internal use.  Third party modules use fb_api_init().
  */
 function _fb_api_init($fb_app = NULL) {
-  $fb = $GLOBALS['fb']; // Default to active app on canvas pages
+  $fb = $GLOBALS['_fb']; // Default to active app on canvas pages
   if (!$fb && $fb_app)
     // Otherwise, log into facebook api.
     $fb = fb_api_init($fb_app, FB_FBU_ANY);
@@ -353,7 +361,7 @@ function fb_api_check_session($fb) {
  */
 function fb_facebook_user($fb = NULL) {
   if (!isset($fb))
-    $fb = $GLOBALS['fb'];
+    $fb = $GLOBALS['_fb'];
   
   if (!$fb)
     return;
@@ -376,8 +384,8 @@ function fb_is_fbml_canvas() {
     // More complex logic if fb_canvas.module enabled.
     return fb_canvas_is_fbml();
   else {
-    if (isset($GLOBALS['fb'])) {
-      return $GLOBALS['fb']->in_fb_canvas();
+    if (isset($GLOBALS['_fb'])) {
+      return $GLOBALS['_fb']->in_fb_canvas();
     }
   }
 }
@@ -390,8 +398,8 @@ function fb_is_iframe_canvas() {
     // More complex logic if fb_canvas.module enabled.
     return fb_canvas_is_iframe();
   else {
-    if (isset($GLOBALS['fb'])) {
-      return $GLOBALS['fb']->in_frame();
+    if (isset($GLOBALS['_fb'])) {
+      return $GLOBALS['_fb']->in_frame();
     }
   }
 }
@@ -445,20 +453,20 @@ function fb_is_app_user($fb) {
 function fb_get_fbu($uid, $fb_app = NULL) {
   // default to current app (only set if we're in a FB callback)
   if (!$fb_app)
-    $fb_app = $GLOBALS['fb_app'];
+    $fb_app = $GLOBALS['_fb_app'];
   
   // Accept either a user object or uid passed in.
   if (is_object($uid) && ($uid->uid) && 
       isset($uid->fbu) && $uid->fbu)
     return $uid->fbu;
-  else if (is_object($uid))
+  elseif (is_object($uid))
     $uid = $uid->uid;
   
   if ($uid) {
     // User management is handled by another module.  Use our hook to ask for mapping.
     $fbu = fb_invoke(FB_OP_GET_FBU, array('fb_app' => $fb_app,
                                           'uid' => $uid,
-                                          'fb' => $GLOBALS['fb']));
+                                          'fb' => $GLOBALS['_fb']));
   }
   return $fbu;
 }
@@ -476,15 +484,15 @@ function fb_get_object_fbu($object) {
     $fbu = $cache[$object->uid];
     return $fbu;
   }
-  else if (isset($object->fbu)) {
+  elseif (isset($object->fbu)) {
     // Explicitly set.
     $fbu = $object->fbu;
   }
-  else if ($pos = strpos($object->name, '@facebook')) {
+  elseif ($pos = strpos($object->name, '@facebook')) {
     // Naming convention.
     $fbu = substr($object->name, 0, $pos);
   }
-  else if ($object->uid > 0) {
+  elseif ($object->uid > 0) {
     // Experimental.  This can be expensive on pages with many comments or nodes!
     //$fbu = fb_get_fbu($object->uid);
   }
@@ -557,7 +565,7 @@ function fb_get_all_apps() {
 function fb_get_friends($fbu, $fb_app = NULL) {
   static $cache = array();
   if (!$fb_app)
-    $fb_app = $GLOBALS['fb_app'];
+    $fb_app = $GLOBALS['_fb_app'];
 
   // Facebook only allows us to query the current user's friends, so let's try
   // to log in as that user.  It will only actually work if they are the
@@ -568,7 +576,7 @@ function fb_get_friends($fbu, $fb_app = NULL) {
     return;
 
   if (!isset($cache[$fbu])) {
-    if ($fb === $GLOBALS['fb'] && 
+    if ($fb === $GLOBALS['_fb'] && 
         $fbu == fb_facebook_user($fb))
       $items = $fb->api_client->friends_get();
     // friends_get does not work in cron call, so we double check.
@@ -739,10 +747,10 @@ function fb_perm() {
  * When exiting we need to do some special stuff for forms
  */
 function fb_exit($destination = NULL) {
-  global $fb_app, $fb;
-  if ($fb_app && $fb) {
-    fb_invoke(FB_OP_EXIT, array('fb_app' => $fb_app,
-                                'fb' => $GLOBALS['fb']),
+  global $_fb_app, $_fb;
+  if ($_fb_app && $_fb) {
+    fb_invoke(FB_OP_EXIT, array('fb_app' => $_fb_app,
+                                'fb' => $GLOBALS['_fb']),
               $destination);
   }
 }
@@ -763,11 +771,11 @@ function _fb_form_cache_cb($cid) {
 }
 
 function fb_session_key_form() {
-  global $fb_app;
+  global $_fb_app;
   $form = array('auth_token' => array('#type' => 'textfield',
                                       '#title' => t('One-time code'),
                                       '#description' => t('If you do not have a one-time code, you can get one !here.',
-                                                          array('!here' => l(t('here'), 'http://www.facebook.com/code_gen.php?v=1.0&api_key='.$fb_app->apikey))),
+                                                          array('!here' => l(t('here'), 'http://www.facebook.com/code_gen.php?v=1.0&api_key='.$_fb_app->apikey))),
                 ),
                 'submit' => array('#type' => 'submit',
                                   '#value' => t('Submit')),
@@ -842,7 +850,7 @@ function fb_scrub_urls($content) {
  */
 function fb_report_errors($fb = FB_APP_CURRENT, $message = NULL) {
   if ($fb == FB_APP_CURRENT) {
-    $fb = $GLOBALS['fb'];
+    $fb = $GLOBALS['_fb'];
   }
   if ($fb) {
     if (isset($fb->api_client->error_code)) {
@@ -909,7 +917,7 @@ function fb_log_exception($e, $text = '', $fb = NULL) {
  */
 function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
   if (!$fb) {
-    $fb = $GLOBALS['fb'];
+    $fb = $GLOBALS['_fb'];
   }
   $infos = array();
   

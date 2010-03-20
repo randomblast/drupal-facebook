@@ -459,10 +459,10 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     $fb_app = fb_get_app(array('apikey' => $_REQUEST['fb_sig_api_key']));
     $fbu = isset($_REQUEST['fb_sig_user']) ? $_REQUEST['fb_sig_user'] : NULL;
   }
-  else if (!empty($GLOBALS['fb'])) {
+  else if (!empty($GLOBALS['_fb'])) {
     // Post from iframe, or facebook connect page, or canvas page.
     $fbu = fb_facebook_user();
-    $fb_app = $GLOBALS['fb_app'];
+    $fb_app = $GLOBALS['_fb_app'];
   }
   
   if (!empty($fb_app) && $op == 'load' && $account->uid) {
@@ -709,7 +709,7 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
     // Allow third-party module to adjust any of our data before we create
     // the user.
     $edit = fb_invoke(FB_OP_PRE_USER, array('fbu' => $fbu,
-                                            'fb' => $GLOBALS['fb'],
+                                            'fb' => $GLOBALS['_fb'],
                                             'fb_app' => $fb_app,
                                             'info' => $info),
                       $edit);
