@@ -119,7 +119,9 @@ function fb_canvas_fb($op, $data, &$return) {
       $GLOBALS['fb_canvas_post_process'] = TRUE;
     }
     
-    if ($is_canvas && $_GET['q'] == drupal_get_normal_path(variable_get('site_frontpage', 'node'))) {
+    if ($is_canvas && 
+      $_GET['q'] == drupal_get_normal_path(
+        variable_get('site_frontpage', 'node'))) {
       if ($fb->get_loggedin_user()) {
         if ($fb->api_client->users_isAppUser())
           $front = $fb_canvas_data['front_added'];
@@ -266,8 +268,8 @@ function _fb_canvas_get_config($fb_app) {
 function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data']) && is_array($form['fb_app_data'])) {
-    $node = $form['#node'];
-    $fb_canvas_data = _fb_canvas_get_config($node->fb_app);    
+    $fb_app = $form['#fb_app'];
+    $fb_canvas_data = _fb_canvas_get_config($fb_app);    
     
     $form['fb_app_data']['fb_canvas'] = array(
       '#type' => 'fieldset',
@@ -622,7 +624,6 @@ function fb_canvas_process($output, $options = array()) {
   $replacements = array();
   
   if ($fb) {
-    $nid = $fb_app->nid;
     $base_before_rewrite = '';
     $rewrite_options = array();
     $base = $base_path . fb_url_outbound_alter($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.

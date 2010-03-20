@@ -34,7 +34,7 @@ function fb_infinite_menu() {
           'access callback' => TRUE,
           'type' => MENU_CALLBACK,
     );
-  
+  // broken.  XXX module is deprecated!
   $items['node/%fb_infinite/fb/infinite/test'] = 
     array('title' => 'Infinite session test',
           'page callback' => 'fb_infinite_test_page',
@@ -75,25 +75,25 @@ function fb_infinite_form_alter(&$form, &$form_state, $form_id) {
   
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
-    $node = $form['#node'];
-    $fb_app_data = fb_get_app_data($node->fb_app);
+    $fb_app = $form['#fb_app'];
+    $fb_app_data = fb_get_app_data($fb_app);
     $fb_infinite_data = isset($fb_app_data['fb_infinite']) ? $fb_app_data['fb_infinite'] : array('fbu' => NULL, 'key' => NULL);
     
-    $form['fb_app_data']['fb_infinite'] = 
-      array('#type' => 'fieldset',
-            '#collapsible' => TRUE,
-            '#collapsed' => TRUE,
-            '#title' => t('Facebook infinite session settings'),
-            '#description' => t('An infinite session key is required to access the Facebook API from non-canvas pages.  For example, a cron job.'));
-    if (!$node->nid) {
+    $form['fb_app_data']['fb_infinite'] = array(
+      '#type' => 'fieldset',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#title' => t('Facebook infinite session settings'),
+      '#description' => t('An infinite session key is required to access the Facebook API from non-canvas pages.  For example, a cron job.'));
+    if (!$fb_app->label) {
       // User must save apikey and secret before we can prompt for infinite session key.
       $form['fb_app_data']['fb_infinite']['message'] =
         array('#value' => '<p>'.t('Save your apikey and secret settings first.  Then return here to set up the infinite session.').'</p>');
     }
     else {
-      if ($node->fb_app->canvas) {
+      if ($fb_app->canvas) {
         $form['fb_app_data']['fb_infinite']['help'] = array('#value' => t('<a href=!url target=_blank>Get your session key</a>.  If prompted to log in, be sure to check the box that prevents your session from expiring.', 
-                                                                          array('!url' => "http://apps.facebook.com/".$node->fb_app->canvas."/fb/infinite/display")),
+                                                                          array('!url' => "http://apps.facebook.com/".$fb_app->canvas."/fb/infinite/display")),
                                                             '#prefix' => '<p>',
                                                             '#suffix' => '</p>');
       }

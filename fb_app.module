@@ -112,14 +112,15 @@ function fb_app_menu() {
     'type' => MENU_LOCAL_TASK,
     'weight' => -1,
   );
-  $items[FB_PATH_ADMIN . '/fb_app/%'] = array(
-    'title' => 'Edit Application',
+  $items[FB_PATH_ADMIN_APPS . '/%fb/fb_app'] = array(
+    'title' => 'Edit',
     'description' => t('Add Facebook Application'),
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('fb_app_edit_form', 4),
+    'page arguments' => array('fb_app_edit_form', FB_PATH_ADMIN_APPS_ARGS),
     'access arguments' => array(FB_PERM_ADMINISTER),
     'file' => 'fb_app.admin.inc',
-    'type' => MENU_CALLBACK,
+    'weight' => -1,
+    'type' => MENU_LOCAL_TASK,
   );
   
   return $items;
@@ -238,9 +239,8 @@ function theme_fb_app_user_info($fb_app, $info) {
 
 function fb_app_token_list($type = 'all') {
   if ($type == 'all' || $type == 'fb' || $type == 'fb_app') {
-    $tokens['fb_app']['fb-app-nid'] = t('Facebook application ID');
-    $tokens['fb_app']['fb-app-title'] = t('Facebook application title');
-    $tokens['fb_app']['fb-app-url'] = t('Facebook application URL (base path)');
+    $tokens['fb_app']['fb-app-label'] = t('Facebook application label');
+    $tokens['fb_app']['fb-app-url'] = t('Facebook application canvas page URL');
   }
   return $tokens;
 }
@@ -249,8 +249,7 @@ function fb_app_token_values($type = 'all', $object = NULL) {
   $values = array();
   if ($type == 'fb_app' && $object) {
     $fb_app = $object;
-    $values['fb-app-title'] = $fb_app->title;
-    $values['fb-app-nid'] = $fb_app->nid;
+    $values['fb-app-label'] = $fb_app->label;
     $values['fb-app-url'] = 'http://apps.facebook.com/'.$fb_app->canvas;
   }
   return $values;

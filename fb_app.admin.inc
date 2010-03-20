@@ -32,21 +32,19 @@ function fb_app_fb_admin($op, $data, &$return) {
 
 /**
  * Builds the form used to edit an application.
+ *
+ * This form supports both create and edit.
  */
-function fb_app_edit_form($form_state, $label = NULL) {
-  if (isset($label)) {
-    $fb_app = fb_get_app(array('label' => $label,
-                               'status' => 0, // include disabled.
-                         ));
-    if (!$fb_app) {
-      drupal_set_message(t('Application %label not found.',
-                           array('%label' => $label)),
-                         'warning');
-      drupal_not_found();
-      exit();
-    }
+function fb_app_edit_form($form_state, $fb_app = NULL) {
+  // If app is managed by this module, it has fba_id.
+  if (isset($fb_app) && !$fb_app->fba_id) {
+    drupal_set_message(t('Application %label not found.',
+        array('%label' => $label)),
+      'warning');
+    drupal_not_found();
+    exit();
   }
-
+  
   if (!isset($fb_app)) {
     // Defaults for new app.
     $fb_app = (object) array(
@@ -61,14 +59,14 @@ function fb_app_edit_form($form_state, $label = NULL) {
     drupal_set_title(t('Create Facebook Application'));
   }
   else {
-    drupal_set_title(t('Edit %label', array('%label' => $fb_app->label)));
+    //drupal_set_title(t('Edit %label', array('%label' => $fb_app->label)));
   }
   
   $form['#fb_app'] = $fb_app; // Similar to #node 
   
-  $form['#node'] = (object) array('fb_app' => $fb_app);  // deprecated! backward compatibility!
+  //$form['#node'] = (object) array('fb_app' => $fb_app);  // deprecated! backward compatibility!
   
-  if (!$label) {
+  if (!$fb_app->label) {
     // Helpful link
     // http://wiki.developers.facebook.com/index.php/How_To_Write_A_Good_Connect_Plugin
     $helptext = '<ol>
@@ -93,13 +91,13 @@ function fb_app_edit_form($form_state, $label = NULL) {
     '#title' => t('Label'),
     '#required' => TRUE,
     '#default_value' => $fb_app->label,
-    '#description' => t('A short name for this application.  Use letters and numerals only (no spaces, etc), as this label will be used by code to customize the behavior of this app.<br/>Working with multiple copies of a site (i.e. development, staging, production)?  Use the <strong>same label</strong> on all servers!  Node id and apikey usually change from server to server, but the label remains the same.'),
+    '#description' => t('A short name for this application.  Use letters and numerals only (no spaces, etc). <br/>This label will be used by code to customize the behavior of this app.<br/>Working with multiple copies of a site (i.e. development, staging, production)?  Use the <strong>same label</strong> on all servers!  Apikey, secret and ID usually change from server to server, but <strong>the label remains the same</strong>.'),
   );
   $form['status'] = array(
     '#type' => 'checkbox',
     '#title' => t('Enabled'),
     '#default_value' => $fb_app->status,
-    '#description' => t('Uncheck to prevent communication between this server and facebook.'),
+    '#description' => t('Uncheck if this server no longer hosts this application.'),
   );
   
   $form['apikey'] = array(

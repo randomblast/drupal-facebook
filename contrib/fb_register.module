@@ -11,32 +11,29 @@
  * Implementation of hook_menu().
  */
 function fb_register_menu() {
-  $items['node/%fb_app_nid/fb/register'] = array(
+  $items[FB_PATH_ADMIN_APPS . '/%fb/fb_register'] = array(
     'title' => 'Register Users',
     'page callback' => 'fb_register_detail_page',
-    'page arguments' => array(1),
-    'access callback' => 'node_access',
-    'access arguments' => array('update', 1),
+    'page arguments' => array(FB_PATH_ADMIN_APPS_ARGS),
+    'access arguments' => array(FB_PERM_ADMINISTER),
     'type' => MENU_LOCAL_TASK,
   );
   
   // Callback to register a chunk of users.
-  $items['fb_register/%fb_app_nid/%'] = array(
+  $items['fb_register/%fb/%'] = array(
     'title' => 'Register Users',
     'page callback' => 'fb_register_all_users',
     'page arguments' => array(1,2),
-    'access callback' => 'node_access',
-    'access arguments' => array('update', 1),
+    'access arguments' => array(FB_PERM_ADMINISTER),
     'type' => MENU_LOCAL_TASK,
   );
   
   return $items;
 }
 
-function fb_register_detail_page($node) {
+function fb_register_detail_page($fb_app) {
   $output = '';
-
-  $fb_app = $node->fb_app;
+  
   if (isset($_REQUEST['how_many'])) {
     $how_many = $_REQUEST['how_many'];
   } 
@@ -49,9 +46,9 @@ function fb_register_detail_page($node) {
   $output .= drupal_get_form('fb_register_now_form', $fb_app, $how_many);
   
   $output .= '<p>' . t('The registration module is enabled for this application.  Users will be registered during cron jobs and when they change email addresses.  <br/><a href="!url">Click here to register ALL users now</a>.',
-                       array('!url' => url('fb_register/' . $node->nid . '/' . $how_many))) . "</p>\n";
+             array('!url' => url('fb_register/' . $fb_app->label . '/' . $how_many))) . "</p>\n";
   
-  $output .= '<pre>' . print_r($node, 1) . "</pre>\n"; // debug
+  $output .= '<pre>' . print_r($fb_app, 1) . "</pre>\n"; // debug
   
   return $output;
 }
@@ -62,11 +59,11 @@ function fb_register_detail_page($node) {
  * all users of a site, rather than waiting for cron jobs to take care
  * of it all.
  */
-function fb_register_all_users($node, $how_many) {
-  $success_count = _fb_register_register_users($node->fb_app, $how_many);
+function fb_register_all_users($fb_app, $how_many) {
+  $success_count = _fb_register_register_users($fb_app, $how_many);
   drupal_set_message(t("%count users successfully registered.",
-                       array('%count' => $success_count)));
-  $output = '<p>' . _fb_register_summary($node->fb_app) . "</p>\n";
+      array('%count' => $success_count)));
+  $output = '<p>' . _fb_register_summary($fb_app) . "</p>\n";
   
   if ($success_count > 0) {
     $output .= '<p>' . t('This page will refresh, to register another batch of users...') . '</p>';
@@ -84,7 +81,6 @@ function fb_register_all_users($node, $how_many) {
  */
 function _fb_register_summary($fb_app) {
   // Display a summary.
-  $node = node_load($fb_app->nid);
   $cache = cache_get('fb_register_cache');
   if (!$cache) {
     $cache = new stdClass();
@@ -96,12 +92,12 @@ function _fb_register_summary($fb_app) {
   $local = db_result(db_query("SELECT count(u.uid) FROM {users} u WHERE uid > 0"));
   $registerable = db_result(db_query("SELECT count(u.uid) FROm {users} u WHERE u.uid > 0 ANd u.mail IS NOT NULL AND u.mail !=''"));
   
-  $summary = t("%registered of %registerable accounts have been registered for !app. <br/>(Of %local total users, %registerable have email addresses.)",
-               array('%registered' => $registered,
-                     '%registerable' => $registerable,
-                     '%local' => $local,
-                     '!app' => l($node->title, 'node/' . $node->nid),
-               ));
+  $summary = t("%registered of %registerable accounts have been registered for !app. <br/>(Of %local total users, %registerable have email addresses.)", array(
+               '%registered' => $registered,
+               '%registerable' => $registerable,
+               '%local' => $local,
+               '!app' => $fb_app->label,
+             ));
   return $summary;
 }
 
@@ -120,9 +116,9 @@ function fb_register_now_form($form_state, $fb_app, $how_many) {
     '#title' => 'Register (up to) how many local users?',
     '#default_value' => $how_many,
   );
-  $form['fb_app_nid'] = array(
+  $form['fb_app_label'] = array(
     '#type' => 'value',
-    '#value' => $fb_app->nid,
+    '#value' => $fb_app->label,
   );
   $form['submit'] = array(
     '#type' => 'submit',
@@ -135,12 +131,12 @@ function fb_register_now_form($form_state, $fb_app, $how_many) {
 function fb_register_now_form_submit($form, &$form_state) {
   $values = $form_state['values'];
   //dpm($values, "fb_register_now_form_submit");
-
-  $fb_app = fb_get_app(array('nid' => $values['fb_app_nid']));
+  
+  $fb_app = fb_get_app(array('label' => $values['fb_app_label']));
   
   $success_count = _fb_register_register_users($fb_app, $values['how_many']);
   drupal_set_message(t('%count email addresses registered.',
-                       array('%count' => $success_count)));
+      array('%count' => $success_count)));
 }
 
 /**
@@ -241,15 +237,17 @@ function _fb_register_register_users($fb_app, $how_many) {
 function fb_register_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
-    $node = $form['#node'];
-    $fb_app_data = fb_get_app_data($node->fb_app);
-    $fb_register_data = isset($fb_app_data['fb_register']) ? $fb_app_data['fb_register'] : array('register_users' => FALSE);
+    $fb_app = $form['#fb_app'];
+    $fb_app_data = fb_get_app_data($fb_app);
+    $fb_register_data = isset($fb_app_data['fb_register']) ? 
+      $fb_app_data['fb_register'] : array('register_users' => FALSE);
     
-    $form['fb_app_data']['fb_register'] = array('#type' => 'fieldset',
-                                                '#title' => t('Register Users'),
-                                                '#tree' => TRUE,
-                                                '#collapsible' => TRUE,
-                                                '#collapsed' => TRUE,
+    $form['fb_app_data']['fb_register'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Register Users'),
+      '#tree' => TRUE,
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
     );
     $form['fb_app_data']['fb_register']['register_users'] = array(
       '#type' => 'checkbox',
@@ -277,10 +275,10 @@ function fb_register_cron() {
       $count = _fb_register_register_users($fb_app, variable_get('fb_register_limit', 100));
       if ($count < 0) {
         // errors
-        watchdog('fb_register', "Errors incountered while registering users for Facebook App !app", array('!app' => l($fb_app->title, 'node/' . $fb_app->nid)), WATCHDOG_ERROR);
+        watchdog('fb_register', "Errors incountered while registering users for Facebook App %app", array('%app' => $fb_app->label), WATCHDOG_ERROR);
       }
       else if ($count > 0) {
-        watchdog('fb_register', "Registered %count users for Facebook App !app", array('%count' => $count, '!app' => l($fb_app->title, 'node/' . $fb_app->nid)));
+        watchdog('fb_register', "Registered %count users for Facebook App !app", array('%count' => $count, '%app' => $fb_app->label));
       }
     }
   }

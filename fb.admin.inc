@@ -11,13 +11,22 @@ define('FB_ADMIN_LOCAL_EDIT', 'fb_admin_prop_edit');
 define('FB_ADMIN_LOCAL_DELETE', 'fb_admin_prop_edit');
 define('FB_ADMIN_LOCAL_VIEW', 'fb_admin_prop_view');
 
+/**
+ * Drupal page callback.
+ */
 function fb_admin_page() {
   drupal_set_title(t('Drupal for Facebook'));
 
   $apps = fb_get_all_apps();
 
   if (count($apps)) {
-    $header = array(t('Label'), t('About'), t('Canvas'), t('Local Settings'), t('Remote Settings'));
+    $header = array(
+      t('Label'), 
+      t('About'), 
+      t('Canvas'), 
+      t('Local Settings'), 
+      t('Remote Settings'),
+    );
     
     foreach ($apps as $fb_app) {
       // Get properties from facebook.
@@ -44,12 +53,17 @@ function fb_admin_page() {
         $row[] = t('n/a');
       }
       // Local Settings
-      $links = array();
-      if (isset($local_props[FB_ADMIN_LOCAL_EDIT])) {
-        $links[] = array('title' => t('edit'), 'href' => $local_props[FB_ADMIN_LOCAL_EDIT]);
+      $links = array(array(
+                 'title' => 'view', 
+                 'href' => FB_PATH_ADMIN_APPS . '/' . $fb_app->label,
+               ),
+                    );
+      if (isset($local_props[FB_ADMIN_LOCAL_EDIT]) && FALSE) {
+        $links[] = array(
+          'title' => t('edit'), 
+          'href' => $local_props[FB_ADMIN_LOCAL_EDIT]);
       }
       $row[] = theme('links', $links);
-      
       
       // Remote Settings
       $row[] = l($fb_app->id, 'http://www.facebook.com/developers/editapp.php?app_id=' . $fb_app->id);
@@ -66,6 +80,20 @@ function fb_admin_page() {
     $output = $message;
   }
   return $output;
+}
+
+function fb_admin_app_page($fb_app = NULL) {
+  fb_get_app_data($fb_app);
+  fb_admin_get_app_properties($fb_app);
+  // placeholder until theming done... XXX
+  // Hide a couple things...
+  unset($fb_app->secret); 
+  unset($fb_app->data); 
+  return '<pre>' . dprint_r($fb_app, 1) . '</pre>';
+}
+
+function fb_admin_page_title($fb_app) {
+  return $fb_app->label;
 }
 
 /**

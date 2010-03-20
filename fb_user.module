@@ -317,8 +317,8 @@ function fb_user_fb($op, $data, &$return) {
 function fb_user_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
-    $node = $form['#node'];
-    $fb_user_data = _fb_user_get_config($node->fb_app);
+    $fb_app = $form['#fb_app'];
+    $fb_user_data = _fb_user_get_config($fb_app);
     
     $form['fb_app_data']['fb_user'] = array(
       '#type' => 'fieldset',
@@ -507,11 +507,12 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   }
   else if ($op == 'form' && $category == 'fb_user') {
     if (!user_access('administer users') &&
-        !(user_access('delete own fb_user authmap') && $user->uid == $account->uid))
+      !(user_access('delete own fb_user authmap') && 
+        $user->uid == $account->uid))
       return; // hide from this user
     
-    // Iterate through all facebook apps, because they do not all use the same
-    // map scheme.
+    // Iterate through all facebook apps, because they do not
+    // necessarily use the same map scheme.
     $apps = fb_get_all_apps();
     foreach ($apps as $fb_app) {
       $fb_user_data = _fb_user_get_config($fb_app);
@@ -522,58 +523,65 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app, FB_FBU_ANY);
         // Note: this requires infinite session with facebook or active fbconnect session.  TODO: fallback to fb_user_app table.
-        $info[$fbu] = $fb->api_client->users_getInfo(array($fbu), 
-                                                     array('name',
-                                                           'is_app_user',
-                                                     ));
+        $info[$fbu] = $fb->api_client->users_getInfo(array($fbu), array(
+                        'name',
+                        'is_app_user',
+                      ));
       }
       
       if ($fbu) {
         list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
         
         if ($fb_user_data['unique_account']) {
-          $form['map'][$module] = array('#type' => 'checkbox',
-                                        '#title' => $fb_app->title,
-                                        '#default_value' => $authname,
-                                        '#return_value' => $authname,
+          $form['map'][$module] = array(
+            '#type' => 'checkbox',
+            '#title' => $fb_app->label,
+            '#default_value' => $authname,
+            '#return_value' => $authname,
           );
         }
         else {
-          $shared_maps[] = $fb_app->title;
+          $shared_maps[] = $fb_app->label;
           $shared_fbu = $fbu; // Same for all shared apps.
           $shared_module = $module;
           $shared_authname = $authname;
         }
       }
       if ($shared_maps) {
-        $form['map'][$shared_module] = array('#type' => 'checkbox',
-                                             '#title' => implode('<br/>', $shared_maps),
-                                             '#default_value' => $shared_authname,
-                                             '#return_value' => $shared_authname,
+        // One authmap entry applies to more than on app.
+        $form['map'][$shared_module] = array(
+          '#type' => 'checkbox',
+          '#title' => implode(', ', $shared_maps),
+          '#default_value' => $shared_authname,
+          '#return_value' => $shared_authname,
         );
         if ($info[$shared_fbu]) {
           $data = $info[$shared_fbu][0];
-          $fb_link = l($data['name'], 'http://www.facebook.com/profile.php',
-                       array('query' => array('id' => $data['uid'])));
+          $fb_link = l($data['name'], 
+                       'http://www.facebook.com/profile.php', array(
+                         'query' => array('id' => $data['uid'])));
           
-          $form['map'][$shared_module]['#description'] .= t('Local account !username corresponds to !profile_page on Facebook.com.',
-                                                            array('!username' => l($account->name, 'user/' . $account->uid),
-                                                                  '!profile_page' => $fb_link));
+          $form['map'][$shared_module]['#description'] .= 
+            t('Local account !username corresponds to !profile_page on Facebook.com.', 
+              array(
+                '!username' => l($account->name, 'user/' . $account->uid),
+                '!profile_page' => $fb_link));
         }
       }
-
+      
       if (!$fbu) {
         if ($user->uid == $account->uid) {
           // TODO: give a user a way to map their facebook account to their local account.
         }
         else {
-          $form[$fb_app->nid] = array('#type' => 'markup',
-                                      '#value' => t('!username does not use !application.',
-                                                    array('!username' => theme('username', $account),
-                                                          '!application' => l($fb_app->title, 'node/'.$fb_app->nid),
-                                                    )),
-                                      '#prefix' => "\n<p>",
-                                      '#suffix' => "</p>\n",
+          $form[$fb_app->label] = array(
+            '#type' => 'markup',
+            '#value' => t('!username does not use !application.',
+                      array('!username' => theme('username', $account),
+                        '!application' => $fb_app->label, // TODO: show real name and link to facebook page.
+                           )),
+            '#prefix' => "\n<p>",
+            '#suffix' => "</p>\n",
           );
         }
       }
