@@ -682,7 +682,7 @@ function fb_menu() {
     'page callback' => 'fb_admin_page',
     'access arguments' => array(FB_PERM_ADMINISTER),
     'file' => 'fb.admin.inc',
-    'type' => MENU_CALLBACK,
+    'type' => MENU_NORMAL_ITEM,
   );
   $items[FB_PATH_ADMIN . '/list'] = array(
     'title' => 'List',

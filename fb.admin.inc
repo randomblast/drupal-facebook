@@ -78,9 +78,7 @@ function fb_admin_page() {
     
   }
   else {
-    $message = t('You must create an app first!');
-    drupal_set_message($message, 'error');
-    $output = $message;
+    $output = t('Start by creating an application.  Ensure the Facebook Application module is enabled, and click the Add Application link.');
   }
   return $output;
 }

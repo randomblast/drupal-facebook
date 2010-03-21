@@ -41,7 +41,7 @@ function fb_app_schema() {
         'default' => 1),
       
       // nid for backward-compatibility only.  DEPRECATED and will be removed!
-      'nid' => array('type' => 'int', 'not null' => TRUE, ),
+      'nid' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
 
       'label' => array(
         'type' => 'varchar', 
@@ -165,5 +165,13 @@ function fb_app_update_6205() {
                  'length' => 255,
                  'not null' => TRUE,
                ));
+  return $ret;
+}
+
+function fb_app_update_6206() {
+  $ret = array();
+  // Add default value to nid col.
+  db_change_field($ret, 'fb_app', 'nid', 'nid',
+                  array('type' => 'int', 'not null' => TRUE, 'default' => 0));
   return $ret;
 }

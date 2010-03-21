@@ -105,7 +105,16 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#default_value' => $fb_app->status,
     '#description' => t('Uncheck if this server no longer hosts this application.'),
   );
-  
+
+  // ID, apikey and secret are shown on facebook.  User copies and pastes values.
+  $form['id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Facebook App ID'),
+    '#required' => FALSE,
+    '#default_value' => $fb_app->id,
+    '#description' => t('Facebook will generate this value when you create the application.'),
+  );
+
   $form['apikey'] = array(
     '#type' => 'textfield',
     '#title' => t('API Key'),
@@ -121,13 +130,6 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#description' => t('Facebook will generate this value when you create the application.'),
   );
   
-  $form['id'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Facebook App ID'),
-    '#required' => FALSE,
-    '#default_value' => $fb_app->id,
-    '#description' => t('Facebook will generate this value when you create the application.'),
-  );
   
   // fb_app_data is a placeholder where other modules can attach settings.
   $form['fb_app_data'] = array('#tree' => TRUE);  
@@ -166,9 +168,9 @@ function fb_app_edit_form_submit($form, &$form_state) {
   // Get canvas_name, application_name from facebook.
   fb_admin_get_app_properties($fb_app);
   
-  if (isset($form['#fb_app'])) {
+  $orig_app = $form['#fb_app'];
+  if ($orig_app->fba_id) {
     // Updating.
-    $orig_app = $form['#fb_app'];
     
     db_query("UPDATE {fb_app} SET label='%s', status = %d, apikey='%s', secret='%s', id='%s', canvas='%s', title='%s',data='%s' WHERE fba_id = %d",
              $fb_app->label,
@@ -193,7 +195,7 @@ function fb_app_edit_form_submit($form, &$form_state) {
   }
   else {
     // Inserting.
-    db_query("INSERT INTO {fb_app} (label, status, apikey, secret, id, canvas, application_name, data) VALUES ('%s', %d, '%s', '%s', '%s', '%s', '%s', '%s')",
+    db_query("INSERT INTO {fb_app} (label, status, apikey, secret, id, canvas, title, data) VALUES ('%s', %d, '%s', '%s', '%s', '%s', '%s', '%s')",
              $fb_app->label,
              $fb_app->status,
              $fb_app->apikey,
