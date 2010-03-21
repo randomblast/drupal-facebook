@@ -47,19 +47,18 @@ function fb_permission_user($op, &$edit, &$account, $category = NULL) {
   if ($op == 'categories') {
     $items = array();
     // A tab for each application
-    $result = _fb_app_query_all();
-    $apps = array();
-    while ($fb_app = db_fetch_object($result)) {
+    foreach (fb_get_all_apps() as $fb_app) {
       // TODO: limit only to apps which can be added to a user's account.
-      $items[] = array('name' => $fb_app->label,
-                       'title' => $fb_app->title,
-                       'access callback' => 'fb_permission_access_own',
-                       'access arguments' => array(1, 'edit own extended permissions'),
-                       'weight' => 2);
+      $items[] = array(
+        'name' => $fb_app->label,
+        'title' => $fb_app->label, // TODO: human-readable title.
+        'access callback' => 'fb_permission_access_own',
+        'access arguments' => array(1, 'edit own extended permissions'),
+        'weight' => 2);
     }
     return $items;
   }
-  else if ($op == 'form') {
+  elseif ($op == 'form') {
     // See if the category corresponds to a facebook app.
     $fb_app = fb_get_app(array('label' => $category));
     
@@ -101,23 +100,22 @@ function fb_permission_user($op, &$edit, &$account, $category = NULL) {
  */
 function fb_permission_form_fbml($fb_app, $map) {
   foreach ($map as $key => $t) {
-    $form[$key] =
-      array('#type' => 'markup',
-            '#value' => '<fb:prompt-permission perms="'.$key.'">'.
-            t($t, array('%application' => $fb_app->title)) .
-            '<br /></fb:prompt-permission>',
-      );
-    
+    $form[$key] = array(
+      '#type' => 'markup',
+      '#value' => '<fb:prompt-permission perms="'. $key .'">'.
+      t($t, array('%application' => $fb_app->title)) .
+      '<br /></fb:prompt-permission>',
+    );
   }
 
   // Add buttons for boxes and info
   $sections = array('profile', 'info');
   foreach ($sections as $section) {
     if (fb_is_fbml_canvas()) {
-      $form[$section] =
-        array('#type' => 'markup',
-              '#value' => '<fb:add-section-button section="'.$section.'" />',
-        );
+      $form[$section] = array(
+        '#type' => 'markup',
+        '#value' => '<fb:add-section-button section="'. $section . '" />',
+      );
     }
   }
   

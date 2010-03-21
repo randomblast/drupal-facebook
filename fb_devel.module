@@ -3,7 +3,7 @@
 /**
  * @file
  * Makes development with Drupal for Facebook much easier.  Keep this
- * module enabled until your confident your application works perfectly.
+ * module enabled until you're confident your app works perfectly.
  * 
  * Produces warning messages and log messages 
  * when it detects something is wrong with
@@ -247,7 +247,7 @@ function fb_devel_fbu_page($fbu = NULL) {
     }
   }
   else
-    drupal_set_message("You have to specify a facebook user id.", 'error');
+    drupal_set_message(t("You have to specify a facebook user id."), 'error');
   return $output;
 }
 

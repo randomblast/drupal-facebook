@@ -1,6 +1,7 @@
 <?php
-
+// $Id$
 /**
+ * @file
  * Filter handler for profile tab user
  */
 class fb_views_handler_filter_profile_tab extends views_handler_filter_boolean_operator {

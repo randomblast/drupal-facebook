@@ -29,9 +29,9 @@ function fb_app_fb_admin($op, $data, &$return) {
     // Learn canvas name regardless of whether fb_canvas is enabled.
     $return[t('Canvas Name')] = 'canvas_name';
   }
-  elseif (($op == FB_ADMIN_OP_LOCAL_PROPERTIES) && isset($fb_app->fba_id)) {
+  elseif (($op == FB_ADMIN_OP_LOCAL_LINKS) && isset($fb_app->fba_id)) {
     // Path to edit this app.
-    $return[FB_ADMIN_LOCAL_EDIT] = FB_PATH_ADMIN . '/fb_app/' . $fb_app->label;
+    $return[t('edit')] = FB_PATH_ADMIN_APPS . '/' . $fb_app->label . '/fb_app';
     // TODO!!! Support delete, and maybe view.
   }
 }
@@ -44,25 +44,25 @@ function fb_app_fb_admin($op, $data, &$return) {
 function fb_app_edit_form($form_state, $fb_app = NULL) {
   // If app is managed by this module, it has fba_id.
   if (isset($fb_app) && !$fb_app->fba_id) {
-      drupal_set_message(t('Application %label not found.', array(
-			       '%label' => $label)),
-			 'warning');
+    drupal_set_message(t('Application %label not found.', array(
+          '%label' => $label)),
+      'warning');
     drupal_not_found();
     exit();
   }
   
   if (!isset($fb_app)) {
-      // Defaults for new app.
-      $fb_app = (object) array(
-	  'label' => NULL,
-	  'apikey' => NULL,
-	  'canvas' => NULL,
-	  'fba_id' => NULL,
-	  'id' => NULL,
-	  'status' => 1,
-	  'data' => serialize(array('fb_app' => array('set_app_props' => TRUE))),
-      );
-      drupal_set_title(t('Create Facebook Application'));
+    // Defaults for new app.
+    $fb_app = (object) array(
+      'label' => NULL,
+      'apikey' => NULL,
+      'canvas' => NULL,
+      'fba_id' => NULL,
+      'id' => NULL,
+      'status' => 1,
+      'data' => serialize(array('fb_app' => array('set_app_props' => TRUE))),
+    );
+    //drupal_set_title(t('Create Facebook Application'));
   }
   else {
     //drupal_set_title(t('Edit %label', array('%label' => $fb_app->label)));
@@ -162,19 +162,22 @@ function fb_app_edit_form_validate($form, &$form_state) {
 function fb_app_edit_form_submit($form, &$form_state) {
   $fb_app = (object)$form_state['values'];
   $fb_app->data = serialize($fb_app->fb_app_data);
-  fb_admin_get_app_properties($fb_app); // Get canvas from facebook.
+  
+  // Get canvas_name, application_name from facebook.
+  fb_admin_get_app_properties($fb_app);
   
   if (isset($form['#fb_app'])) {
     // Updating.
     $orig_app = $form['#fb_app'];
     
-    db_query("UPDATE {fb_app} SET label='%s', status = %d, apikey='%s', secret='%s', id='%s', canvas='%s', data='%s' WHERE fba_id = %d",
+    db_query("UPDATE {fb_app} SET label='%s', status = %d, apikey='%s', secret='%s', id='%s', canvas='%s', title='%s',data='%s' WHERE fba_id = %d",
              $fb_app->label,
              $fb_app->status,
              $fb_app->apikey,
              $fb_app->secret,
              $fb_app->id,
              $fb_app->canvas_name, // From facebook, not form.
+             $fb_app->application_name, // From facebook, not form.
              $fb_app->data,
              $orig_app->fba_id);
     
@@ -184,19 +187,20 @@ function fb_app_edit_form_submit($form, &$form_state) {
              WATCHDOG_NOTICE,
              l(t('view apps'), FB_PATH_ADMIN_APPS));
     
-    drupal_set_message(t('Saved changes to facebook application %label.',
-                         array('%label' => $fb_app->label)));
-    
+    drupal_set_message(t('Saved changes to facebook application %title (%label).',
+                         array('%title' => $fb_app->application_name,
+                               '%label' => $fb_app->label))); 
   }
   else {
     // Inserting.
-    db_query("INSERT INTO {fb_app} (label, status, apikey, secret, id, canvas, data) VALUES ('%s', %d, '%s', '%s', '%s', '%s', '%s')",
+    db_query("INSERT INTO {fb_app} (label, status, apikey, secret, id, canvas, application_name, data) VALUES ('%s', %d, '%s', '%s', '%s', '%s', '%s', '%s')",
              $fb_app->label,
              $fb_app->status,
              $fb_app->apikey,
              $fb_app->secret,
              $fb_app->id,
              $fb_app->canvas_name, // From facebook, not form.
+             $fb_app->application_name, // From facebook, not form.
              $fb_app->data);
     
     watchdog('fb_app', 'Created Facebook Application %label.',
@@ -205,8 +209,9 @@ function fb_app_edit_form_submit($form, &$form_state) {
              WATCHDOG_NOTICE,
              l(t('view apps'), FB_PATH_ADMIN_APPS));
     
-    drupal_set_message(t('Created facebook application %label.',
-                         array('%label' => $fb_app->label)));
+    drupal_set_message(t('Created facebook application %title (%label).',
+                         array('%label' => $fb_app->label,
+                               '%title' => $fb_app->application_name)));
   }
   
   fb_app_set_app_properties($fb_app); // Set callback URL, etc.

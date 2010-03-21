@@ -1,6 +1,7 @@
 <?php
-
+// $Id$
 /**
+ * @file
  * Filter handler for friends of the current user
  */
 class fb_views_handler_filter_friends extends views_handler_filter_boolean_operator {

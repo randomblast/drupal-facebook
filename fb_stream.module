@@ -61,7 +61,7 @@ function fb_stream_publish_dialog($params, $fb_app = NULL) {
  * ajax callbacks, where you want to publish dialog(s) in response to
  * javascript events.
  */
-function fb_stream_get_stream_dialog_data($fb_app = null) {
+function fb_stream_get_stream_dialog_data($fb_app = NULL) {
   if (!$fb_app)
     $fb_app = $GLOBALS['_fb_app'];
   

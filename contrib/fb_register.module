@@ -16,6 +16,7 @@
  * Implementation of hook_menu().
  */
 function fb_register_menu() {
+  // Register Users config page.
   $items[FB_PATH_ADMIN_APPS . '/%fb/fb_register'] = array(
     'title' => 'Register Users',
     'page callback' => 'fb_register_detail_page',
@@ -24,13 +25,14 @@ function fb_register_menu() {
     'type' => MENU_LOCAL_TASK,
   );
   
-  // Callback to register a chunk of users.
-  $items['fb_register/%fb/%'] = array(
+  // Callback to register users, right now instead of waiting for cron.
+  $items[FB_PATH_ADMIN_APPS . '/%fb/fb_register/doit/%'] = array(
     'title' => 'Register Users',
     'page callback' => 'fb_register_all_users',
-    'page arguments' => array(1,2),
+    'page arguments' => array(FB_PATH_ADMIN_APPS_ARGS,
+                              FB_PATH_ADMIN_APPS_ARGS + 3),
     'access arguments' => array(FB_PERM_ADMINISTER),
-    'type' => MENU_LOCAL_TASK,
+    'type' => MENU_CALLBACK,
   );
   
   return $items;
@@ -74,7 +76,7 @@ function fb_register_all_users($fb_app, $how_many) {
     $output .= '<p>' . t('This page will refresh, to register another batch of users...') . '</p>';
     drupal_set_html_head('<meta http-equiv="refresh" content="3" />');
   }
-  else if ($success_count < 0) {
+  elseif ($success_count < 0) {
     $output .= '<p>' . t('Encountered an error.  Not refreshing page.') . "</p>\n";
   }
   
@@ -95,7 +97,7 @@ function _fb_register_summary($fb_app) {
   
   $registered = db_result(db_query("SELECT count(uid) as count FROM {fb_register} WHERE uid <= %d", $last_uid_registered));
   $local = db_result(db_query("SELECT count(u.uid) FROM {users} u WHERE uid > 0"));
-  $registerable = db_result(db_query("SELECT count(u.uid) FROm {users} u WHERE u.uid > 0 ANd u.mail IS NOT NULL AND u.mail !=''"));
+  $registerable = db_result(db_query("SELECT count(u.uid) FROm {users} u WHERE u.uid > 0 ANd u.mail IS NOT NULL AND u.mail <> ''"));
   
   $summary = t("%registered of %registerable accounts have been registered for !app. <br/>(Of %local total users, %registerable have email addresses.)", array(
                '%registered' => $registered,
@@ -162,7 +164,7 @@ function _fb_register_register_users($fb_app, $how_many) {
   // Initialize facebook api for this app.
   $fb = fb_api_init($fb_app);
   
-  $result = db_query("SELECT u.uid, u.name, u.mail, fbr.email_hash FROM {users} u LEFT JOIN {fb_register} fbr ON fbr.uid=u.uid WHERE (fbr.uid IS NULL OR u.uid > %d) AND u.mail IS NOT NULL AND u.mail != '' ORDER BY u.uid LIMIT %d, %d", 
+  $result = db_query("SELECT u.uid, u.name, u.mail, fbr.email_hash FROM {users} u LEFT JOIN {fb_register} fbr ON fbr.uid=u.uid WHERE (fbr.uid IS NULL OR u.uid > %d) AND u.mail IS NOT NULL AND u.mail <> '' ORDER BY u.uid LIMIT %d, %d", 
                      $last_uid_registered,
                      0, $how_many // limits
   );
@@ -282,7 +284,7 @@ function fb_register_cron() {
         // errors
         watchdog('fb_register', "Errors incountered while registering users for Facebook App %app", array('%app' => $fb_app->label), WATCHDOG_ERROR);
       }
-      else if ($count > 0) {
+      elseif ($count > 0) {
         watchdog('fb_register', "Registered %count users for Facebook App !app", array('%count' => $count, '%app' => $fb_app->label));
       }
     }
@@ -299,7 +301,7 @@ function fb_register_user($op, &$edit, &$account, $category = NULL) {
     db_query("DELETE FROM {fb_register} WHERE uid = %d",
              $account->uid);
   }
-  else if ($op == 'insert' || $op == 'update') {
+  elseif ($op == 'insert' || $op == 'update') {
     // Re-register on update, as mail address may have changed.
     // Register on insert is optional.
     if ($edit['mail']) {
@@ -351,7 +353,7 @@ function fb_register_fb($op, $data, &$return) {
       $fbu = fb_facebook_user();
       $info = fb_users_getInfo(array($fbu));
       if (is_array($info[0]['email_hashes'])) {
-        $result = db_query("SELECT * FROM {fb_register} WHERE email_hash IN (".db_placeholders($info[0]['email_hashes'], 'varchar').")", $info[0]['email_hashes']);
+        $result = db_query("SELECT * FROM {fb_register} WHERE email_hash IN (" . db_placeholders($info[0]['email_hashes'], 'varchar') . ")", $info[0]['email_hashes']);
         if ($d = db_fetch_object($result)) {
           // We found a mapping to a local user.
           $account = user_load(array('uid' => $d->uid));
@@ -359,9 +361,9 @@ function fb_register_fb($op, $data, &$return) {
           user_set_authmaps($account, array($module => $authname));
           if (fb_verbose()) {
             watchdog('fb_register',
-                     'Mapping facebook %fbu to local account !user',
-                     array('%fbu' => $fbu,
-                           '!user' => l($account->name, 'user/'.$account->uid),
+                     'Mapping facebook %fbu to local account !user', array(
+                       '%fbu' => $fbu,
+                       '!user' => l($account->name, 'user/' . $account->uid),
                      ));
           }
         }

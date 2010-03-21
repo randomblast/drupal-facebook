@@ -1,4 +1,10 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Handler definition for limiting results to friends.
+ * 
+ */
 
 class fb_views_handler_author_is_friend extends views_handler_argument_user_uid {
   function get_default_argument($raw = FALSE) {

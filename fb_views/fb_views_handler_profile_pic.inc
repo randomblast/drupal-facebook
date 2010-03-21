@@ -1,4 +1,9 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Render fbml tag for user's picture.
+ */
 
 class fb_views_handler_profile_pic extends views_handler_field {
 

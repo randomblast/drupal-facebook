@@ -527,6 +527,21 @@ function fb_get_app_data(&$fb_app) {
   return $fb_app->fb_app_data;
 }
 
+/**
+ * Will return a human-readable name if the fb_app module supports it, or
+ * fb_admin_get_app_properties($fb_app) has been called.  However we don't
+ * take the relatively expensive step of calling that ourselves.
+ */
+function fb_get_app_title($fb_app) {
+  if (isset($fb_app->title))
+    return $fb_app->title;
+  elseif (isset($fb_app->application_name)) {
+    return $fb_app->application_name;
+  }
+  else {
+    return $fb_app->label;
+  }
+}
 
 /**
  * Convenience method to return array of all know fb_apps.
@@ -662,11 +677,12 @@ function fb_menu() {
   // Admin pages overview.
   $items[FB_PATH_ADMIN] = array(
     'title' => 'Facebook Applications',
+    'title callback' => '_fb_menu_title_helper',
     'description' => 'Facebook Applications',
     'page callback' => 'fb_admin_page',
     'access arguments' => array(FB_PERM_ADMINISTER),
     'file' => 'fb.admin.inc',
-    'type' => MENU_NORMAL_ITEM,
+    'type' => MENU_CALLBACK,
   );
   $items[FB_PATH_ADMIN . '/list'] = array(
     'title' => 'List',
@@ -704,6 +720,11 @@ function fb_menu() {
   );
   
   return $items;
+}
+
+function _fb_menu_title_helper($title) {
+  drupal_set_title(t('Drupal for Facebook')); // Title of page.
+  return t($title); // Title in menu.
 }
 
 /**

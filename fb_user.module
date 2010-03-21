@@ -3,10 +3,18 @@
 
 /**
  * @file
+ * This module manages relations between local Drupal user accounts
+ * and their accounts on facebook.com.
  * 
- * This module allows Drupal user records to be associated with Facebook user
- * ids.  It can create local user accounts when Facebook users visit an
- * application's canvas pages.
+ * This module can create a new local user account, when a facebook
+ * user authorizes an application hosted on this server.
+ * 
+ * Links existing local accounts to remote accounts on facebook via
+ * Drupal's authmap table.
+ * 
+ * Drupal refers to a local user id as 'uid'.  Facebook's documentation
+ * and code also uses 'uid'.  In these modules we use 'fbu' for facebook's
+ * id and 'uid' for Drupal's id.
  */
 
 define('FB_USER_OPTION_CREATE_NEVER', 1);

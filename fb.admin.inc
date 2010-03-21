@@ -14,17 +14,12 @@ define('FB_ADMIN_OP_LIST_PROPERTIES', 'list_props'); // list of known properties
 
 
 // Pages which may or may not be supported by the app implementation.
-define('FB_ADMIN_OP_LOCAL_PROPERTIES', 'fb_admin_props');
-define('FB_ADMIN_LOCAL_EDIT', 'fb_admin_prop_edit');
-define('FB_ADMIN_LOCAL_DELETE', 'fb_admin_prop_edit');
-define('FB_ADMIN_LOCAL_VIEW', 'fb_admin_prop_view');
+define('FB_ADMIN_OP_LOCAL_LINKS', 'fb_admin_links');
 
 /**
  * Drupal page callback.
  */
 function fb_admin_page() {
-  drupal_set_title(t('Drupal for Facebook'));
-
   $apps = fb_get_all_apps();
 
   if (count($apps)) {
@@ -39,9 +34,6 @@ function fb_admin_page() {
     foreach ($apps as $fb_app) {
       // Get properties from facebook.
       fb_admin_get_app_properties($fb_app);
-      
-      // Get properties from local modules.
-      $local_props = fb_invoke(FB_ADMIN_OP_LOCAL_PROPERTIES, array('fb_app' => $fb_app), array(), FB_ADMIN_HOOK);
       
       $row = array();
       // Title.
@@ -61,15 +53,18 @@ function fb_admin_page() {
         $row[] = t('n/a');
       }
       // Local Settings
-      $links = array(array(
-                 'title' => 'view', 
-                 'href' => FB_PATH_ADMIN_APPS . '/' . $fb_app->label,
-               ),
-                    );
-      if (isset($local_props[FB_ADMIN_LOCAL_EDIT]) && FALSE) {
+      $local_links =
+        fb_invoke(FB_ADMIN_OP_LOCAL_LINKS,
+                  array('fb_app' => $fb_app),
+                  array(t('view') => FB_PATH_ADMIN_APPS . '/' . $fb_app->label),
+                  FB_ADMIN_HOOK);
+      
+      $links = array();
+      foreach ($local_links as $title => $href) {
         $links[] = array(
-          'title' => t('edit'), 
-          'href' => $local_props[FB_ADMIN_LOCAL_EDIT]);
+          'title' => $title,
+          'href' => $href,
+        );
       }
       $row[] = theme('links', $links);
       

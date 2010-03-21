@@ -119,22 +119,22 @@ function fb_views_views_data() {
  */
 function fb_views_views_style_plugins() {
   $items = array();
-  $items['fb_discussion'] = 
-    array('name' => t('Facebook Discussion'),
-          'theme' => 'views_fb_discussion',
-          'summary_theme' => 'views_summary',
-          'needs_table_header' => true,
-          'needs_fields' => TRUE, // without this, table header will not be built
-    );
-  $items['fb_teasers'] = 
-    array('name' => t('Facebook Teaser List'),
-          'theme' => 'views_fb_teasers',
-          'summary_theme' => 'views_summary',
-          'needs_table_header' => true,
-          'needs_fields' => TRUE, // without this, table header will not be built
-    );
+  $items['fb_discussion'] = array(
+    'name' => t('Facebook Discussion'),
+    'theme' => 'views_fb_discussion',
+    'summary_theme' => 'views_summary',
+    'needs_table_header' => TRUE,
+    'needs_fields' => TRUE, // without this, table header will not be built
+  );
+  $items['fb_teasers'] = array(
+    'name' => t('Facebook Teaser List'),
+    'theme' => 'views_fb_teasers',
+    'summary_theme' => 'views_summary',
+    'needs_table_header' => TRUE,
+    'needs_fields' => TRUE, // without this, table header will not be built
+  );
   return $items;
-  }
+}
 
 function theme_views_fb_discussion($view, $nodes, $type) {
   //drupal_set_message("theme_views_fb_discussion, type is '$type'" . print_r($view, 1) . dprint_r($nodes, 1));  // debug
@@ -143,7 +143,7 @@ function theme_views_fb_discussion($view, $nodes, $type) {
     // use tablesort code to generate the sort links.
     $sorts = array();
     $ts = tablesort_init($view->table_header);
-    foreach($view->table_header as $cell) {
+    foreach ($view->table_header as $cell) {
       $th = tablesort_header($cell, $view->table_header, $ts);
       $sorts[] = $th['data'];
     }
@@ -151,7 +151,7 @@ function theme_views_fb_discussion($view, $nodes, $type) {
     
     $output .= theme('fb_discussion_nodes', $view, $nodes);
   }
-  else if ($type == 'block') {
+  elseif ($type == 'block') {
     // If were displaying in a block, its most likely the profile page, where
     // all styles have to be inline.  So here we do our best to mimic the
     // block view of a facebook discussion.
@@ -159,7 +159,7 @@ function theme_views_fb_discussion($view, $nodes, $type) {
       $reply_count = format_plural($data->node_comment_statistics_comment_count+1, '1 post', '@count posts');
 
       $output .= '<div style="padding: 10px 20px 10px 5px; border-bottom: 1px solid #cccccc;">';
-      $output .= '<div style="font-weight: bold; font-size: 10px;">'.l($data->node_title, 'node/'.$data->nid, array(), NULL, NULL, FALSE)."</div><div style=\"font-size: 9px;\"><span style=\"color: #333333;\">$reply_count</span><span style=\"color: #888888; margin-left: 5px;\">Updated ". format_interval(time() - $data->node_comment_statistics_last_comment_timestamp)." ago.</span></div>\n";
+      $output .= '<div style="font-weight: bold; font-size: 10px;">' . l($data->node_title, 'node/' . $data->nid, array(), NULL, NULL, FALSE) . "</div><div style=\"font-size: 9px;\"><span style=\"color: #333333;\">$reply_count</span><span style=\"color: #888888; margin-left: 5px;\">Updated " . format_interval(time() - $data->node_comment_statistics_last_comment_timestamp) . " ago.</span></div>\n";
       $output .= "</div>\n";
     }
   }
@@ -169,9 +169,9 @@ function theme_views_fb_discussion($view, $nodes, $type) {
 function theme_sortable_header_links($items = array()) {
   if (!empty($items)) {
     $output .= "<ul class=\"links sortable_header_links\">";
-    $output .= "<li class=\"first\">".t('Sort by').'</li>';
+    $output .= "<li class=\"first\">" . t('Sort by') . '</li>';
     foreach ($items as $item) {
-      $output .= '<li>'. $item .'</li>';
+      $output .= '<li>' . $item . '</li>';
     }
     $output .= "</ul>";
   }
@@ -193,22 +193,23 @@ function theme_fb_discussion_nodes($view, $items = array()) {
       $reply_count = format_plural($item->node_comment_statistics_comment_count + 1, '1 post', '@count posts');
 
       // Title link, reply count and created date
-      $row[] = array('class' => 'fb_discussion_topic',
-                     'data' => '<div class="title">'.$out['title'].'</div>'.
-                     '<div class="info"><span class="post">'.$reply_count.'.</span>&nbsp;<span class="created">'.
-                     t('Created !time',
-                       array('!time' => $out['created'])).
-                     '.</span></div>');
+      $row[] = array(
+        'class' => 'fb_discussion_topic',
+        'data' => '<div class="title">' . $out['title'] . '</div>' .
+        '<div class="info"><span class="post">' . $reply_count . '.</span>&nbsp;<span class="created">' .
+        t('Created !time', array('!time' => $out['created'])) . '.</span></div>');
       // Most recent reply info
-      $row[] = array('class' => 'fb_discussion_reply',
-                     'data' => '<div class="author">'.
-                     t('Latest post by !name',
-                       array('!name' => $out['last_comment_name'])).
-                     '</div><div class="timestamp">'.$out['last_comment_timestamp'].'</div>');
+      $row[] = array(
+        'class' => 'fb_discussion_reply',
+        'data' => '<div class="author">'.
+        t('Latest post by !name',
+          array('!name' => $out['last_comment_name'])) .
+        '</div><div class="timestamp">' . $out['last_comment_timestamp'] . '</div>');
       $rows[] = $row;
     }
     if (count($rows)) {
-      $output = theme('table', array(), $rows, array('class' => 'fb_discussion'));
+      $output = theme('table', array(), $rows,
+                      array('class' => 'fb_discussion'));
     }
   }
   return $output;
@@ -224,7 +225,9 @@ function theme_views_fb_teasers($view, $nodes, $type) {
   foreach ($nodes as $data) {
     $node = node_load($data->nid);
     $output .= '<div style="padding: 10px 20px 10px 5px; border-bottom: 1px solid #cccccc;">';
-    $output .= '<div style="font-weight: bold; font-size: 10px;">'.l($node->title, 'node/'.$data->nid, array(), NULL, NULL, FALSE)."</div>";
+    $output .= '<div style="font-weight: bold; font-size: 10px;">' .
+      l($node->title, 'node/' . $data->nid, array(), NULL, NULL, FALSE) .
+      "</div>";
     $node = node_build_content($node, TRUE, FALSE);
     $output .= drupal_render($node->content);
     $output .= "</div>\n";
@@ -232,5 +235,3 @@ function theme_views_fb_teasers($view, $nodes, $type) {
   return $output;
 }
 
-
-?>

@@ -53,25 +53,31 @@ function fb_app_schema() {
         'type' => 'varchar', 
         'length' => 255, 
         'not null' => TRUE, 
-        'description' => 'Provided by facebook',
+        'description' => 'Provided by facebook, copy and pasted by user',
       ),
       'id' => array(
         'type' => 'varchar', 
         'length' => 255, 
         'not null' => TRUE, 
-        'description' => 'Provided by facebook',
+        'description' => 'Provided by facebook, copy and pasted by user',
       ),
       'secret' => array(
         'type' => 'varchar', 
         'length' => 255, 
         'not null' => TRUE, 
-        'description' => 'Provided by facebook',
+        'description' => 'Provided by facebook, copy and pasted by user',
       ),
       'canvas' => array(
         'type' => 'varchar', 
         'length' => 255, 
         'not null' => TRUE, 
-        'description' => 'Provided by facebook',
+        'description' => 'We learn this from facebook app properties',
+      ),
+      'title' => array(
+        'type' => 'varchar', 
+        'length' => 255, 
+        'not null' => TRUE, 
+        'description' => 'We learn this from facebook app properties',
       ),
       'data' => array(
         'type' => 'text', 
@@ -149,5 +155,15 @@ function fb_app_update_6204() {
   while ($data = db_fetch_object($result)) {
     $ret[] = update_sql("UPDATE {fb_app} SET status = %d WHERE nid = %d", $data->status, $data->nid);
   }
+  return $ret;
+}
+
+function fb_app_update_6205() {
+  $ret = array();
+  db_add_field($ret, 'fb_app', 'title', array(
+                 'type' => 'varchar',
+                 'length' => 255,
+                 'not null' => TRUE,
+               ));
   return $ret;
 }
