@@ -12,8 +12,6 @@ define('FB_PATH_ADMIN_APPS_ARGS', 4);
 
 // permissions
 define('FB_PERM_ADMINISTER', 'administer fb apps');
-define('FB_PERM_CREATE', 'create fb apps');
-define('FB_PERM_EDIT_OWN', 'edit own fb apps');
 
 // Ops for hook_fb.
 define('FB_OP_GET_APP', 'get_app'); // Load data from a known app
@@ -404,7 +402,15 @@ function fb_is_connect() {
  * Helper tells other modules when to load admin hooks.
  */
 function fb_is_fb_admin_page() {
-  return (arg(0) == 'admin' && (arg(1) == 'fb' || arg(2) == 'fb'));
+  if (arg(0) == 'admin' && (arg(1) == 'fb' || arg(2) == 'fb')) {
+    // Keep consistant titles across tabs served by multiple modules.
+    if ($label = arg(FB_PATH_ADMIN_APPS_ARGS))
+      drupal_set_title($label);
+    else
+      drupal_set_title(t('Drupal for Facebook'));
+
+    return TRUE;
+  }
 }
 
 /**
@@ -677,7 +683,6 @@ function fb_menu() {
   // Admin pages overview.
   $items[FB_PATH_ADMIN] = array(
     'title' => 'Facebook Applications',
-    'title callback' => '_fb_menu_title_helper',
     'description' => 'Facebook Applications',
     'page callback' => 'fb_admin_page',
     'access arguments' => array(FB_PERM_ADMINISTER),
@@ -690,11 +695,8 @@ function fb_menu() {
     'type' => MENU_DEFAULT_LOCAL_TASK,
   );
 
-  // Admin pages for each app.  For some reason, drupal does not
-  // consider this an ancestor of FB_PATH_ADMIN.  Breadcrumbs fail.
+  // Admin pages for each app.
   $items[FB_PATH_ADMIN_APPS . '/%fb'] = array(
-    'title callback' => 'fb_admin_page_title',
-    'title arguments' => array(FB_PATH_ADMIN_APPS_ARGS),
     'title' => 'Application Detail',
     'description' => 'Facebook Applications',
     'page callback' => 'fb_admin_app_page',
@@ -722,11 +724,6 @@ function fb_menu() {
   return $items;
 }
 
-function _fb_menu_title_helper($title) {
-  drupal_set_title(t('Drupal for Facebook')); // Title of page.
-  return t($title); // Title in menu.
-}
-
 /**
  * Implementation of a %wildcard_load(). http://drupal.org/node/224170
  */
@@ -744,7 +741,7 @@ function fb_load($id) {
  * Implementation of hook_perm().
  */
 function fb_perm() {
-  return array(FB_PERM_ADMINISTER, FB_PERM_CREATE, FB_PERM_EDIT_OWN);
+  return array(FB_PERM_ADMINISTER);
 }
 
 
@@ -1112,8 +1109,10 @@ function fb_username_alter(&$name, $account) {
   //dpm(func_get_args(), "fb_username_alter($name)");
   if (isset($account->fbu) && ($name == $account->fbu . '@facebook')) {
     $info = fb_users_getInfo(array($account->fbu));
-    if ($info[0]['name']) {
-      $name = $info[0]['name'];
+    if (is_array($info) && is_array($info[0])) {
+      if ($info[0]['name']) {
+        $name = $info[0]['name'];
+      }
     }
   }
 }
