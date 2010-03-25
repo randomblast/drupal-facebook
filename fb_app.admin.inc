@@ -107,14 +107,6 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
   );
 
   // ID, apikey and secret are shown on facebook.  User copies and pastes values.
-  $form['id'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Facebook App ID'),
-    '#required' => FALSE,
-    '#default_value' => $fb_app->id,
-    '#description' => t('Facebook will generate this value when you create the application.'),
-  );
-
   $form['apikey'] = array(
     '#type' => 'textfield',
     '#title' => t('API Key'),
@@ -129,6 +121,14 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#default_value' => $fb_app->secret,
     '#description' => t('Facebook will generate this value when you create the application.'),
   );
+  $form['id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Facebook App ID'),
+    '#required' => FALSE,
+    '#default_value' => $fb_app->id,
+    '#description' => t('Facebook will generate this value when you create the application.'),
+  );
+
   
   
   // fb_app_data is a placeholder where other modules can attach settings.
@@ -143,25 +143,51 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#default_value' => $data['fb_app']['set_app_props'],
     '#description' => t('Automatically update Facebook settings for this application.  Disable this if you have customized your callback URL, for example.  Also disable if another Drupal instance hosts the same application (i.e. with shared subdomain).'),
   );
-  
-  $form['submit'] = array(
+
+  $form['buttons'] = array();
+  $form['buttons']['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save'),
-    '#weight' => 99,
+    '#weight' => 5,
+    '#submit' => array('fb_app_admin_form_submit'),
   );
+  if ($fb_app->fba_id) {
+    $form['buttons']['delete'] = array(
+      '#type' => 'submit',
+      '#value' => t('Delete'),
+      '#weight' => 15,
+      '#submit' => array('fb_app_admin_form_delete_submit'),
+    );
+  }
+
   return $form;
 }
 
+/**
+ * Form validation.
+ */
 function fb_app_edit_form_validate($form, &$form_state) {
-  $fb_app = (object)$form_state['values'];
+  $fb_app = (object) $form_state['values'];
   $fb_app->data = serialize($fb_app->fb_app_data);
+
+  // Labels must be unique.
+  $apps = fb_get_all_apps() {
+    foreach ($apps as $app) {
+      if ($app->label == $fb_app->label && $app->fba_id != $fb_app->fba_id) {
+        form_set_error('fb_app][label', t('The label %label is in use by another application.', array(
+                                            '%label' => $fb_app->label,
+                                          )));
+      }
+    }
+  }
+  // Getting properties confirms apikey and secret.
   fb_admin_get_app_properties($fb_app);
   if (!$fb_app->application_name) {
     form_set_error('fb_app][apikey', t('Unable to get application properties.  Confirm both apikey and secret.'));
   }
 }
 
-function fb_app_edit_form_submit($form, &$form_state) {
+function fb_app_admin_form_submit($form, &$form_state) {
   $fb_app = (object)$form_state['values'];
   $fb_app->data = serialize($fb_app->fb_app_data);
   
@@ -222,6 +248,56 @@ function fb_app_edit_form_submit($form, &$form_state) {
 }
 
 /**
+ * Button submit function.  Use has clicked delete, send them to confirm page.
+ */
+function fb_app_admin_form_delete_submit($form, &$form_state) {
+  $destination = '';
+  if (isset($_REQUEST['destination'])) {
+    $destination = drupal_get_destination();
+    unset($_REQUEST['destination']);
+  }
+  $fb_app = $form['#fb_app'];
+  $form_state['redirect'] = array(FB_PATH_ADMIN_APPS . '/' . $fb_app->label . '/fb_app/delete', $destination);
+}
+
+
+/**
+ * Form creator -- ask for confirmation of deletion
+ */
+function fb_app_admin_delete_confirm_form(&$form_state, $fb_app) {
+  $form['fba_id'] = array(
+    '#type' => 'value',
+    '#value' => $fb_app->fba_id,
+  );
+  
+  return confirm_form($form,
+                      t('Are you sure you want to delete %title?', array('%title' => $fb_app->title)),
+                      isset($_GET['destination']) ? $_GET['destination'] : FB_PATH_ADMIN_APPS . '/' . $fb_app->label,
+                      t('This action cannot be undone.'),
+                      t('Delete'),
+                      t('Cancel')
+  );
+}
+
+/**
+ * Execute node deletion
+ */
+function fb_app_admin_delete_confirm_form_submit($form, &$form_state) {
+  if ($form_state['values']['confirm']) {
+    $fba_id = $form_state['values']['fba_id'];
+
+    // TODO: invoke hooks so that third-party modules may act.
+    
+    db_query("DELETE FROM {fb_app} WHERE fba_id = %d",
+             $fba_id);
+  }
+
+  $form_state['redirect'] = FB_PATH_ADMIN_APPS;
+}
+
+
+
+/**
  * Sets callback URLs and other properties of a facebook app.  Calls the facebook 
  */
 function fb_app_set_app_properties($fb_app) {
@@ -233,6 +309,7 @@ function fb_app_set_app_properties($fb_app) {
       if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
         try {
           $fb->api_client->admin_setAppProperties($props);
+          drupal_set_message(t('Note that it may take several minutes for property changes to propigate to all facebook servers.'));
           if (fb_verbose()) {
             drupal_set_message(t('Set the following properties for %label application:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))));
             watchdog('fb_app', 'Set facebook app properties for %label.',
@@ -247,7 +324,7 @@ function fb_app_set_app_properties($fb_app) {
       }
     }
     elseif (fb_verbose()) {
-      drupal_set_message(t('The following recommended properties for %label application have <strong>not been set automatically</strong>:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))), 'warning');
+      drupal_set_message(t('The following recommended properties for %label application have <strong>not been set automatically</strong>, consider editing remote settings manually:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))), 'warning');
     }
   }
 }

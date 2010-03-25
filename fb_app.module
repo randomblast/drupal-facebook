@@ -122,6 +122,14 @@ function fb_app_menu() {
     'weight' => -1,
     'type' => MENU_LOCAL_TASK,
   );
+  $items[FB_PATH_ADMIN_APPS . '/%fb/fb_app/delete'] = array(
+    'title' => 'Delete',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fb_app_admin_delete_confirm_form', FB_PATH_ADMIN_APPS_ARGS),
+    'access arguments' => array(FB_PERM_ADMINISTER),
+    'file' => 'fb_app.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
   
   return $items;
 }
