@@ -78,7 +78,14 @@ function fb_admin_page() {
     
   }
   else {
-    $output = t('Start by creating an application.  Ensure the Facebook Application module is enabled, and click the Add Application link.');
+    $output = t('Start by creating an application.');
+    if (!module_exists('fb_app')) {
+      $output .= t('Ensure the Facebook Application module is enabled.');
+    }
+    else {
+      $output .= t('Click <a href="!url">Add Application</a> to continue.',
+                   array('!url' => url('admin/build/fb/fb_app_create')));
+    }
   }
   return $output;
 }
@@ -90,7 +97,7 @@ function fb_admin_app_page($fb_app = NULL) {
   // Hide a couple things...
   unset($fb_app->secret); 
   unset($fb_app->data); 
-  return '<pre>' . dprint_r($fb_app, 1) . '</pre>';
+  return '<pre>' . print_r($fb_app, 1) . '</pre>';
 }
 
 function fb_admin_page_title($fb_app) {
