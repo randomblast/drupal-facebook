@@ -1,4 +1,10 @@
 <?php
+// $Id$
+/**
+ * @file
+ * Logic needed for FBML theme.
+ * 
+ */
 
 /**
  * Theme engine calls this preprocess "hook" before rendering a page.
@@ -6,7 +12,7 @@
  * We change template for iframes, add styles and fbjs.
  */
 function fb_fbml_preprocess_page(&$vars, $hook) {
-  global $fb_app, $user, $conf;
+  global $_fb_app, $user, $conf;
   
   if (fb_is_iframe_canvas()) {
     // Iframe in a canvas
@@ -15,6 +21,8 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
   else {
     // FBML canvas page
     
+    _fb_fbml_menu_hack();
+
     // Add our own stylesheet
     drupal_add_css(path_to_theme() . '/styles_fbml.css', 'theme', 'fbml');
     
@@ -33,15 +41,16 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
     // cleanly?) elsewhere.  But we're doing it here to make sure.
     if (!user_access('access administration pages'))
       $vars['admin'] ='';
-    else if ($vars['admin']) {
-      $vars['admin'] = "<div class=\"region admin_sidebar\">\n".$vars['admin'].
+    elseif ($vars['admin']) {
+      $vars['admin'] = "<div class=\"region admin_sidebar\">\n" . 
+        $vars['admin'] .
         "\n</div><!-- end admin sidebar-->";
     }
     
-    // Change 'Home' in breadcrumbs
+    // Change 'Home' in breadcrumbs.
     $crumbs = drupal_get_breadcrumb();
     if (count($crumbs) && strpos($crumbs[0], t('Home'))) {
-      $crumbs[0] = l(t($fb_app->title), '');
+      $crumbs[0] = l(t($_fb_app->title), '');
       $vars['breadcrumb'] = theme('breadcrumb', $crumbs);
     }
     
@@ -54,10 +63,10 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
     if (isset($vars['left']) && isset($vars['right'])) {
       $body_classes[] = 'with-both-sidebars';
     }
-    else if ($vars['right']) {
+    elseif ($vars['right']) {
       $body_classes[] = 'with-sidebar-right';
     }
-    else if ($vars['left']) {
+    elseif ($vars['left']) {
       $body_classes[] = 'with-sidebar-left';
     }
     
@@ -82,7 +91,23 @@ function fb_fbml_preprocess_page(&$vars, $hook) {
     }
 
     $vars['body_classes'] = implode(' ', $body_classes);
+
   }
+}
+
+function _fb_fbml_menu_hack() {
+  // We have to go out of our way here to theme the tabs.
+  // The code in menu.inc that themes them is complex,
+  // incomprehensible, and tangles the theme layer with the logic
+  // layer.  It doesn't help that the same theme functions are called
+  // for tabs as are called for all other menus.  So we use a global
+  // to keep track of what we're doing.
+  global $_fb_canvas_state;
+  $_fb_canvas_state = 'tabs';
+  // Why does a call to menu_tab_root_path theme the tabs?  I have no
+  // idea, but it does and caches the result.
+  menu_tab_root_path();
+  $_fb_canvas_state = NULL; 
 }
 
 function fb_fbml_preprocess_node(&$vars) {
@@ -112,7 +137,7 @@ function fb_fbml_menu_item_link($link) {
     $output = "<fb:tab-item href=\"" . 
       url($link['href']) . 
       (isset($link['title']) ? "\" title=\"" . $link['title'] : '') .
-      "\" selected=\"false\">".$link['title']."</fb:tab-item>\n";
+      "\" selected=\"false\">" . $link['title'] . "</fb:tab-item>\n";
     return $output;
   }
   else
@@ -153,25 +178,26 @@ function fb_fbml_menu_local_tasks() {
 function fb_fbml_fieldset($element) {
   global $fb;
   if (($fb && $fb->in_fb_canvas()) ||
-      fb_is_fbml_canvas()) {
+    fb_is_fbml_canvas()) {
     
     static $count = 0;
     
     if (isset($element['#collapsible']) && 
-        $element['#collapsible']) {
+      $element['#collapsible']) {
       $id = 'fbml_fieldset_' . $count++;
-      $linkattrs = array('clicktotoggle' => $id,
-			 'href' => '#');
+      $linkattrs = array(
+        'clicktotoggle' => $id,
+        'href' => '#');
       $contentattrs = array('id' => $id);
       
       if (!isset($element['#attributes']['class'])) {
-	$element['#attributes']['class'] = '';
+        $element['#attributes']['class'] = '';
       }
       
       $element['#attributes']['class'] .= ' collapsible';
       if ($element['#collapsed']) {
-	$element['#attributes']['class'] .= ' collapsed';
-	$contentattrs['style'] = 'display:none';
+        $element['#attributes']['class'] .= ' collapsed';
+        $contentattrs['style'] = 'display:none';
       }
       $element['#title'] = '<a ' . drupal_attributes($linkattrs) .'>' . $element['#title'] . '</a>';
     }
@@ -196,4 +222,3 @@ function fb_fbml_fieldset($element) {
   return $output;
 }
 
-?>

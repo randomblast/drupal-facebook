@@ -1,5 +1,14 @@
-<?php print $styles; /* Styles for FBML pages */ ?>
-<?php print $fbjs; /* Javascript for FBML pages */ ?>
+<?php 
+// $Id$
+/**
+ * @file
+ * FBML page template for maintenance pages.  
+ * Like when in off-line mode.
+ * 
+ */
+print $styles; // Styles for FBML pages.
+print $fbjs; // Javascript for FBML pages.
+?>
 <fb:title><?php print $title?></fb:title>
 
 <div class="page-wrap <?php print $body_classes?>">
@@ -7,16 +16,16 @@
 <?php print $breadcrumb; ?>
 <?php print $header; ?>
 <?php
-	if ($logo || $site_name) {
-	  print '<h1><a href="'. url('<front>') .'" title="'. $site_name .'">';
-	  if ($logo) {
-		print '<img src="'. check_url($logo) .'" alt="'. $site_name .'" id="logo" />';
-	  }
-	  print $site_name .'</a>';
-	  if (!$site_name)
-		print $title;
-	  print '</h1>';
-	}
+   if ($logo || $site_name) {
+     print '<h1><a href="'. url('<front>') .'" title="'. $site_name .'">';
+     if ($logo) {
+       print '<img src="'. check_url($logo) .'" alt="'. $site_name .'" id="logo" />';
+     }
+     print $site_name .'</a>';
+     if (!$site_name)
+       print $title;
+     print '</h1>';
+   }
 ?>
 <?php if ($site_name): ?>
   <h1><?php print $title; ?></h1>

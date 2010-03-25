@@ -1,4 +1,10 @@
 <?php
+// $Id$
+/**
+ * @file
+ * FBML node template.
+ */
+
 $class = "class=\"node node-$type";
 if ($sticky)
   $class .= " sticky";
@@ -8,21 +14,25 @@ $class .= "\"";
 if (isset($extra_style))
   $style = "style = \"$extra_style\"";
 ?>
-<div <?php print $class; ?> <?php if (isset($style)) print $style; ?>>
+<div <?php print $class; ?> <?php print((isset($style)) ? $style : ''); ?>>
 
 <?php if ($picture || $page == 0 || $submitted || $terms) { ?>
 <div class="node-header">
-   <?php if ($picture && $submitted) {
+  <?php if ($picture && $submitted) {
   print $picture;
-  }?>
-<?php if ($page == 0) { ?><h2 class="title"><a href="<?php print $node_url?>"><?php print $title?></a></h2><?php }; ?>
+  } ?>
+<?php if ($page == 0) { ?>
+  <h2 class="title"><a href="<?php print $node_url?>"><?php print $title?></a></h2>
+<?php }; ?>
 <span class="submitted"><?php print $submitted?></span>
 <span class="taxonomy"><?php print $terms?></span>
 </div>
 <?php } ?>
 <div class="content"><?php print $content?></div>
 <div class="footer">
-  <?php if ($links) { ?><div class="links"><?php print $links?></div><?php }; ?>
+  <?php if ($links) { ?>
+  <div class="links"><?php print $links?></div>
+  <?php }; ?>
 </div>
 
 <?php if ($node_bottom && !$teaser): ?>

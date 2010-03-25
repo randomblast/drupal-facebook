@@ -1,3 +1,12 @@
+<?php 
+// $Id$
+/**
+ * @file
+ * Page template for embedded iframes.  This is not a normal drupal
+ * page with menu and header and so on.  Rather an iframe which takes
+ * just a small portion a page.  I.e. for embedding an ad.
+ */
+?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="<?php print $language->language; ?>" xml:lang="<?php print $language->language; ?>" xmlns:fb="http://www.facebook.com/2008/fbml">
   <head><!-- fb_fbml/iframe.tpl.php -->
@@ -77,7 +86,9 @@
           <?php print $closure_region; ?>
         </div>
         <?php endif; ?>
-      <?php if (isset($closure)) {print $closure;} ?>
+        <?php if (isset($closure)) {
+                print $closure;
+              } ?>
     </div>
     <!-- /page -->
 <!-- http://wiki.developers.facebook.com/index.php/Resizable_IFrame -->

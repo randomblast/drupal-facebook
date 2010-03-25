@@ -1,6 +1,14 @@
-<!-- begin <?php print __FILE__; ?> -->
-<?php print $styles; /* Styles for FBML pages */ ?>
-<?php if (isset($fbjs)) print $fbjs; /* Javascript for FBML pages */ ?>
+<?php
+// $Id$
+/**
+ * @file
+ * Your basic FBML page.
+ */
+print "<!-- begin " . __FILE__ . " -->\n"; // debug
+print $styles;
+if (isset($fbjs)) 
+  print $fbjs;
+?>
 <fb:title><?php print $title?></fb:title>
 
 <div class="page-wrap <?php print $body_classes?>">
