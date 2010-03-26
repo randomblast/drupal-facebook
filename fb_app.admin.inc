@@ -169,15 +169,14 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
 function fb_app_edit_form_validate($form, &$form_state) {
   $fb_app = (object) $form_state['values'];
   $fb_app->data = serialize($fb_app->fb_app_data);
-
+  
   // Labels must be unique.
-  $apps = fb_get_all_apps() {
-    foreach ($apps as $app) {
-      if ($app->label == $fb_app->label && $app->fba_id != $fb_app->fba_id) {
-        form_set_error('fb_app][label', t('The label %label is in use by another application.', array(
-                                            '%label' => $fb_app->label,
-                                          )));
-      }
+  $apps = fb_get_all_apps();
+  foreach ($apps as $app) {
+    if ($app->label == $fb_app->label && $app->fba_id != $fb_app->fba_id) {
+      form_set_error('fb_app][label', t('The label %label is in use by another application.', array(
+                                          '%label' => $fb_app->label,
+                                        )));
     }
   }
   // Getting properties confirms apikey and secret.
