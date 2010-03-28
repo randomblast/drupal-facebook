@@ -173,7 +173,8 @@ function fb_app_edit_form_validate($form, &$form_state) {
   // Labels must be unique.
   $apps = fb_get_all_apps();
   foreach ($apps as $app) {
-    if ($app->label == $fb_app->label && $app->fba_id != $fb_app->fba_id) {
+    if ($app->label == $fb_app->label &&
+        (!isset($form['#fb_app']) || $form['#fb_app']->label != $fb_app->label)) {
       form_set_error('fb_app][label', t('The label %label is in use by another application.', array(
                                           '%label' => $fb_app->label,
                                         )));
