@@ -45,8 +45,8 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
   // If app is managed by this module, it has fba_id.
   if (isset($fb_app) && !$fb_app->fba_id) {
     drupal_set_message(t('Application %label not found.', array(
-          '%label' => $label)),
-      'warning');
+                           '%label' => $label)),
+                       'warning');
     drupal_not_found();
     exit();
   }
@@ -170,20 +170,22 @@ function fb_app_edit_form_validate($form, &$form_state) {
   $fb_app = (object) $form_state['values'];
   $fb_app->data = serialize($fb_app->fb_app_data);
   
-  // Labels must be unique.
-  $apps = fb_get_all_apps();
-  foreach ($apps as $app) {
-    if ($app->label == $fb_app->label &&
-        (!isset($form['#fb_app']) || $form['#fb_app']->label != $fb_app->label)) {
-      form_set_error('fb_app][label', t('The label %label is in use by another application.', array(
-                                          '%label' => $fb_app->label,
-                                        )));
+  if ($form_state['values']['op'] != t('Delete')) {
+    // Labels must be unique.
+    $apps = fb_get_all_apps();
+    foreach ($apps as $app) {
+      if ($app->label == $fb_app->label &&
+          (!isset($form['#fb_app']) || $form['#fb_app']->label != $fb_app->label)) {
+        form_set_error('fb_app][label', t('The label %label is in use by another application.', array(
+                                            '%label' => $fb_app->label,
+                                          )));
+      }
     }
-  }
-  // Getting properties confirms apikey and secret.
-  fb_admin_get_app_properties($fb_app);
-  if (!$fb_app->application_name) {
-    form_set_error('fb_app][apikey', t('Unable to get application properties.  Confirm both apikey and secret.'));
+    // Getting properties confirms apikey and secret.
+    fb_admin_get_app_properties($fb_app);
+    if (!$fb_app->application_name) {
+      form_set_error('fb_app][apikey', t('Unable to get application properties.  Confirm both apikey and secret.'));
+    }
   }
 }
 
