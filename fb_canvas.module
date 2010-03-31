@@ -77,12 +77,12 @@ function fb_canvas_fb($op, $data, &$return) {
     if (fb_canvas_is_fbml()) {
       $custom_theme = $fb_canvas_data['theme_fbml'];
       $is_canvas = TRUE;
-      $use_ob = variable_get(FB_CANVAS_VAR_OB_FBML, TRUE);
+      $use_ob = variable_get(FB_CANVAS_VAR_PROCESS_FBML, TRUE);
     }
     elseif (fb_canvas_is_iframe()) {
       $custom_theme = $fb_canvas_data['theme_iframe'];
       $is_canvas = TRUE;
-      $use_ob = variable_get(FB_CANVAS_VAR_OB_IFRAME, TRUE);
+      $use_ob = variable_get(FB_CANVAS_VAR_PROCESS_IFRAME, TRUE);
     }
     
     if ($is_canvas) {
