@@ -39,7 +39,7 @@ function _fb_user_get_config($fb_app) {
 
   // Merge in defaults
   $fb_user_data += array(
-    'create_account' => FB_USER_OPTION_CREATE_LOGIN,
+    'create_account' => FB_USER_OPTION_CREATE_NEVER,
     'map_account' => FB_USER_OPTION_MAP_ALWAYS,
   );
   return $fb_user_data;
