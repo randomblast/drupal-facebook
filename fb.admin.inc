@@ -97,7 +97,31 @@ function fb_admin_app_page($fb_app = NULL) {
   // Hide a couple things...
   unset($fb_app->secret); 
   unset($fb_app->data); 
-  return '<pre>' . print_r($fb_app, 1) . '</pre>';
+
+  // Warn user if values have changed since last edit.
+  foreach (array('canvas_name' => 'canvas', 'application_name' => 'title') as $prop => $key) {
+    if (isset($fb_app->$prop) && $fb_app->$prop != $fb_app->$key) {
+      drupal_set_message(t("The property %prop has been changed to %value on facebook.  Go to the Edit tab, confirm values are correct and hit Save button to syncronize the local values.",
+                           array('%prop' => $prop, '%value' => $fb_app->$prop)), 'error');
+    }
+  }
+  
+  $props_map = array(
+    t('Label') => 'label',
+    t('API Key') => 'apikey',
+    t('ID') => 'id',
+  );
+  $output = "<dl>\n";
+  $props_map = fb_invoke(FB_ADMIN_OP_LIST_PROPERTIES, array('fb_app' => $fb_app), $props_map, FB_ADMIN_HOOK);
+  foreach ($props_map as $name => $key) {
+    if (isset($fb_app->$key)) {
+      $output .= "<dt>$name</dt><dd>{$fb_app->$key}</dd>\n";
+    }
+  }
+  $output .= "</dl>\n";
+  //$output .=  '<pre>' . print_r($fb_app, 1) . '</pre>'; // debug
+  
+  return $output;
 }
 
 function fb_admin_page_title($fb_app) {
