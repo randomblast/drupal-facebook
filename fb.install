@@ -13,13 +13,15 @@ function fb_requirements($phase) {
   $t = get_t();
   $items = array();
   
-  // Disable these checks at install time, because failure then causes more problems, due to module dependencies and Drupal's poor handling of requirement errors.
+  // Disable these checks at install time, because failure then causes more
+  // problems, due to module dependencies and Drupal's poor handling of
+  // requirement errors.
   if ($phase != 'runtime') {
     return $items;
   }
   
   $status = array('title' => $t('Drupal for Facebook Settings'));
-  if (variable_get('fb_settings_check', FALSE)) {
+  if (!function_exists('fb_settings')) {
     if ($phase == 'runtime') {
       $status['value'] = $t('Included');
     }
@@ -61,10 +63,24 @@ function fb_requirements($phase) {
 }
 
 
+
+function fb_install() {
+  _fb_install_set_weight();
+
+  drupal_set_message(st('Drupal for Facebook modules enabled.  Be sure to install facebook\'s client libraries and modify your settings.php!  Read modules/fb/README.txt and <a href="!doc_url" target="_blank">the online documentation for Drupal for Facebook</a> for details.',
+      array('!doc_url' => 'http://drupal.org/node/195035')
+                       )); 
+}
+
+function fb_uninstall() {
+  db_query("DELETE FROM {variable} WHERE name LIKE 'fb_%'");
+}
+
 function _fb_install_set_weight() {
   db_query("UPDATE {system} SET weight=-2 WHERE name='fb'");
 }
 
+// No longer needed with new fb_session.inc.  To be deleted! XXX
 function _fb_install_alter_session_table() {
   // Make sessions.sid column large enough for Facebook's session_keys.
   if (variable_get('fb_session_long_keys', TRUE)) {
@@ -79,18 +95,6 @@ function _fb_install_alter_session_table() {
   }
 }
 
-function fb_install() {
-  _fb_install_set_weight();
-  _fb_install_alter_session_table();
-  
-  drupal_set_message(st('Drupal for Facebook modules enabled.  Be sure to install facebook\'s client libraries and modify your settings.php!  Read modules/fb/README.txt and <a href="!doc_url" target="_blank">the online documentation for Drupal for Facebook</a> for details.',
-      array('!doc_url' => 'http://drupal.org/node/195035')
-                       )); 
-}
-
-function fb_uninstall() {
-}
-
 function fb_update_6000() {
   $ret = array();
   _fb_install_alter_session_table();
@@ -102,5 +106,13 @@ function fb_update_6001() {
   $message = 'IMPORTANT: Drupal for Facebook modules have moved around!  Check your <em>modules/fb/</em> directory, and make sure you do not have duplicates of fb_feed.module or fb_views.module.  If so, delete the entire <em>modules/fb/</em> directory and re-install.';
   drupal_set_message($message);
   watchdog('fb', $message);
+  return $ret;
+}
+
+function fb_update_6002() {
+  $ret = array();
+  $message = 'IMPORTANT: Drupal for Facebook connect URLs have changed.  You must manually edit each of your applications.  Pressing the save button will update the connect URL property.';
+  drupal_set_message($message);
+  watchdog('fb', $message);  
   return $ret;
 }

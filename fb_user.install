@@ -134,3 +134,16 @@ function fb_user_update_6005() {
   drupal_set_message(t('Note that if you see a warning about "Can\'t DROP ...", it is safe to ignore that message.  See fb_user.install.'));
   return $ret;
 }
+
+/**
+ * Originally, we wrote authmap entries like 'NNNNN@facebook.com'.  This was
+ * necessary in D5.  In D6 we can make queries more efficient using just the
+ * fbu ('NNNNN') as the authname, and 'fb_user' as the module.
+ */
+function fb_user_update_6006() {
+  $ret = array();
+  // Update authmap entries.  We no longer use '@facebook...'.
+  $ret[] = update_sql("UPDATE {authmap} SET authname=SUBSTRING(authname, 1, LOCATE('@facebook.com', authname)-1) WHERE module='fb_user' AND LOCATE('@facebook.com', authname) > 1");
+  return $ret;
+}
+

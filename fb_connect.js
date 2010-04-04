@@ -71,28 +71,53 @@ FB_Connect.statusHandle = function(e, data) {
     }
     else if (data.fbu) {
       // User has connected.
-      window.location.reload();
+      FB_Connect.sessionStart(function(data) {
+	  //alert("reloading because user connected.");
+	  window.location.reload();
+	});
     }
     else {
-      // User has disconnected.
-      // Sometimes bogus cookies are left behind, here we try to clean up.
-      FB_Connect.purgeCookies();
-
       // Refresh page for not-connected user.
-      window.location.reload();
+      FB_Connect.sessionEnd(function(data) {
+	  //alert("reloading because user disconnected.");
+	  
+	  // User has disconnected.
+	  // Sometimes bogus cookies are left behind, here we try to clean up.
+	  FB_Connect.purgeCookies();
+	  
+	  window.location.reload();
+	});
     }
   }
 };
 
-FB_Connect.execute_javascript = function() {
-  var url = '/fb_connect/js';
-  $.post(url, null, function(eval_me) {
-      if (eval_me) {
-        eval(eval_me);
-      }
-    });
+FB_Connect.sessionStart = function(callback) {
+  if (Drupal.settings.fb_connect.session_start_url) {
+    var data = {
+      'fb_session_no': 1, // allow drupal to control session.
+      'apikey': FB.Facebook.apiKey
+    };
+    $.post(Drupal.settings.fb_connect.session_start_url, data, callback);
+  }
+  else {
+    callback();
+  }
 };
 
+FB_Connect.sessionEnd = function(callback) {
+  if (Drupal.settings.fb_connect.session_end_url) {
+    var data = {
+      //'fb_session_no': 0, // TBD: are the facebook cookies still set when we get here?
+      'apikey': FB.Facebook.apiKey
+    };
+    $.post(Drupal.settings.fb_connect.session_end_url, data, callback);
+  }
+  else {
+    callback();
+  }
+};
+
+// TODO: for some reason, when you start connected, then log out of facebook and log in as another user, this routine still thinks you are the first user, the next time a page is loaded.
 FB_Connect.on_connected = function(fbu) {
   var status = {'changed': false, 'fbu': fbu};
   if ((FB_Connect.fbu === 0 || Drupal.settings.fb_connect.fbu != fbu) &&
@@ -101,7 +126,8 @@ FB_Connect.on_connected = function(fbu) {
   }
   FB_Connect.fbu = fbu;
   $.event.trigger('fb_connect_status', status);
-}
+};
+
 
 FB_Connect.on_not_connected = function() {
   var status = {'changed': false, 'fbu': 0};
@@ -113,23 +139,35 @@ FB_Connect.on_not_connected = function() {
   }
   FB_Connect.fbu = 0;
   $.event.trigger('fb_connect_status', status);
-}
+};
 
 FB_Connect.login_onclick = function() {
   // This will execute before the user fills out the login form.
   // More important is FB_Connect.on_connected, above.
-}
+};
 
 FB_Connect.logout_onclick = function() {
   FB.ensureInit(function() {
       FB.Connect.logoutAndRedirect(Drupal.settings.fb_connect.front_url);
     });
-}
+};
+
+
+FB_Connect.execute_javascript = function() {
+  var url = '/fb_connect/js';
+  $.post(url, null, function(eval_me) {
+      if (eval_me) {
+        eval(eval_me);
+      }
+    });
+};
+
+
 
 // This function called after fbConnect is initialized
 FB_Connect.init = function() {
   $.event.trigger('fb_connect_init', status);
-}
+};
 
 
 /**
@@ -160,7 +198,7 @@ FB_Connect.purgeCookies = function() {
       }
     }
   }
-}
+};
   
 // Delete a cookie.
 FB_Connect.deleteCookie = function( name, path, domain ) {
@@ -168,5 +206,5 @@ FB_Connect.deleteCookie = function( name, path, domain ) {
   ( ( path ) ? ";path=" + path : "") +
   ( ( domain ) ? ";domain=" + domain : "" ) +
   ";expires=Thu, 01-Jan-1970 00:00:01 GMT";
-}
+};
   

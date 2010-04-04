@@ -14,7 +14,10 @@ define('FB_APP_REQ_API_KEY', 'fb_sig_api_key');
 // Events that a facebook app might need to know about:
 define('FB_APP_EVENT_POST_AUTHORIZE', 'post_authorize');
 define('FB_APP_EVENT_POST_REMOVE', 'post_remove');
+
 define('FB_APP_PATH_EVENT', 'fb_app/event');
+define('FB_APP_PATH_EVENT_ARGS', 2);
+
 define('FB_APP_OP_EVENT', 'fb_app_event');
 
 /**
@@ -30,7 +33,7 @@ function fb_app_fb($op, $data, &$return) {
     $where = array();
     
     // This implementation uses 'label' as the unique id.
-    foreach (array(FB_SETTINGS_APP_LABEL, 'label') as $key) {
+    foreach (array(FB_SETTINGS_CB, FB_SETTINGS_LABEL) as $key) {
       if (isset($data[$key]) &&
           is_numeric($data[$key])) {
         // DEPRECATED
@@ -86,6 +89,18 @@ function fb_app_fb($op, $data, &$return) {
       require drupal_get_path('module', 'fb_app') . '/fb_app.admin.inc';
     }
   }
+  elseif ($op == FB_OP_CURRENT_APP) {
+    // Normally the current app is determined by fb_canvas or fb_connect, unless it is our event callback.
+    if (arg(0) == 'fb_app' && !$return) {
+      if (function_exists('fb_settings')) {
+        if ((fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) &&
+            ($apikey = fb_settings(FB_SETTINGS_APIKEY))) {
+          $return = fb_get_app(array('apikey' => $apikey));
+        }
+      }
+    }
+  }
+  
 }
 
 
@@ -95,9 +110,12 @@ function fb_app_fb($op, $data, &$return) {
 function fb_app_menu() {
   $items = array();
   // Allow facebook to notify on various events, like adding or removing an app.
-  $items[FB_APP_PATH_EVENT] = array(
+  $items[FB_APP_PATH_EVENT . '/%'] = array(
     'access callback' => TRUE,
     'page callback' => 'fb_app_event_cb',
+    'page arguments' => array(
+      FB_APP_PATH_EVENT_ARGS, // event type
+    ),
     'type' => MENU_CALLBACK,                     
   );
   
@@ -125,7 +143,8 @@ function fb_app_menu() {
   $items[FB_PATH_ADMIN_APPS . '/%fb/fb_app/delete'] = array(
     'title' => 'Delete',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('fb_app_admin_delete_confirm_form', FB_PATH_ADMIN_APPS_ARGS),
+    'page arguments' => array('fb_app_admin_delete_confirm_form',
+                              FB_PATH_ADMIN_APPS_ARGS),
     'access arguments' => array(FB_PERM_ADMINISTER),
     'file' => 'fb_app.admin.inc',
     'type' => MENU_CALLBACK,
@@ -142,17 +161,29 @@ function fb_app_menu() {
  * hook_fb.  Other modules are thus notified of the event and can take action.
  */
 function fb_app_event_cb($event_type) {
-  fb_invoke(FB_APP_OP_EVENT, 
+  // Events are passed 'fb_sig' params, so globals should be set.
+  global $_fb, $_fb_app;
+  if (!$_fb_app) {
+    drupal_not_found();
+    return;
+  }
+
+  watchdog('fb_app_event_cb', print_r($_REQUEST, 1)); // debug
+  watchdog('fb_app_event_cb', 'session id is ' . session_id());
+  
+  fb_invoke(FB_APP_OP_EVENT,
             array(
               'event_type' => $event_type,
-              'fb_app' => $GLOBALS['_fb_app'],
-              'fb' => $GLOBALS['_fb']),
+              'fb_app' => $_fb_app,
+              'fb' => $_fb),
             NULL
   );
-
-  // This page is called by facebook, not a user's browser.
+  
+  // This page is called by facebook, not a user's browser.  User's should never see this.
   print('Thanks Facebook, for your fancy API!');
-  // Problems if we save session during Facebook Connect, because the event callback's share session with normal pages.
+
+  // It's facebook calling us, not the user.  And fb_sig params make it look
+  // like a canvas page, but it could be connect.  So bad idea to save session.
   session_save_session(FALSE);
   exit();
 }

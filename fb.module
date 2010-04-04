@@ -62,7 +62,7 @@ function fb_init() {
   // Globals provided for internal use and convenience to third-parties.
   global $_fb;
   global $_fb_app;
-  
+
   // http://drupal.org/node/329810
   if (!function_exists('arg')) {
     // Ensure arg function is defined.
@@ -104,7 +104,7 @@ function fb_init() {
   }
 
   // Perform sanity check, help users who skip the README.
-  if (!variable_get('fb_settings_check', FALSE)) {
+  if (!function_exists('fb_settings')) {
     // Avoid errors caused by settings not included.
     module_load_include('inc', 'fb', 'fb_settings');
 
@@ -502,16 +502,6 @@ function fb_get_object_fbu($object) {
 
 
 /**
- * Convenience method to get an apps callback URL.
- *
- * TODO: This code will probably not handle every case and may need some work.
- */
-function fb_get_callback_url($fb_app) {
-  $url = url('', array('absolute' => TRUE)) . FB_SETTINGS_APP_LABEL . '/'. $fb_app->label . '/';
-  return $url;
-}
-
-/**
  * Convenience method to get app info based on apikey or nid.
  */
 function fb_get_app($search_data) {
@@ -733,7 +723,7 @@ function fb_menu() {
  * Implementation of a %wildcard_load(). http://drupal.org/node/224170
  */
 function fb_load($id) {
-  $query = array(FB_SETTINGS_APP_LABEL => $id);
+  $query = array('label' => $id);
   if (fb_is_fb_admin_page()) {
     // Show disabled apps to admins.
     $query['status'] = 0; // status >= 0
@@ -751,11 +741,23 @@ function fb_perm() {
 
 
 /**
- * When exiting we need to do some special stuff for forms
+ * Implements hook_exit().
+ *
+ * When completing a canvas page we need special processing for the session.  See fb_session.inc.
+ *
+ * Also invoke hook_fb(FB_OP_EXIT), so that other modules can handle special
+ * cases (in particular form support in b_canvas.module.
  */
 function fb_exit($destination = NULL) {
   global $_fb_app, $_fb;
+  
   if ($_fb_app && $_fb) {
+    
+    // Session management
+    if (function_exists('fb_session_exit'))
+      fb_session_exit();
+    
+    // Invoke other modules.
     fb_invoke(FB_OP_EXIT, array('fb_app' => $_fb_app,
                                 'fb' => $GLOBALS['_fb']),
               $destination);
@@ -815,45 +817,20 @@ function fb_invoke($op, $data = NULL, $return = NULL, $hook = FB_HOOK) {
 
 /**
  * This method will clean up URLs.  When serving canvas pages, extra
- * information is included in URLs (see fb_settings.inc).  This will remove
+ * information is included in URLs (see fb_url_rewrite.inc).  This will remove
  * the extra information.
  */
 function fb_scrub_urls($content) {
-  foreach (array(FB_SETTINGS_APP_LABEL, FB_SETTINGS_PAGE_TYPE) as $key) {
-    $patterns[] = "|$key/[^/]*/|";
-    $replacements[] = "";
+  if (function_exists('_fb_settings_url_rewrite_prefixes')) {
+    foreach (_fb_settings_url_rewrite_prefixes() as $key) {
+      $patterns[] = "|$key/[^/]*/|";
+      $replacements[] = "";
+    }
+    $content = preg_replace($patterns, $replacements, $content);
   }
-  $content = preg_replace($patterns, $replacements, $content);
   return $content;
 }
 
-/**
- * Implementation of hook_node_grants.
- * 
- * We put this here so all facebook modules have a standard way to implement
- * hook_node_access_records.  They use that hook to insert records into the
- * node access table.  We use this hook to allow access when the grants are
- * there.
- * 
- * DEPRECATED.  Not sure where, if anywhere, this belongs.
- */
- function fb_node_grantsXXX($account, $op) {
-  $grants = array();
-  $fbu = fb_get_fbu($account);
-  if ($fbu) { // If not anonymous (facebook user not logged in to this app)
-    $friends = fb_get_friends($fbu);
-    // For access purposes, consider a users to be a friend of themself
-    $friends[] = $fbu;
-    if (count($friends))
-      $grants[FB_GRANT_REALM_FRIEND] = $friends;
-    
-    $groups = fb_get_groups($fbu);
-    if (count($groups))
-      $grants[FB_GRANT_REALM_GROUP] = $groups;
-  }
-
-  return $grants;
-}
  
 /**
  * Convenience method for displaying facebook api errors.
@@ -1017,83 +994,6 @@ function fb_verbose() {
   return variable_get('fb_verbose', NULL);
 }
  
-/**
- * Define custom_url_rewrite_inbound() if not defined already.
- */
-if (!function_exists('custom_url_rewrite_inbound')) {
-  function custom_url_rewrite_inbound(&$result, $path, $path_language) {
-    fb_url_inbound_alter($result, $path, $path_language);
-  }
-}
-
-/**
- * Define custom_url_rewrite_outbound() if the url_alter.module is not enabled.
- */
-if (!function_exists('custom_url_rewrite_outbound')) {
-  function custom_url_rewrite_outbound(&$path, &$options, $original_path) {
-    fb_url_outbound_alter($path, $options, $original_path);
-  }
-}
-
-/**
- * Implementation of hook_url_outbound_alter().
- */
-function fb_url_outbound_alter(&$path, &$options, $original_path) {
-  //dpm(func_get_args(), 'fb_settings_url_rewrite_outbound');
-  $pre = '';
-  
-  // Prefix each known value to the URL
-  foreach (_fb_settings_url_rewrite_prefixes() as $prefix) {
-    if ($value = fb_settings($prefix))
-      $pre .= $prefix . '/'. $value . '/';
-  }
-  $path  = $pre . $path;
-  
-  return $path;
-}
-
-/**
- * Implementation of hook_url_inbound_alter().
- *
- * Rewrite URLs for facebook canvas pages, and connect callbacks.
- * 
- */
-function fb_url_inbound_alter(&$result, $path, $path_language) {
-  // See if this is a request for us.
-  if (strpos($path, FB_SETTINGS_APP_LABEL . '/') === 0) {
-    // Too soon for arg() function.
-    $args = explode('/', $path);
-    while (count($args) && in_array($args[0], _fb_settings_url_rewrite_prefixes())) {
-      $key = array_shift($args);
-      $value = array_shift($args);
-      $app_nid = fb_settings($key, $value); // Store for use later.
-    }
-    if ($app_label = fb_settings(FB_SETTINGS_APP_LABEL)) {
-      if (count($args)) {
-        $path = implode('/', $args); // remaining args
-        $alias = drupal_lookup_path('source', $path, $path_language); //can't use drupal_get_normal_path, it calls custom_url_rewrite_inbound
-        if ($alias) 
-          $path = $alias;
-      }
-      else {
-        // frontpage
-        $path = variable_get('site_frontpage', 'node');
-        $alias = drupal_lookup_path('source', $path, $path_language);
-        if ($alias) 
-          $path = $alias;
-        $_REQUEST['destination'] = $path; //required workaround for compatibility with Global Redirect module, best practice?
-      }
-    }
-  }
-  else { //resolve aliases for non-fb-callbacks
-    $alias = drupal_lookup_path('source', $path, $path_language);
-    if ($alias) 
-      $path = $alias;
-  }
-
-  $result = $path;
-}
-
 /**
  * This function will be replaced, hopefully, by format_username in D7.
  *

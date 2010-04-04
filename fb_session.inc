@@ -2,175 +2,38 @@
 // $Id$
 /**
  * @file
- * This file changes Drupal's default session management.
- *
- * If we are handling an FBMl canvas page request, cookies are not
- * available.  Instead we rely on a session key provided by facebook.
- *
- * If handling a facebook connect request, Facebook will have set
- * several cookies, and we must honor them instead of Drupal's
- * normal cookie.
- *
- * If the request is neither canvas page nor facebook connect, we
- * include drupal's default session.inc, so that session handling will
- * remain unchanged.
- *
- * See also fb_session_impl.inc, which is based on drupal's
- * session.inc but modified for canvas pages and connect pages.
- *
- * Actually, we try not to change things, unless we're servicing a
- * facebook app.  We include drupal's session.inc at the end of this
- * file so that default behavior will take place.  But first we detect
- * whether we're handling a facebook app and if so we do a few special
- * things.
- *
- * We need to handle several cases: FBML canvas pages, iframe canvas
- * pages, and facebook connect pages.
- *
- * In the FBML case, the request comes from facebook, not the user's
- * browser.  So we can't set cookies.  Instead we look to $_REQUEST
- * for facebook's session key.  If found, we muck with $_COOKIE
- * variables so that session.inc, when we include it later, will do
- * reasonable things.
- *
- * One weak point is FBML canvas pages where the user is not logged
- * in.  In this case facebook gives us no session state info.  This is
- * difficult for drupal to deal with.  Perhaps the best option is to
- * require login for application pages.  A must for any pages which
- * require session to work.
- *
- * Iframe canvas pages are a tricky case.  Here, we can set cookies on
- * the browser.  On the first iframe request, facebook will provide
- * additional session state info.  On subsequest requests, if iframe
- * links to a local url (without target=_top) we won't have the
- * facebook params.
- *
- * In general with iframes, the user could also be visiting the
- * regular website.  We don't want iframe sessions to compete with
- * regular sessions, so we change the session_name.
- *
- * Some browsers (Safari) will not accept the cookies we assign to an
- * iframe.  Setting $conf[fb_session_cookieless_iframe] attempts to
- * work around this.
- *
- * For Facebook Connect, we have to honor facebook's session state
- * info, so that when a user logs out of facebook, they are also
- * logged out of their connect session.  Also, we want to preserve
- * previous session state.  So for example if a user is already logged
- * into Drupal, we'll know that after they hit the connect button.
+ * This file is a replacement for Drupal's session.inc.
+ * Although not truly a replacement, as we include the default session.inc to do the heavy lifting.
+ * In this file we set up some variables and functions to handle facebook-controlled sessions.
  */
 
-$orig_session_name = session_name();
-if (isset($_COOKIE[$orig_session_name]))
-  $orig_session_id = $_COOKIE[$orig_session_name];
-else
-  $orig_session_id = '';
-// debug
-$_REQUEST['sb_session.inc orig session name'] = $orig_session_name;
 
-$label = _fb_settings_parse(FB_SETTINGS_APP_LABEL);
+// Default session handler functions.
+require('includes/session.inc');
 
-if ($label && isset($_REQUEST['fb_sig_api_key'])) {
-  // Canvas page or event callback
-  
-  // If facebook provides a session key, us it.  Allows us to share
-  // a session between FBML and iframe, and when forms are submitted
-  // from FBML canvas pages.
-  $new_session_name = "fb_canvas_{$label}_" . $orig_session_name;
-  if (isset($_REQUEST['fb_sig_session_key']))
-    $new_session_id = "fb_canvas_{$label}_" . $_REQUEST['fb_sig_session_key'];
-  elseif (isset($_REQUEST['fb_sig_profile_session_key'])) {
-    $new_session_id = "fb_profile_{$label}_" . $_REQUEST['fb_sig_profile_session_key'];
-  }
-  elseif ($orig_session_id) {
-    // When user is logged into facebook, but not authorized app, cookies are honored.  NO! This may have once been true, but no longer.
-    $new_session_id = "fb_canvas_{$label}_" . $orig_session_id;
-  }
-  else {
-    // User is not logged into facebook, or has not authorized app.  We have no session.  Equivalent to browser not supporting cookies.
-  }
-  
-  // Force url() to include the cookie-less session when in iframe
-  if (variable_get('fb_session_cookieless_iframe', FALSE) &&
-      isset($_REQUEST['fb_sig_in_iframe']) &&
-      $_REQUEST['fb_sig_in_iframe']) {
-    fb_settings(FB_SETTINGS_SESSION_KEY, $_REQUEST['fb_sig_session_key']);
-  }
- }
- elseif ($label && variable_get('fb_session_cookieless_iframe', FALSE) && 
-          ($sess_key = _fb_settings_parse(FB_SETTINGS_SESSION_KEY))) {
-   // using sessionless iframes
-   // similar logic to clause above, using session key in url path
-   $new_session_id = "fb_canvas_{$label}_" . $sess_key;
-   $new_session_name = "fb_canvas_{$label}_" . $orig_session_name;   
- }
- else {
-   // Try to learn session key from cookies (Facebook Connect)
-   
-   $apikey = NULL;
-   // Discover APIKEY by inspecting cookies.
-   // This could be made more efficient by looking only for the primary apikey.  I hesitate because some sites may need to support multiple connect apps. (I.e. one for the website and other for resizeable iframes in canvas pages)
-   foreach ($_COOKIE as $key => $value) {
-     if ($pos = strpos($key, '_session_key')) {
-       $apikey = substr($key, 0, $pos);
-     }
-   }
-   
-   if ($apikey && isset($_COOKIE[$apikey . '_ss'])) {
-     // We're logged into Facebook Connect.
-       
-     // Use globals to remember some values, for fb_connect.module to use.
-     $GLOBALS['_fb_connect_apikey'] = $apikey;
-     
-     // Rename the session id, so the Facebook Connect session is distinct from the original drupal session.
-     $new_session_id = 'fb_connect.' . $_COOKIE[$apikey . '_session_key'];
-     
-   }
- }
+if (function_exists('fb_settings_session_helper')) {
+  fb_settings_session_helper();
+}
 
-// Set the session name.
-if (isset($new_session_name)) {
-  session_name($new_session_name);
- }
+/**
+ * In canvas pages, cookies do not work.  To enforce sessions, we "spoof" a
+ * cookie (see fb_settings_session_helper()).  Sometimes drupal changes the
+ * session id on us, we need to change it back, because the canvas page will
+ * never honor the new value.
+ *
+ * This function is called from fb_exit();
+ */
+function fb_session_exit() {
+  if ($id = fb_settings('fb_session_id_force')) {
+    if ($id != session_id()) {
+      // In case we are called after sess_write.
+      //db_query("UPDATE {sessions} SET sid='%s' WHERE sid='%s'",
+      //        array($id, session_id()));
 
-// Set the session id.
-if (isset($new_session_id)) {
-  if (!variable_get('fb_session_long_keys', TRUE)) {
-    // Facebook appends user id, time and expiry info which is not necessary for uniqueness.  Here we truncate that information to ensure the sid fits in sessions table.
-    $new_session_id = substr($new_session_id, 0, 64);
-  }
-  if ($new_session_id != $orig_session_id) {
-    session_id($new_session_id);
-    if (isset($GLOBALS['_fb_connect_apikey'])) {
-      // We can preserve the session state when going into fbconnect
-      db_query("DELETE FROM {sessions} WHERE sid='%s'", $new_session_id);
-      db_query("UPDATE {sessions} SET sid = '%s' WHERE sid = '%s'", $new_session_id, $orig_session_id);
+      // We are called before sess_write.
+      session_id($id);
     }
-    
   }
-  // User logged into facebook, but possibly not Drupal.  If so, we do not want the cached page.
-  $GLOBALS['conf']['cache'] = 0;
- }
- else {
-   // No session from facebook, so make sure we're not using an out of date one.
-   if (strpos($orig_session_id, 'fb_connect') === 0) {
-     // Old fbconnect session can be deleted
-     db_query("DELETE FROM {sessions} WHERE sid='%s'", $orig_session_id);
-     session_id(md5(uniqid(microtime()) . $_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']));
-   }
-   elseif (strpos($orig_session_id, 'fb_connect') === 0) {
-     // Canvas session should not be deleted as it could be a user visiting both the website and an iframe app
-     if (!$label)
-       session_id(md5(uniqid(microtime()) . $_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']));     
-   }
- }
+}
 
-// If the session is contolled by Facebook, include our session implementation.
-if (isset($new_session_id)) {
-  require('fb_session_impl.inc');
-}
-else {
-  // Session not controlled by facebook, use Drupal's session implemtation.
-  require('includes/session.inc');
-}
 

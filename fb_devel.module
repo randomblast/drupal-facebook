@@ -53,8 +53,21 @@ function fb_devel_fb($op, $data, &$return) {
   $errors = 0;
 
   if ($op == FB_OP_INITIALIZE) {
-    $label = fb_settings(FB_SETTINGS_APP_LABEL);
 
+    if (fb_settings(FB_SETTINGS_APIKEY) &&
+        ($fb_app->apikey != fb_settings(FB_SETTINGS_APIKEY))) {
+      $message = t('Drupal for Facebook has detected a problem.  The global app has an apikey (%fb_app_apikey), while the settings indicates a different apikey (%fb_settings_apikey).', array(
+                     '%fb_app_apikey' => $fb_app->apikey,
+                     '%fb_settings_apikey' => fb_settings(FB_SETTINGS_APIKEY),
+                   ));
+      drupal_set_message($message, 'error');
+      watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
+      $errors++;      
+    }
+
+    
+    $label = fb_settings(FB_SETTINGS_CB);
+    
     // deprecated nid check.
     if ($label == $fb_app->nid) {
       $message = t('Facebook callback is using deprecated node id (%nid) instead of application label (%label).  <a href="!url">Editing the application</a> will usually correct this problem, which was caused by an update to the Drupal for Facebook modules.  Sorry for the inconvenience.', array('%nid' => $fb_app->nid, '%label' => $fb_app->label, '!url' => url(FB_PATH_ADMIN_APPS . '/' . $fb_app->label)));
@@ -92,7 +105,7 @@ function fb_devel_fb($op, $data, &$return) {
       // Skip check on callbacks from facebook.
       if ((arg(0) != 'fb_app') || (arg(1) != 'event')) {
         $message = t('URL starts with %prefix.  This should never happen on connect pages.  Did the previous page have a badly formed link?', array(
-                     '%prefix' => FB_SETTINGS_APP_LABEL . '/' . $label,
+                     '%prefix' => FB_SETTINGS_CB . '/' . $label,
                    ));
         drupal_set_message($message, 'error');
         $errors++;
@@ -207,7 +220,7 @@ function fb_devel_page() {
   dpm($_REQUEST, "Request");
   //dpm($_fb_app, "fb_app");
   drupal_set_message(t("session_id returns " . session_id()));
-  //dpm($_SESSION, "session:");
+  dpm($_SESSION, "session:");
 
   return "This is the facebook debug page.";
 }
@@ -272,7 +285,7 @@ function fb_devel_form_alter(&$form, $form_state, $form_id) {
   static $count;
   $count++;
   
-  if (fb_verbose() === 'extreme') { // most people will not want this...
+  if (fb_verbose() === 'extreme' && FALSE) { // Disabled, somehow this breaks comment submission.
     $form['fb_devel'] = array(
       '#type' => 'fieldset',
       '#title' => t('Drupal for Facebook Devel'),
@@ -321,7 +334,7 @@ function fb_devel_info() {
   global $base_path;
 
   $info = array();
-  $label = fb_settings(FB_SETTINGS_APP_LABEL);
+  $label = fb_settings(FB_SETTINGS_CB);
   
   if ($_fb) {
     if ($_fb->in_fb_canvas())
@@ -335,7 +348,20 @@ function fb_devel_info() {
       $info['fb'] = $_fb;
     }
     else {
-      $info['Page Status'] = t('Connected via Facebook Connect');
+      if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) {
+        $info['Page Status'] = t('Followed link in iframe canvas, or handling form.');
+      }
+      elseif (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CONNECT) {
+        $info['Page Status'] = t('Connected via Facebook Connect');
+      }
+      elseif (!fb_settings(FB_SETTINGS_TYPE)) {
+        $info['Page Status'] = t('Global fb instance is set.  Probably  facebook connect is enabled but user is not logged into facebook.');
+      }
+      else {
+        $info['Page Status'] = t('Global fb instance is set, but page type unknown (%type).',
+                                 array('%type' => fb_settings(FB_SETTINGS_TYPE),
+                                 ));
+      }
     }
     
     $info['fb_facebook_user'] = fb_facebook_user();

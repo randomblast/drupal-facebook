@@ -17,9 +17,10 @@ function fb_app_fb_admin($op, $data, &$return) {
   
   if ($op == FB_ADMIN_OP_SET_PROPERTIES) {
     // URLs for Facebook events we support.
-    $url = url(FB_SETTINGS_APP_LABEL . '/' . $fb_app->label . '/' . FB_APP_PATH_EVENT, array('absolute' => TRUE)) . '/';
-    $return['uninstall_url'] = $url . FB_APP_EVENT_POST_REMOVE;
-    $return['authorize_url'] = $url . FB_APP_EVENT_POST_AUTHORIZE;
+    $return['uninstall_url'] = url(FB_APP_PATH_EVENT . '/' . FB_APP_EVENT_POST_REMOVE,
+                                   array('absolute' => TRUE));
+    $return['authorize_url'] = url(FB_APP_PATH_EVENT . '/' . FB_APP_EVENT_POST_AUTHORIZE,
+                                   array('absolute' => TRUE));
   }
   elseif ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
     $return[t('Application Name')] = 'application_name';

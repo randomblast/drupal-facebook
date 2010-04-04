@@ -22,7 +22,7 @@ define('FB_CANVAS_VAR_PROCESS_IFRAME', 'fb_canvas_process_iframe');
  */
 function fb_canvas_menu() {
   $items = array();
-
+  
   // Admin pages
   $items[FB_PATH_ADMIN .'/fb_canvas'] = array(
     'title' => 'Canvas Pages',
@@ -33,7 +33,7 @@ function fb_canvas_menu() {
     'file' => 'fb_canvas.admin.inc',
     'type' => MENU_LOCAL_TASK,
   );
-
+  
   return $items;
 }
 
@@ -49,19 +49,26 @@ function fb_canvas_fb($op, $data, &$return) {
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   
   if ($op == FB_OP_CURRENT_APP) {
-    if (isset($_REQUEST[FB_APP_REQ_API_KEY]) &&
-        ($apikey = $_REQUEST[FB_APP_REQ_API_KEY])) {
-      // If facebook has passed the app key, let's use that.
-      $fb_app = fb_get_app(array('apikey' => $apikey));
-    }
-    else {
-      if (function_exists('fb_settings')) {
-        // See fb_settings.inc
-        if ($id = fb_settings(FB_SETTINGS_APP_LABEL)) {
-          $fb_app = fb_get_app(array('id' => $id));
-        }
+    if (function_exists('fb_settings')) {
+      if ((fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) &&
+          ($apikey = fb_settings(FB_SETTINGS_APIKEY))) {
+        // This is the proper way to discover the app on canvas pages.
+        $fb_app = fb_get_app(array('apikey' => $apikey));
+      }
+      elseif ($id = fb_settings(FB_SETTINGS_CB)) {
+        // This is the old way dependent on url rewriting.
+        $fb_app = fb_get_app(array('id' => $id));
       }
     }
+    else {
+      // Fallback in case fb_settings not used.
+      if (isset($_REQUEST[FB_APP_REQ_API_KEY]) &&
+          ($apikey = $_REQUEST[FB_APP_REQ_API_KEY])) {
+        // If facebook has passed the app key, let's use that.
+        $fb_app = fb_get_app(array('apikey' => $apikey));
+      }
+    }
+    
     if ($fb_app)
       $return = $fb_app;
   }
@@ -139,7 +146,6 @@ function fb_canvas_fb($op, $data, &$return) {
     if (isset($original_uid) && 
         $original_uid != $user->uid) {
       // The user has changed, presumably fb_user.module recognized the facebookuser.  We need to refresh canvas pages.
-
       if (!(arg(0) == 'fb_app' && arg(1) == 'event')) {
         // In order to ensure that drupal handles
         // permissions properly, the user must make the request all over
@@ -148,15 +154,13 @@ function fb_canvas_fb($op, $data, &$return) {
         if ((fb_canvas_is_fbml() || fb_canvas_is_iframe()) &&
             !fb_is_profile_tab()) {
           
-          $url = fb_canvas_fix_url(url(fb_scrub_urls($_REQUEST['q']), array('absolute' => TRUE)), $fb_app);
-          if (fb_verbose()) 
-            watchdog('fb_canvas', "User uid is now {$user->uid} (was {$original_uid}), redirecting canvas to $url to ensure permissions are correct."); // debug
-          $fb->redirect($url);
+          fb_canvas_goto(fb_scrub_urls($_REQUEST['q']));
         }
       }
     }
     
-    // The ?destination=... url param means something to drupal but also to facebook.  If ?fb_canvas_destination=... is set, we honor that.
+    // The ?destination=... url param means something to drupal but something
+    // else to facebook.  If ?fb_canvas_destination=... is set, we honor that.
     if (isset($_REQUEST['fb_canvas_destination'])) {
       $_REQUEST['destination'] = $_REQUEST['fb_canvas_destination'];
     }
@@ -206,7 +210,7 @@ function fb_canvas_fb($op, $data, &$return) {
       cache_set($cid, $output, 'cache_page', time() + (60 * 5), drupal_get_headers()); // (60 * 5) == 5 minutes
       
       $dest = 'http://apps.facebook.com/' . $fb_app->canvas . "/fb/form_cache/$cid";
-      // $fb->redirect($url); // Does not work!
+      // $fb->redirect($dest); // Does not work!
       
       // Preserve some URL parameters
       $query = array();
@@ -227,7 +231,8 @@ function fb_canvas_fb($op, $data, &$return) {
       }
       drupal_goto($dest, implode('&', $query), NULL, 303); // appears to work
     }
-    if (fb_canvas_is_fbml() || fb_canvas_is_iframe()) {
+    if ((fb_canvas_is_fbml() || fb_canvas_is_iframe()) &&
+        (!isset($GLOBALS['_fb_canvas_goto']))) {
       
       if ($destination) {
         // Fully qualified URLs need to be modified to point to facebook app.
@@ -316,34 +321,6 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
             '#description' => t('Leave blank to use the site-wide front page.'),
             '#default_value' => $fb_canvas_data['front_added'],
       );
-    
-    /* XXX menu code here needs updating to D6
-    // Allow primary links to be different on facebook versus the rest of the
-    // site.  Code from menu_configure() in menu.module.
-
-    $primary = variable_get('menu_primary_links_source', 'primary-links');
-    $primary_options = array_merge($menu_options, array('' => t('<use sitewide setting>')));
-    $form['fb_app_data']['fb_canvas']['menu_primary_links_source'] = 
-      array(
-        '#type' => 'select',
-        '#title' => t('Source for the primary links'),
-        '#default_value' => $fb_canvas_data['primary_links'],
-        '#options' => $primary_options,
-        '#tree' => FALSE,
-        '#description' => t('Your application can have primary links different from those used elsewhere on your site.'),
-      );
-
-    $secondary_options = array_merge($menu_options, array('' => t('<use sitewide setting>')));
-    $form['fb_app_data']['fb_canvas']['menu_secondary_links_source'] = 
-      array(
-        '#type' => 'select',
-        '#title' => t('Source for the secondary links'),
-        '#default_value' => $fb_canvas_data['secondary_links'],
-        '#options' => $secondary_options,
-        '#tree' => FALSE,
-        '#description' => t('If you select the same menu as primary links then secondary links will display the appropriate second level of your navigation hierarchy.'),
-      );
-*/
 
     // Override themes
     $themes = system_theme_data();
@@ -401,6 +378,17 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
       unset($form['body_field']['teaser_include']);            
     }
     
+  }
+  elseif (fb_canvas_is_iframe()) {
+    // Include the fb_sig so that when post is received, we know we are still in a canvas.
+    foreach ($_REQUEST as $key => $value) {
+      if (strpos($key, 'fb_sig') === 0) {
+        $form['fb_canvas_iframe'][$key] = array(
+          '#type' => 'hidden',
+          '#value' => $value,
+        );
+      }
+    }
   }
 }
 
@@ -480,9 +468,8 @@ function fb_canvas_handling_form($value = NULL) {
 }
 
 
-// This may need work
+// Recent changes may have broken the "old way".
 function _fb_canvas_make_form_action_local($action = NULL) {
-  //dpm($action, "_fb_canvas_make_form_action_local");
   global $base_path;
 
   if (!isset($action)) {
@@ -506,21 +493,31 @@ function _fb_canvas_make_form_action_local($action = NULL) {
   $absolute = url('', array('absolute' => TRUE));
   global $_fb_app;
   
-  if (strpos($action, FB_SETTINGS_APP_LABEL)) {
+  if (strpos($action, FB_SETTINGS_CB)) { // XXX old way.  Will go away.
     $action = $absolute . substr($action, strlen($relative));
   }
-  elseif (strpos($action, $relative) === 0) {
+  elseif (strpos($action, $relative) === 0 && function_exists('fb_url_inbound_alter')) { // XXX another old way.
     // Replace relative action with absolute.
     // Include fb settings
-    // TODO: FB_SETTINGS_PAGE_TYPE
-    $action = $absolute . FB_SETTINGS_APP_LABEL . '/' . $_fb_app->label . '/' . substr($action, strlen($relative));
+    // TODO: FB_SETTINGS_CB_TYPE
+    $action = $absolute . FB_SETTINGS_CB . '/' . $_fb_app->label . '/' . substr($action, strlen($relative));
   }
-  
-  //dpm($action, '_fb_canvas_make_form_action_local returning');
+  else {
+    // New way...
+    if (strpos($action, $relative) === 0) {
+      // If here, the action was made by call to url() and we prepended
+      // canvas_name.  Now remove the canvas name for a proper absolute url.
+      // (Comment forms reach this clause but node forms do not.)
+      $action = substr($action, strlen($relative));
+    }
+    $action = url(ltrim($action, '/'), array('absolute' => TRUE));    
+  }
+
+  //dpm("_fb_canvas_make_form_action_local returning.");
+  //dpm($action);
+
   return $action;
 
-  //drupal_set_message("form action now " . "http://".$_SERVER['HTTP_HOST']. $action); // debug
-  //return "http://".$_SERVER['HTTP_HOST']. $action;
 }
 
 /**
@@ -530,6 +527,14 @@ function fb_canvas_goto($path) {
   global $_fb, $_fb_app;
   if ($_fb && (fb_canvas_is_fbml() || fb_canvas_is_iframe())) {
     $url = fb_canvas_fix_url(url($path, array('absolute' => TRUE)), $_fb_app);
+
+    // Allow modules to react to the end of the page request before redirecting.
+    // We do not want this while running update.php.
+    if (!defined('MAINTENANCE_MODE') || MAINTENANCE_MODE != 'update') {
+      $GLOBALS['_fb_canvas_goto'] = TRUE; // prevents fb_canvas_exit from calling redirect.
+      module_invoke_all('exit', $url);
+    }
+    
     $_fb->redirect($url);
   }
   else {
@@ -548,7 +553,7 @@ function fb_canvas_fix_url($url, $fb_app) {
 
   global $base_url;
 
-  $patterns[] = "|{$base_url}/" . FB_SETTINGS_APP_LABEL . "/{$fb_app->label}/|";
+  $patterns[] = "|{$base_url}/" . FB_SETTINGS_CB . "/{$fb_app->label}/|";
   // Here we hard-wire apps.facebook.com.  Is there an API to get that?
   $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
 
@@ -557,7 +562,7 @@ function fb_canvas_fix_url($url, $fb_app) {
   $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
   
   // Page type helps themes support multiple iframes.
-  $patterns[] = "|" . FB_SETTINGS_PAGE_TYPE . "/[^/]*/|";
+  $patterns[] = "|" . FB_SETTINGS_CB_TYPE . "/[^/]*/|";
   $replacements[] = "";
 
   // Facebook will prepend "appNNN_" all our ids
@@ -569,38 +574,60 @@ function fb_canvas_fix_url($url, $fb_app) {
   return $url;
 }
 
-// This dates back to 5.x code and may no longer work!
-function fb_canvas_primary_links() {
-  global $_fb_app;
-  $mid = 0;
-  if ($_fb_app) {
-    $fb_app_data = fb_get_app_data($_fb_app);
-    $fb_canvas_data = $fb_app_data['fb_canvas'];
-    $mid = $fb_canvas_data['primary_links'];
+
+/**
+ * Define custom_url_rewrite_outbound() if not defined already.
+ */
+if (!function_exists('custom_url_rewrite_outbound')) {
+  function custom_url_rewrite_outbound(&$path, &$options, $original_path) {
+    fb_canvas_url_outbound_alter($path, $options, $original_path);
   }
-  if ($mid)
-    return menu_primary_links(1, $mid);
-  else
-    return menu_primary_links();
 }
-// This dates back to 5.x code and may no longer work!
-function fb_canvas_secondary_links() {
-  global $_fb_app;
-  if ($_fb_app) {
-    $fb_app_data = fb_get_app_data($_fb_app);
-    $fb_canvas_data = $fb_app_data['fb_canvas'];
-    $mid1 = $fb_canvas_data['primary_links'];
-    $mid2 = $fb_canvas_data['secondary_links'];
+
+function fb_canvas_url_outbound_alter(&$path, &$options, $original_path) {
+  global $_fb, $_fb_app;
+
+  if ($_fb_app && $_fb_app->canvas) {
+      
+    if (fb_canvas_is_fbml()) {
+      
+      if (!$options['absolute']) {
+        
+        if (FALSE && file_exists($path)) { // Disabled on purpose
+          // This is disabled because Drupal is unlikely to honor the changes
+          // we make here.  Sadly, routines like theme_image() do not honor url
+          // alters.
+          
+          // Make absolute link to local file.
+          $options['absolute'] = TRUE;
+        }
+        else {
+          // Make a relative link to the application.
+          // base_path is not in options, so we kludge a faux absolute url.
+          $options['base_url'] = '/' . $_fb_app->canvas;
+          $options['absolute'] = TRUE;
+          // Note that facebook will prepend canvas_name to our relative url.
+        }
+        
+      }
+
+    }
+    else if (fb_canvas_is_iframe()) {
+      if (!$options['absolute']) {
+        // Could append all 'fb_sig' params to internal links.  But for now we rely on fb_canvas_process.
+      }
+    }
+
+    // Drupal has a habit of adding ?destination=... to some URLs.
+    // And Facebook for no good reason screws up when you do that.
+    if ($options['query']) {
+      $options['query'] = str_replace('destination=', 'fb_canvas_destination=', $options['query']);
+    }
+
   }
-  if ($mid2) {
-    if ($mid2 == $mid1)
-      return menu_primary_links(2, $mid2);
-    else
-      return menu_primary_links(1, $mid2);
-  }
-  else
-    return menu_secondary_links();
+  
 }
+
 
 /**
  * This function uses regular expressions to convert links on canvas pages 
@@ -624,33 +651,46 @@ function fb_canvas_secondary_links() {
  * 
  */
 function fb_canvas_process($output, $options = array()) {
-  global $base_path, $base_url;
+  global $base_url;
   global $_fb, $_fb_app;
   
   $patterns = array();
   $replacements = array();
+  $base_path = base_path();
   
   if ($_fb) {
-    $base_before_rewrite = '';
-    $rewrite_options = array();
-    $base = $base_path . fb_url_outbound_alter($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.
-
+    if (function_exists('fb_url_outbound_alter')) {
+      $base_before_rewrite = '';
+      $rewrite_options = array();
+      $base = $base_path . fb_url_outbound_alter($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.
+    }
+    else {
+      // Paving the way to make url alters optional.  (may not work properly)
+      $base = $base_path;
+      //print("in fb_canvas_process, base is '$base'.");
+    }
+    
     if (fb_canvas_is_fbml()) {
       //dpm($output, "before fb_canvas_process");
       // We're producing FBML for a canvas page
-      /*
-      TODO: $output['logo'] is not being processed properly by these
-      patterns. fb_canvas_process() returns '/sites/all/themes/fb_fbml/logo.png'
-      and Facebook complains "Relative URLs not allowed here"
-      
-      */
       
       // Fix for relative images
       $absolute_base = url('<front>', array('absolute' => TRUE));
       $patterns[] = "|src=\"{$base}|";
       $replacements[] = "src=\"$absolute_base";
 
-      if (isset($options['force_absolute_canvas']) && $options['force_absolute_canvas']) {
+      // This fixes places in drupal that use base_url() . something, instead of calling url().
+      // including links to stylesheets and such.
+      $pattern = "|href=\"{$base}(?!" . preg_quote($_fb_app->canvas) . ")|";
+      //print ("pattern is $pattern \n\n"); // debug
+      $patterns[] = $pattern;
+      $replacements[] = "href=\"$absolute_base";
+      
+      
+      // This is needed under the old url rewriting scheme.
+      // Hope to do away with this for good eventually!  XXX
+      if (isset($options['force_absolute_canvas']) && $options['force_absolute_canvas'] &&
+          $base != '/') {
         // Change links to use canvas on Facebook
         // Links ending in #something:
         $patterns[] = "|=\"{$base}([^\"]*#)|";
@@ -659,6 +699,7 @@ function fb_canvas_process($output, $options = array()) {
         $patterns[] = "|=\"{$base}|";
         $replacements[] = "=\"http://apps.facebook.com/{$_fb_app->canvas}/";
       }
+      /*
       else {
         // Change links to use canvas on Facebook
         // Links ending in #something:
@@ -675,7 +716,8 @@ function fb_canvas_process($output, $options = array()) {
         $patterns[] = '|="'. $base_path . "(?!{$_fb_app->canvas})|";
         $replacements[] = '="'. $base_url .'/';
       }
-
+      */
+      
       // Experimental!  Change 1234@facebook to an <fb:name> tag.  This is our
       // default user name convention when creating new users.  Ideally, this
       // would be accomplished with something like:
@@ -690,10 +732,6 @@ function fb_canvas_process($output, $options = array()) {
       $patterns[] = '|(?<!["\d])([\d]*)@facebook(?!\.com)|';
       $replacements[] = '<fb:name uid=$1 linked=false ifcantsee="$1@facebook" useyou=false />';
       
-      // Drupal has a habit of adding ?destination=... to some URLs.
-      // And Facebook for no good reason screws up when you do that.
-      $patterns[] = "|href=\"([^\"]*)\?(.*)(destination)=|";
-      $replacements[] = 'href="$1?$2fb_canvas_destination=';
     }
     elseif (fb_canvas_is_iframe()) {
       // Add target=_top so that entire pages do not appear within an iframe.
@@ -721,7 +759,9 @@ function fb_canvas_process($output, $options = array()) {
     }
   }
   if (count($patterns)) {
-    $return = preg_replace($patterns, $replacements, $output);
+    $count = 0;
+    $return = preg_replace($patterns, $replacements, $output, -1, $count);
+    //print ("fb_canvas_process replaced $count.\n\n"); // debug
     return $return;
   }
   else
@@ -731,7 +771,12 @@ function fb_canvas_process($output, $options = array()) {
 
 
 
-//// Theme overrides
+
+
+
+//// Theme definitions, overrides and helpers.
+
+
 
 /**
  * Implements hook_theme().
