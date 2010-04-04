@@ -12,7 +12,10 @@ Detailed documentation is available online
 http://drupal.org/node/195035.  This file is probably more recent than
 the online documentation!
 
-To install or upgrade from an earlier version of Drupal for Facebook:
+If upgrading from a previous dev build or version, read the upgrade instructions:
+http://drupal.org/node/761886
+
+To install:
    
 - Make sure you have an up-to-date PHP client from facebook.  You may
   download a tarball,
@@ -44,6 +47,11 @@ To install or upgrade from an earlier version of Drupal for Facebook:
   and you want updates to be easier.  Visit Site Building >> Themes so
   that Drupal will detect the new theme.
 
+- If using Facebook Connect, your theme needs the following attribute
+  in it's <html> tag: xmlns:fb="http://www.facebook.com/2008/fbml" See
+  http://www.drupalforfacebook.org/node/1106.  This also applies to
+  themes used for iframe canvas pages.
+
 - Edit your settings.php file (sites/default/settings.php, depending
   on your install) to include fb_settings.inc (in this directory).
   For example, add this at the very end of your settings.php:
@@ -56,13 +64,10 @@ To install or upgrade from an earlier version of Drupal for Facebook:
   See the end of this file for other configuration you may add to
   settings.php.
 
-- Enable the Facebook modules via the drupal admin pages, as usual.
-  You must enable at least "DFF Facebook API" and "DFF Applications"
-  modules.  You will probably want to enable "DFF User Management" and
-  more of the modules as your App needs them.  Enable "DFF Canvas
-  Pages" if you support canvas pages.  Enable "DFF Connect" for
-  Facebook Connect features.  During development, the "DFF Devel"
-  module is a must.
+- Go to Administer >> Site Building >> Modules and enable the Facebook
+  modules.  Most of the modules under "Drupal for Facebook" should be
+  enabled.  During development, the "Drupal for Facebook Devel" module
+  is a must.
 
 - You must enable clean URLs.  If you don't, some links that drupal
   creates will not work properly on canvas pages.
@@ -72,18 +77,12 @@ To install or upgrade from an earlier version of Drupal for Facebook:
   minimum required to get an apikey and secret.  If supporting canvas
   pages, get a canvas name, too.
 
-- Go to Create Content >> Facebook Application.  Use the apikey and
-  secret that Facebook has shown you.  If you have any trouble with
-  the other fields, use Facebook's documentation to figure it out.
-  When you submit your changes, Drupal for Facebook will automatically
-  set the callback URL and some other properties which help it work
-  properly.
-
-- If upgrading from an earlier Drupal for Facebook, revisit all of the
-  Facebook Application nodes.  Edit each one, look over all the
-  settings as many have changed, especially the choices under user
-  management.  You'll have to submit your changes in order for your
-  application to work properly with the new Facebook API.
+- Go to Administer >> Site Building >> Facebook Applications and click
+  the Add Applicaiton tab.  Use the apikey and secret that Facebook
+  has shown you.  If you have any trouble with the other fields, use
+  Facebook's documentation to figure it out.  When you submit your
+  changes, Drupal for Facebook will automatically set the callback URL
+  and some other properties which help it work properly.
 
 Troubleshooting:
 ---------------
@@ -92,12 +91,12 @@ Reread this file and follow instructions carefully.
 
 Enable the devel module, http://drupal.org/project/devel.
 
-Enable the "DFF Devel" module and add the block it provides to the footer
-of your Facebook theme.
+Enable the "Drupal for Facebook Devel" module and add the block it
+provides to the footer of your Facebook theme.
 
 If you see FBML Error (line 62): illegal tag "body" under "fb:canvas",
-or many "CSS Errors", visit ?q=admin/build/themes.  Make sure you see
-fb_fbml in the list.  Enable the fb_fbml theme.
+or many "CSS Errors", visit Administer >> Site Building >> Themes.
+Make sure you see fb_fbml in the list.  Enable the fb_fbml theme.
 
 If you _still_ see CSS Errors or HTML Errors, most likely the fb_fbml
 theme is still not being used.  This can happen if the theme is
@@ -117,10 +116,6 @@ extension for PHP installed, see
 http://us.php.net/manual/en/json.requirements.php.  And tell facebook
 their client libs suck at
 http://bugs.developers.facebook.com/show_bug.cgi?id=4351.
-
-If using Facebook Connect, your theme needs the following attribute in
-it's <html> tag: xmlns:fb="http://www.facebook.com/2008/fbml" 
-See http://www.drupalforfacebook.org/node/1106
 
 Bug reports and feature requests may be submitted.  
 Here's an idea: check the issue queue before you submit
@@ -146,7 +141,7 @@ if (!is_array($conf))
 
 $conf['fb_verbose'] = TRUE; // debug output
 //$conf['fb_verbose'] = 'extreme'; // for verbosity fetishists.
-//$conf['fb_debug'] = TRUE; // Output from facebook's API.
+//$conf['fb_debug'] = TRUE; // Output from facebook's client libs.
 //$conf['fb_api_file'] = 'facebook-platform/php/facebook.php'; // default is 'facebook-platform/php/facebook.php'
 
 /**
