@@ -666,14 +666,17 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
       !fb_is_fbml_canvas()) {
     if ($app_label = variable_get(FB_CONNECT_VAR_LOGIN, NULL)) {
       $fb_app = fb_get_app(array('label' => $app_label));
-      
-      // Ensure that facebook javascript is in the page closure.
-      if ($fb = fb_connect_app_init($fb_app)) {
+
+      // Render connect link if not connected already.
+      if ($fb = fb_connect_app_init($fb_app) &&
+          !fb_facebook_user($fb)) {
+        // Ensure that facebook javascript is in the page closure.
         fb_connect_require_feature('XFBML', $fb_app);
         fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
         fb_connect_init_option('ifUserNotConnected', "{FB_Connect.on_not_connected}", $fb_app);
         
         // Add button to the form.
+        // @TODO - make markup customizable.
         $form['fb_connect_button'] = array(
           '#type' => 'markup',
           '#value' => '<fb:login-button v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>',
