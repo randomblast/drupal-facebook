@@ -21,7 +21,7 @@ function fb_requirements($phase) {
   }
   
   $status = array('title' => $t('Drupal for Facebook Settings'));
-  if (!function_exists('fb_settings')) {
+  if (function_exists('fb_settings')) {
     if ($phase == 'runtime') {
       $status['value'] = $t('Included');
     }
@@ -36,7 +36,7 @@ function fb_requirements($phase) {
     if (!$path)
       // Not set during install.php
       $path = 'modules/fb';
-
+    
     $status['description'] = $t('Add something like <strong>include "%path";</strong> to your settings.php.', array('%path' => $path . '/fb_settings.inc'));
   }
   $items[] = $status;
