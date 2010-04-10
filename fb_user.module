@@ -358,10 +358,10 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
     $form['fb_app_data']['fb_user']['create_account'] = array(
       '#type' => 'radios',
       '#title' => t('Create Local Account'),
-      '#description' => t('This option will create a local account automatically and create an entry in the authmap table.  Choose never to use Drupal\'s built in user registration.'),
+      '#description' => t('This option will create a local account and an entry in the authmap table when a user authorizes a canvas page or connects using Facebook Connect.  If not, Drupal\'s built in user registration will still work.'),
       '#options' => array(
-        FB_USER_OPTION_CREATE_NEVER => t('Never (user/register page will still work)'),
-        FB_USER_OPTION_CREATE_LOGIN => t('If user has logged in'),
+        FB_USER_OPTION_CREATE_NEVER => t('Do not create accounts automatically'),
+        FB_USER_OPTION_CREATE_LOGIN => t('If user has authorized the app'),
       ),
       '#default_value' => $fb_user_data['create_account'],
       '#required' => TRUE,
@@ -538,7 +538,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       $fb_user_data = _fb_user_get_config($fb_app);
       
       $fbu = _fb_user_get_fbu($account->uid, $fb_app);
-      
+
       if ($fbu && !$info[$fbu]) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app, FB_FBU_ANY);
@@ -568,7 +568,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
         );
         if ($info[$shared_fbu]) {
           $data = $info[$shared_fbu][0];
-          $fb_link = l($data['name'], 
+          $fb_link = l($data['name'] ? $data['name'] : $fbu, 
                        'http://www.facebook.com/profile.php', array(
                          'query' => array('id' => $data['uid'])));
           
@@ -827,7 +827,7 @@ function _fb_user_get_fbu($uid, $fb_app) {
   
   if (!isset($cache[$uid])) {
     // Look up this user in the authmap
-    $result = db_result(db_query("SELECT uid FROM {authmap} WHERE uid=%d AND module='%s'", array(
+    $result = db_result(db_query("SELECT authname FROM {authmap} WHERE uid=%d AND module='%s'", array(
                                    $uid,
                                    'fb_user',
                                  )));
