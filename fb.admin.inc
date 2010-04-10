@@ -37,7 +37,7 @@ function fb_admin_page() {
       
       $row = array();
       // Title.
-      $row[] = $fb_app->label . ($fb_app->status ? '' : ' ' . t('(disabled!)'));
+      $row[] = $fb_app->label . ($fb_app->status ? '' : ' ' . t('(<em>not enabled</em>)'));
       
       // About.
       $row[] = l($fb_app->application_name, 'http://www.facebook.com/apps/application.php?id=' . $fb_app->id);
