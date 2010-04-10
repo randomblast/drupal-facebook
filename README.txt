@@ -149,6 +149,10 @@ $conf['fb_verbose'] = TRUE; // debug output
  * Sets up custom_url_rewrite and session handling required for 
  * canvas pages and Facebook Connect.
  */
+
+// More effiecent connect session discovery.
+$conf['fb_connect_primary_apikey'] = '123.....XYZ'; // Your app's apikey goes here.
+
 include "sites/all/modules/fb/fb_settings.inc";
 
 

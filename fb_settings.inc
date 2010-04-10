@@ -101,30 +101,46 @@ function fb_settings_session_helper() {
     // Were not in a canvas page.
     // We might be in a facebook connect page.  We have to inspect cookies to make sure.
 
-    $session_key = '';
+    // Note variables initialized after session.  We can't use variable_get.
     
-    // TODO: make this more efficient.
-    foreach ($_COOKIE as $key => $value) {
-      if ($pos = strpos($key, '_session_key')) {
-        $apikey = substr($key, 0, $pos);
-        $session_key = $value;
-        break;
+    $apikey = isset($conf['fb_connect_primary_apikey']) ? $conf['fb_connect_primary_apikey'] : NULL;
+    if ($apikey) {
+      // Set $conf['fb_connect_primary_apikey'] for more efficent and reliable cookie inspection.
+      if (isset($_COOKIE[$primary_apikey . '_session_key'])) {
+        fb_settings(FB_SETTINGS_APIKEY, $apikey);
+        fb_settings(FB_SETTINGS_SESSION_KEY, $_COOKIE[$apikey . '_session_key']);
+        fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CONNECT);
       }
     }
-    if (isset($apikey)) {
-      fb_settings(FB_SETTINGS_APIKEY, $apikey);
-      fb_settings(FB_SETTINGS_SESSION_KEY, $session_key);
-      fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CONNECT);
+    else {
+      // Less efficent and more error prone cookie inspection.
+      $session_key = '';
+      
+      // TODO: make this more efficient.
+      foreach ($_COOKIE as $key => $value) {
+        if ($pos = strpos($key, '_session_key')) {
+          $apikey = substr($key, 0, $pos);
+          $session_key = $value;
+          break;
+        }
+      }
+      if (isset($apikey)) {
+        fb_settings(FB_SETTINGS_APIKEY, $apikey);
+        fb_settings(FB_SETTINGS_SESSION_KEY, $session_key);
+        fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CONNECT);
+      }
     }
   }
-
+  
   // By default Drupal will name the session based on the $cookie_domain.
   // When facebook controls the session, we need a different name.
   if (!isset($_REQUEST['fb_session_no']) && // (a way to override this)
       fb_settings(FB_SETTINGS_APIKEY) && fb_settings(FB_SETTINGS_TYPE)) {
     // Set session name differently for each app.
     //session_name('SESS' . fb_settings(FB_SETTINGS_TYPE) . md5(fb_settings(FB_SETTINGS_APIKEY))); // not sufficient!
-    // In fb connect, one user may log out of facebook, and another log in using same browser.  We never get a logout event! For this case we must make session names different.
+    // In fb connect, one user may log out of facebook, and another log in
+    // using same browser.  We never get a logout event! For this case we must
+    // make session names different.
     session_name('SESS' . fb_settings(FB_SETTINGS_TYPE) . md5(fb_settings(FB_SETTINGS_APIKEY) . fb_settings(FB_SETTINGS_SESSION_KEY))); // unique to session, if known.
     
     if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS && fb_settings(FB_SETTINGS_SESSION_KEY)) {
@@ -156,11 +172,3 @@ if (!isset($conf['session_inc'])) {
 }
 
 
-
-
-//// URL rewriting.
-
-// This is now optional.  If a site implements only facebook connect and not canvas pages, this is not required.
-// This code WILL GO AWAY.  Its here now to make upgrades easier.
-
-//include (dirname(__FILE__) . '/fb_url_rewrite.inc'); // will go away XX
