@@ -245,7 +245,9 @@ function fb_app_admin_form_submit($form, &$form_state) {
                                '%title' => $fb_app->application_name)));
   }
   
-  fb_app_set_app_properties($fb_app); // Set callback URL, etc.
+  if ($fb_app->status) {
+    fb_app_set_app_properties($fb_app); // Set callback URL, etc.
+  }
   
   $form_state['redirect'] = FB_PATH_ADMIN;
 }
