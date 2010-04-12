@@ -193,8 +193,15 @@ function fb_devel_page() {
     $_fb->require_login();
   
   if ($_fb) {
-    // These will work in a canvas page.
-    drupal_set_message(t("in_fb_canvas returns " . $_fb->in_fb_canvas()));
+    if (fb_is_iframe_canvas())
+      drupal_set_message("fb_is_iframe_canvas() returns TRUE");
+    
+    if (fb_is_fbml_canvas())
+      drupal_set_message("fb_is_fbml_canvas() returns TRUE");
+    
+    drupal_set_message(t("session name: " . session_name()));
+    drupal_set_message(t("session id: " . session_id()));
+    drupal_set_message(t("<a href=\"!url\">processed link</a>, <a href=!url>unprocessed</a>", array('!url' => url('fb/devel'))));
     drupal_set_message(t("get_loggedin_user returns " . $_fb->get_loggedin_user()));
     drupal_set_message(t("current_url returns " . $_fb->current_url()));
     
