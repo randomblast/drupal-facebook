@@ -54,10 +54,27 @@ function fb_canvas_fb($op, $data, &$return) {
           ($apikey = fb_settings(FB_SETTINGS_APIKEY))) {
         // This is the proper way to discover the app on canvas pages.
         $fb_app = fb_get_app(array('apikey' => $apikey));
+
+        // If were on an iframe excursion, the fb_sig will be in session.
+        if (!isset($_REQUEST['fb_sig']) &&
+            isset($_SESSION['fb_canvas_fb_sig'])) {
+          foreach ($_SESSION['fb_canvas_fb_params'] as $k => $value) {
+            $key = 'fb_sig_' . $k;
+            if (!isset($_REQUEST[$key])) {
+              // We use $_REQUEST, facebook uses $_GET.
+              $_REQUEST[$key] = $value;
+              $_GET[$key] = $value;
+            }
+          }
+          $_REQUEST['fb_sig'] = $_SESSION['fb_canvas_fb_sig'];
+          $_GET['fb_sig'] = $_SESSION['fb_canvas_fb_sig'];
+        }
+        
       }
       elseif ($id = fb_settings(FB_SETTINGS_CB)) {
         // This is the old way dependent on url rewriting.
         $fb_app = fb_get_app(array('id' => $id));
+
       }
     }
     else {
@@ -78,7 +95,7 @@ function fb_canvas_fb($op, $data, &$return) {
     $fb_canvas_data = $fb_app_data['fb_canvas'];
     
     $is_canvas = FALSE;
-    
+
     // Set an app-specific theme.
     global $custom_theme; // Set by this function.
     if (fb_canvas_is_fbml()) {
@@ -94,6 +111,8 @@ function fb_canvas_fb($op, $data, &$return) {
     
     if ($is_canvas) {
       // We are serving a canvas page.
+      $conf['admin_theme'] = $custom_theme;
+      
       if ($fb_canvas_data['require_login'] == FB_CANVAS_OPTION_REQUIRE_LOGIN) {
         // The application is configured to require login on all canvas pages.
         // However, there are exceptions.
@@ -143,6 +162,7 @@ function fb_canvas_fb($op, $data, &$return) {
     }
   }
   elseif ($op == FB_OP_POST_INIT) {
+    //dpm($_REQUEST, "request post init");
     if (isset($original_uid) && 
         $original_uid != $user->uid) {
       // The user has changed, presumably fb_user.module recognized the facebookuser.  We need to refresh canvas pages.
@@ -199,9 +219,11 @@ function fb_canvas_fb($op, $data, &$return) {
       }
     }
     
-    if (fb_canvas_handling_form() && $output) {
+    if (fb_canvas_handling_form() &&
+        fb_canvas_handling_form() !== 'avoid_loop' &&
+        $output) {
       // Avoid infinite loop if we get called from drupal_goto.
-      fb_canvas_handling_form(FALSE);
+      fb_canvas_handling_form('avoid_loop');
       
       // Special handling for forms submitted to Drupal from FBML canvas pages.
       // Cache the results to show the user later.
@@ -467,30 +489,85 @@ function fb_canvas_handling_form($value = NULL) {
   return $result;
 }
 
+/**
+ * This is intended to help sites which have some FBML and some iframe pages.
+ * Makes the current FBML canvas page an iframe. And attempts to preserve
+ * session while visiting multiple iframe pages.
+ *
+ * Set $conf['fb_session_cookieless_iframe'] = TRUE for best results (but
+ * perhaps less session security).
+ */
+function fb_canvas_iframe_excursion() {
+  if (fb_canvas_is_fbml()) {
+    $query = $_GET;
+    unset($query['q']);
+    $path = $_GET['q'];
+    $query['XDEBUG_SESSION_START']=1;
+    
+    if (function_exists('fb_settings')) {
+      fb_settings(FB_SETTINGS_CB, $GLOBALS['_fb_app']->label);
+      fb_settings(FB_SETTINGS_CB_SESSION, fb_settings(FB_SETTINGS_SESSION_KEY));
+    }
+    
+    // Make the FBML page a canvas page.
+    print ('<fb:iframe resizable=true name=resizeme frameborder=0 scrolling="auto" src="' . url($path, array('absolute' => TRUE, 'query' => $query)) . '"></fb:iframe>');
+
+    unset($_SESSION['fb_canvas_fb_sig']);
+    unset($_SESSION['fb_canvas_fb_params']);
+    exit();
+  }
+  else if (fb_canvas_is_iframe()) {
+    // Add to session paramaters that iframes will need.
+    if (!isset($_SESSION['fb_canvas_fb_sig'])) {
+      $_SESSION['fb_canvas_fb_params'] = $GLOBALS['_fb']->get_valid_fb_params($_REQUEST);
+      $_SESSION['fb_canvas_fb_sig'] = $_REQUEST['fb_sig'];
+    }
+    
+    if (module_exists('fb_connect')) {
+      // Resize the iframe.
+      fb_connect_require_feature('CanvasUtil');
+      fb_connect_init_js("FB.CanvasClient.startTimerToSizeToContent();");
+    }
+  }
+  
+}
+
+function fb_canvas_iframe_excursion_end() {
+  //fb_settings(FB_SETTINGS_CB, NULL);
+  //fb_settings(FB_SETTINGS_CB_SESSION, NULL);
+}
 
 // Recent changes may have broken the "old way".
 function _fb_canvas_make_form_action_local($action = NULL) {
   global $base_path;
 
   if (!isset($action)) {
+    // Is this ever reached?
+    if (function_exists('dpm')) dpm("_fb_canvas_make_form_action_local($action)"); // XXX
     $action = $_GET['q'];
   }
   
   // If action is fully qualified, do not change it
-  if (strpos($action, ':'))
+  if (strpos($action, ':')) {
+    if (function_exists('dpm')) dpm($action, "leaving form action untouched"); // XXX
     return $action;
+  }
   
   // I'm not sure where the problem is, but sometimes actions have two question marks.  I.e.
   // /htdocs/?app=foo&q=user/login?destination=comment/reply/1%2523comment-form
   // Here we replace 3rd (or more) '?' with '&'.
   $parts = explode('?', $action);
   if (count($parts) > 2) {
+    if (fb_verbose()) {
+      watchdog('fb_canvas', "fixing badly formed action: " . $action);
+    }
     $action = array_shift($parts) . '?' . array_shift($parts);
     $action .= '&' . implode('&', $parts);
   }
   
   $relative = url('');
   $absolute = url('', array('absolute' => TRUE));
+  $base_path = base_path(); // By default, '#action' will be request_uri(), which starts with base_path();
   global $_fb_app;
   
   if (strpos($action, FB_SETTINGS_CB)) { // XXX old way.  Will go away.
@@ -510,11 +587,15 @@ function _fb_canvas_make_form_action_local($action = NULL) {
       // (Comment forms reach this clause but node forms do not.)
       $action = substr($action, strlen($relative));
     }
+    elseif ($base_path && strpos($action, $base_path) === 0) {
+      $action = substr($action, strlen($base_path));
+    }
+    
     $action = url(ltrim($action, '/'), array('absolute' => TRUE));    
   }
 
-  //dpm("_fb_canvas_make_form_action_local returning.");
-  //dpm($action);
+  // Changed code to work when $base_path set.  Need to test on server where base_path is ''.
+  //dpm($action, "_fb_canvas_make_form_action_local returning<br/>");
 
   return $action;
 
@@ -550,20 +631,25 @@ function fb_canvas_goto($path) {
  * modules should not need to call this.
  */
 function fb_canvas_fix_url($url, $fb_app) {
-
+  //dpm(debug_backtrace(), "fb_canvas_fix_url($url)");
   global $base_url;
-
+  
+  // Url rewrites still used for iframe excursions.
   $patterns[] = "|{$base_url}/" . FB_SETTINGS_CB . "/{$fb_app->label}/|";
   // Here we hard-wire apps.facebook.com.  Is there an API to get that?
   $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
 
+  // Page type helps themes support multiple iframes.
+  $patterns[] = "|" . FB_SETTINGS_CB_TYPE . "/[^/]*/|";
+  $replacements[] = "";
+  $patterns[] = "|" . FB_SETTINGS_CB_SESSION . "/[^/]*/|";
+  $replacements[] = "";
+
+  
   // Fully qualified paths.
   $patterns[] = "|" . url('', array('absolute' => TRUE)) . "|";
   $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
   
-  // Page type helps themes support multiple iframes.
-  $patterns[] = "|" . FB_SETTINGS_CB_TYPE . "/[^/]*/|";
-  $replacements[] = "";
 
   // Facebook will prepend "appNNN_" all our ids
   $patterns[] = "|#([^\?]*)|";
@@ -738,8 +824,8 @@ function fb_canvas_process($output, $options = array()) {
       // TODO: make these pattern replacements more sophisticated, detect whether target is already set.
       if (isset($options['add_target']) && $options['add_target']) {
         // Add target=_top to all links
-        $patterns[] = "|<a |";
-        $replacements[] = "<a target=\"_top\" ";
+        $patterns[] = "|<a ([^>]*)href=\"|";
+        $replacements[] = "<a $1 target=\"_top\" href=\"";
         // Do not change local forms, but do change external ones
         $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
         $replacements[] = "<form target=\"_top\" $1 action=\"$2:";

@@ -85,7 +85,7 @@ function fb_settings_session_helper() {
   }
   elseif (variable_get('fb_session_cookieless_iframe', FALSE) &&
           function_exists('_fb_settings_parse') &&
-          ($session_key = _fb_settings_parse(FB_SETTINGS_SESSION_KEY))) {
+          ($session_key = _fb_settings_parse(FB_SETTINGS_CB_SESSION))) {
     // In special cases we embed the session key in the URL.
     // This is one way to force a session when a browser will not accept a cookie from an iframe.
     if ($label = _fb_settings_parse(FB_SETTINGS_CB)) {

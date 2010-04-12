@@ -89,6 +89,8 @@ if (!function_exists('custom_url_rewrite_inbound') && $conf['fb_url_rewrite']) {
  */
 if (!function_exists('custom_url_rewrite_outbound') && $conf['fb_url_rewrite']) {
   function custom_url_rewrite_outbound(&$path, &$options, $original_path) {
+    if (function_exists('fb_canvas_url_outbound_alter'))
+      fb_canvas_url_outbound_alter($path, $options, $original_path);
     fb_url_outbound_alter($path, $options, $original_path);
   }
 }
