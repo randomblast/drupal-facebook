@@ -238,7 +238,6 @@ function fb_connect_fb($op, $data, &$return) {
       if ($data['fb_app']->label == $label  && !fb_is_fbml_canvas()) {
         $fb_app = $data['fb_app'];
         // Init Facebook javascript for primary app
-        _fb_connect_add_js();
         fb_connect_require_feature('XFBML', $fb_app);
         // fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
         fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
@@ -355,8 +354,10 @@ function fb_connect_require_feature($feature = NULL, $fb_app = NULL) {
     return;
   
   static $features;
-  if (!$features)
+  if (!$features) {
+    _fb_connect_add_js(); // include our javascript.
     $features = array();
+  }
   if ($fb_app && !isset($features[$fb_app->apikey]))
     $features[$fb_app->apikey] = array(
       'fb_app' => $fb_app,
@@ -590,9 +591,10 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       if ($fb = fb_connect_app_init($fb_app)) {
         $fbu = $fb->get_loggedin_user();
         fb_connect_require_feature('XFBML', $fb_app);
+        fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
+        fb_connect_init_option('ifUserNotConnected', "{FB_Connect.on_not_connected}", $fb_app);
         
         $base = drupal_get_path('module', 'fb_connect');
-        _fb_connect_add_js();
         
         $defaults = variable_get('fb_connect_block_' . $delta, _fb_connect_block_login_defaults());
         if ($fbu) {
