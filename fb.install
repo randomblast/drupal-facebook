@@ -43,8 +43,10 @@ function fb_requirements($phase) {
   
   $status = array('title' => $t('Facebook Client API'));
   $fb_platform = variable_get('fb_api_file', 'facebook-platform/php/facebook.php');
-  if (file_exists($fb_platform)) {
-    $status['description'] = $t('Facebook client API found at %path', array('%path' => $fb_platform));
+
+  if (include($fb_platform)) { // include() better than file_exists().
+    $status['description'] = $t('Facebook client API found at %path',
+                                array('%path' => $fb_platform));
     $status['severity'] = REQUIREMENT_OK;
     if ($phase == 'runtime') {
       $status['value'] = $t('Found');
