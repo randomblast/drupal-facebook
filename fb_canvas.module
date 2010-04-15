@@ -17,6 +17,9 @@ define('FB_CANVAS_VAR_PROCESS_FBML', 'fb_canvas_process_fbml');
 define('FB_CANVAS_VAR_PROCESS_FBML_FORM', 'fb_canvas_process_fbml_form');
 define('FB_CANVAS_VAR_PROCESS_IFRAME', 'fb_canvas_process_iframe');
 
+define('FB_CANVAS_FORM_HANDLER_WRAP', '_fb_canvas_form_handler');
+define('FB_CANVAS_FORM_HANDLER_ENABLED', '_fb_handling_form');
+
 /**
  * Implementation of hook_menu().
  */
@@ -377,11 +380,11 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
     
     // We're in a facebook callback
     
-    if (!isset($form['fb_canvas_form_handler'])) {
+    if (!isset($form[FB_CANVAS_FORM_HANDLER_WRAP])) {
       // Use the form data structure to keep track of whether data is
       // posted directly to us, via absolute URL, or instead via
       // relative URL on apps.facebook.com/...
-      $form['fb_canvas_form_handler'] = array(
+      $form[FB_CANVAS_FORM_HANDLER_WRAP] = array(
         '#action_fb' => $form['#action'],
         '#action_local' => _fb_canvas_make_form_action_local($form['#action']),
       );
@@ -419,16 +422,16 @@ function fb_canvas_form_alter(&$form, &$form_state, $form_id) {
  * form's default action.
  */
 function fb_canvas_form_action_via_facebook(&$form, $use_facebook = TRUE) {
-  if (isset($form['fb_canvas_form_handler'])) {
+  if (isset($form[FB_CANVAS_FORM_HANDLER_WRAP])) {
     if ($use_facebook) {
-      $form['#action'] = $form['fb_canvas_form_handler']['#action_fb'];
-      $form['fb_canvas_form_handler']['_fb_handling_form'] = array(
+      $form['#action'] = $form[FB_CANVAS_FORM_HANDLER_WRAP]['#action_fb'];
+      $form[FB_CANVAS_FORM_HANDLER_WRAP][FB_CANVAS_FORM_HANDLER_ENABLED] = array(
         '#value' => FALSE,
         '#type' => 'hidden');
     }
     else {
-      $form['#action'] = $form['fb_canvas_form_handler']['#action_local'];      
-      $form['fb_canvas_form_handler']['_fb_handling_form'] = array(
+      $form['#action'] = $form[FB_CANVAS_FORM_HANDLER_WRAP]['#action_local'];      
+      $form[FB_CANVAS_FORM_HANDLER_WRAP][FB_CANVAS_FORM_HANDLER_ENABLED] = array(
         '#value' => TRUE,
         '#type' => 'hidden');
     }
@@ -480,11 +483,11 @@ function fb_canvas_handling_form($value = NULL) {
   global $_fb;
   
   // Test whether a form has been submitted via facebook canvas page.
-  if ($_fb && isset($_REQUEST['_fb_handling_form'])) {
-    $result = $_REQUEST['_fb_handling_form'];
+  if ($_fb && isset($_REQUEST[FB_CANVAS_FORM_HANDLER_ENABLED])) {
+    $result = $_REQUEST[FB_CANVAS_FORM_HANDLER_ENABLED];
   }
   if (isset($value)) {
-    $_REQUEST['_fb_handling_form'] = $value;
+    $_REQUEST[FB_CANVAS_FORM_HANDLER_ENABLED] = $value;
   }
   return $result;
 }
@@ -502,7 +505,7 @@ function fb_canvas_iframe_excursion() {
     $query = $_GET;
     unset($query['q']);
     $path = $_GET['q'];
-    $query['XDEBUG_SESSION_START']=1;
+    //$query['XDEBUG_SESSION_START']=1;
     
     if (function_exists('fb_settings')) {
       fb_settings(FB_SETTINGS_CB, $GLOBALS['_fb_app']->label);
