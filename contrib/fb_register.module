@@ -198,12 +198,14 @@ function _fb_register_register_users($fb_app, $how_many) {
         }
         else {
           // Failure
-          watchdog('fb_register', '%application failed to register email hash %hash for user %uid (%name)',
-                   array('%application' => $fb_app->title,
-                         '%hash' => $data['email_hash'],
-                         '%uid' => $account->uid,
-                         '%name' => $account->name,
-                   ), WATCHDOG_ERROR);
+          if (fb_verbose()) {
+            watchdog('fb_register', '%application failed to register email hash %hash for user %uid (%name)',
+                     array('%application' => $fb_app->title,
+                           '%hash' => $data['email_hash'],
+                           '%uid' => $account->uid,
+                           '%name' => $account->name,
+                     ), WATCHDOG_ERROR);
+          }
           $error_count++;
           
           // Make certain we try this user again next time.
