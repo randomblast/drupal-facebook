@@ -42,11 +42,6 @@ function fb_form_form_alter(&$form, &$form_state, $form_id) {
     unset($form['#fb_form_type_hack']);
   }
   
-  // Support for ahah (see ahah_forms.module)
-  if (fb_is_fbml_canvas()) {
-    $form['#after_build'][] =  'fb_ahah_bind_form';
-  }
-  
 }
 
 // This ahah code was written for D5 and still needs updating.

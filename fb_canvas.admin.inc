@@ -44,28 +44,81 @@ function fb_canvas_admin_settings() {
     '#title' => t('URL processing'),
     '#description' => t('This option alters links, so that instead of referring directly to this server, they point to <em>apps.facebook.com/APP/...</em>.  While this impedes the performance of your server, it is recommended unless you are quite sure your theme and/or code has been specially written to handle this some other way.'),
   );
-  $form['process_settings'][FB_CANVAS_VAR_PROCESS_FBML] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Enable on all FBML canvas pages.'),
-    '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_FBML, TRUE),
-  );
   $form['process_settings'][FB_CANVAS_VAR_PROCESS_IFRAME] = array(
     '#type' => 'checkbox',
     '#title' => t('Enable on iframe pages and iframes embedded in FBML.'),
     '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_IFRAME, TRUE),
   );
-  $form['form_settings'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Form handling'),
-    '#description' => t('On canvas pages, forms can be submitted to a URL that starts <em>apps.facebook.com/APP/...</em>.  However, this allows facebook.com to observe all data posted by your users.  <em>And</em> prevents file uploads from working.  <em>And</em> prevents Drupal\'s #value fields such as those used in <em>captcha</em> from working properly.  By selecting this option, forms will instead submit directly to this server, and the user then redirected back to <em>apps.facebook.com/APP/...</em> where they should see the page they were intended to see.  (It\'s magic that should <em>just work</em>.)'),
-  );
-  $form['form_settings'][FB_CANVAS_VAR_PROCESS_FBML_FORM] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Enable on FBML pages, when form submitted.'),
-    '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_FBML_FORM, TRUE),
-    '#description' => t('Leave this <strong>checked</strong> unless you have made other modifications to support form submissions on canvas pages.'),
-  );
   
   return system_settings_form($form);
 }
 
+/**
+ * See fb_canvas_form_alter.
+ */
+function fb_canvas_admin_form_alter(&$form, &$form_state, $form_id) {
+  // Add our settings to the fb_app edit form.
+  if (isset($form['fb_app_data']) && is_array($form['fb_app_data'])) {
+    $fb_app = $form['#fb_app'];
+    $fb_canvas_data = _fb_canvas_get_config($fb_app);    
+    
+    $form['fb_app_data']['fb_canvas'] = array(
+      '#type' => 'fieldset',
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE,
+      '#title' => t('Facebook canvas pages'),
+      '#description' => t('Settings which apply to <a href=!url target=_blank>canvas pages</a>.',
+                          array('!url' => 'http://developers.facebook.com/get_started.php?tab=anatomy#canvas')),
+    );
+    
+    $form['fb_app_data']['fb_canvas']['require_login'] = array(
+      '#type' => 'radios',
+      '#title' => t('Require authorization'),
+      '#description' => t('Require authorization if you want Drupal for Facebook to call require_login() on <strong>every</strong> canvas page.'),
+      '#options' => array(
+        FB_CANVAS_OPTION_ALLOW_ANON => t('Allow anonymous visitors'),
+        FB_CANVAS_OPTION_REQUIRE_LOGIN => t('Require all users to authorize the application'),
+      ),
+      '#default_value' => $fb_canvas_data['require_login'],
+      '#required' => TRUE,
+    );
+    
+    $form['fb_app_data']['fb_canvas']['front_anonymous'] =
+      array('#type' => 'textfield',
+            '#title' => t('Front page when user is not logged in to facebook'),
+            '#description' => t('Leave blank to use the site-wide front page.  See <a href="!link" target=_blank>Public Canvas Pages</a>.',
+                                array('!link' => 'http://wiki.developers.facebook.com/index.php/Public_Canvas_Pages')),
+            '#default_value' => $fb_canvas_data['front_anonymous'],
+      );
+    $form['fb_app_data']['fb_canvas']['front_loggedin'] =
+      array('#type' => 'textfield',
+            '#title' => t('Front page when user is logged in to facebook, but is not a user of the app'),
+            '#description' => t('Leave blank to use the site-wide front page.'),
+            '#default_value' => $fb_canvas_data['front_loggedin'],
+      );
+    $form['fb_app_data']['fb_canvas']['front_added'] =
+      array('#type' => 'textfield',
+            '#title' => t('Front page for authorized users of this application'),
+            '#description' => t('Leave blank to use the site-wide front page.'),
+            '#default_value' => $fb_canvas_data['front_added'],
+      );
+
+    // Override themes
+    $themes = system_theme_data();
+    ksort($themes);
+    $theme_options[0] = t('System default');
+    foreach ($themes as $theme) {
+      $theme_options[$theme->name] = $theme->name;
+    }
+    $form['fb_app_data']['fb_canvas']['theme_iframe'] = array(
+      '#type' => 'select',
+      '#title' => t('Theme for iframe pages'),
+      '#description' => t('Choose only a facebook-aware theme'),
+      '#options' => $theme_options,
+      '#required' => TRUE,
+      '#default_value' => $fb_canvas_data['theme_iframe'],
+    );
+  }
+  
+  
+}

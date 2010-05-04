@@ -105,11 +105,12 @@ function fb_init() {
           'fb' => $_fb));
       
       // See if the facebook user id is known
-      if ($fbu = $_fb->get_loggedin_user()) {
+      if ($fbs = $_fb->getSession()) {
         fb_invoke(FB_OP_APP_IS_AUTHORIZED, array(
-            'fb_app' => $_fb_app,
-            'fb' => $_fb,
-            'fbu' => $fbu));
+                    'fb_app' => $_fb_app,
+                    'fb' => $_fb,
+                    'fbu' => $_fb->getUser(),
+                  ));
       }
     }
     else
@@ -126,126 +127,47 @@ function fb_init() {
 /**
  * Include the necessary facebook-platform code and initialize the API object.
  * 
- * @param fbu To log into facebook as a particular user, pass the facebook id.
- * This is useful during cron jobs, for example, but rarely if ever needed on
- * a canvas page.  If no valid session key is known for the user, this call
- * will still return a facebook reference.
- * 
- * If FB_FBU_ANY is passed in, we will log in as the canvas page user if
- * already logged in.  Otherwise we try the infinite session, if configured.
- * 
- * Future calls into the the facebook api could fail for various reasons.  For
- * one, we may fail to log in as the specified user.  This call does not
- * actually contact facebook to test the connection, it just sets things up so
- * that when the connection is needed, it might work.  Even if the connection
- * is established, the user may not have sufficient permission to whatever you
- * are asking facebook to do.
  * 
  */
-function fb_api_init($fb_app, $fbu = FB_FBU_CURRENT) {
-  //dpm(func_get_args(), "fb_api_init");
-  //$trace = debug_backtrace();
-  //dpm($trace, "fb_api_init call stack");
-  
+function fb_api_init($fb_app) {
   static $cache = array();
-  
   // This helps with uncaught exceptions.  However, it should be configurable
   // or at least not overwrite previously declared handler.
   set_exception_handler('fb_handle_exception');
   
-  if (!count($cache)) {
-    $filename = variable_get('fb_api_file', 'facebook-platform/php/facebook.php');
-    if (!include($filename)) {
-      $message = t('Failed to find the Facebook client libraries at %filename.  Read the !readme and follow the instructions carefully.', array(
+  if (isset($cache[$fb_app->apikey])) {
+    return $cache[$fb_app->apikey];
+  }
+  
+  $filename = variable_get('fb_api_file', 'sites/all/libraries/facebook-php-sdk/src/facebook.php');
+  if (!class_exists('Facebook') && !include($filename)) {
+    $message = t('Failed to find the Facebook client libraries at %filename.  Read the !readme and follow the instructions carefully.', array(
                    '!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
                    // This link should work with clean URLs disabled.
                    '!readme' => '<a href='. base_path() . '/' . drupal_get_path('module', 'fb') . '/README.txt>README.txt</a>',
                    '%filename' => $filename,
                  ));
-      drupal_set_message($message, 'error');
-      watchdog('fb', $message);
-      return NULL;
-    }
+    drupal_set_message($message, 'error');
+    watchdog('fb', $message);
+    return NULL;
   }
   
-  // This global comes from facebook's client API.
-  $GLOBAL['facebook_config']['debug'] = variable_get('fb_debug', FALSE); // set TRUE for debug output from FB API
-  
-  if (!isset($cache[$fb_app->apikey])) {
-    $cache[$fb_app->apikey] = array();
-  }
-  $fbu_orig = $fbu;
-  
-  // Avoid E_NOTICE errors and keep code below clean.
-  if (isset($GLOBALS['_fb'])) {
-    $global_fb = $GLOBALS['_fb'];
-  }
-  else {
-    $global_fb = (object) array('api_key' => NULL);
-  }
-  
-  // Determine the actual facebook user id to use.
-  if ($global_fb->api_key == $fb_app->apikey && 
-      ($fbu == FB_FBU_CURRENT || $fbu == FB_FBU_ANY ||
-       $fbu == $GLOBALS['_fb']->get_loggedin_user())) {
-    return $GLOBALS['_fb'];
-  }
-  elseif ($global_fb->api_key == $fb_app->apikey && $fbu == FB_FBU_CURRENT) {
-    // No current user to use, probably anonymous canvas page.
-    return $GLOBALS['_fb'];
-  }
-  elseif (is_numeric($fbu)) {
-    // FB user id passed in.  If we happen to have valid session info for
-    // them, we can log in as them.
-    $data = fb_invoke(FB_OP_GET_USER_SESSION, array(
-              'fb_app' => $fb_app,
-              'fbu' => $fbu),
-            array());
+  try {
+    // We don't have a cached resource for this app, so we're going to create one.
+    $fb = new Facebook(array(
+                         'appId' => $fb_app->apikey,
+                         'secret' => $fb_app->secret,
+                         'cookie' => TRUE,
+                       ));
     
-    if (count($data) && $data[0] && $data[1]) {
-      $fbu = $data[0];
-      $session = $data[1];
-    }
+    // Cache the result, in case we're called again.
+    $cache[$fb_app->apikey] = $fb;
+    
+    return $fb;
   }
-  
-  if (!isset($cache[$fb_app->apikey][$fbu])) {
-    try {
-      // We don't have a cached resource for this app/user combo, so we're going to create one.
-      $fb = new Facebook($fb_app->apikey, $fb_app->secret);
-      
-      // If we learned the session, above, use it
-      if ($fbu && isset($session)) {
-        $fb->set_user($fbu, $session);
-      }
-      elseif ($fbu && $fbu == $fb->get_loggedin_user()) {
-        // Canvas page or Connect page, current user is logged in already.
-        // Nothing to do here.
-      }
-      elseif ($fbu == FB_FBU_NO_SESSION) {
-        $fb->set_user(NULL, NULL);
-      }
-
-      // Cache the result, in case we're called again.
-      $cache[$fb_app->apikey][$fbu] = $fb;
-      
-      // Note that facebook api has not actually logged into facebook yet.
-      // We won't really know if our session is valid until later.
-      // get_loggedin_user does not really test it.
-      if ($fbu_orig != FB_FBU_NO_SESSION &&
-          $fbu_orig != FB_FBU_CURRENT && !$fb->get_loggedin_user()) {
-        // An FBU other than CURRENT was specified, but we failed to log in.
-        watchdog('fb', 'Failed to log into facebook app %app as user %user',
-                 array('%app' => $fb_app->title,
-                       '%user' => $fbu_orig), WATCHDOG_ERROR);
-      }
-    }
-    catch (Exception $e) {
-      fb_log_exception($e, t('Failed to construct Facebook client API.'));
-    }
+  catch (Exception $e) {
+    fb_log_exception($e, t('Failed to construct Facebook client API.'));
   }
-  
-  $fb = $cache[$fb_app->apikey][$fbu];
-  return $fb;
 }
 
 /**
@@ -273,17 +195,108 @@ function _fb_api_init($fb_app = NULL) {
     return $fb;
 }
 
+
+// When facebook fixes their weak-ass crap we won't need this anymore.
+// Note: edit facebook.php and make the makeRequest function public.
+// XXX
+function fb_access_token($fb_app = NULL) {
+  if (!isset($fb_app))
+    $fb_app = $GLOBALS['_fb_app'];
+
+  $path = "https://graph.facebook.com/oauth/access_token?client_id={$fb_app->apikey}&client_secret={$fb_app->secret}&type=client_cred";
+  $http = drupal_http_request($path);
+  $data = explode('=', $http->data);
+  $token = $data[1];
+  return $token;
+}
+
+function fb_call_method($method, $params = array()) {
+  $url = url("https://api.facebook.com/method/{$method}", array(
+               'query' => $params,
+             ));
+  $http = drupal_http_request($url);
+  //dpm($http, $url); // debug
+  $sxml = simplexml_load_string($http->data);
+  //dpm($sxml, $url); // debug
+  if (isset($sxml->error_code)) {
+    throw new FacebookApiException((array)$sxml);
+  }
+  $data = json_decode($sxml[0], TRUE);
+  return $data;
+}
+
+
+/**
+ * This function emulates the convert_simplexml_to_array() function which was
+ * part of facebook's older PHP client libraries.
+ */
+function fb_convert_simplexml_to_array($sxml) {
+  $arr = array();
+  if ($sxml) {
+    foreach ($sxml as $k => $v) {
+      if ($sxml['list']) {
+        if (isset($v['key'])) {
+          $arr[(string)$v['key']] = fb_convert_simplexml_to_array($v);
+        } else {
+          $arr[] = fb_convert_simplexml_to_array($v);
+        }
+      } else {
+        $arr[$k] = fb_convert_simplexml_to_array($v);
+      }
+    }
+  }
+  if (sizeof($arr) > 0) {
+    return $arr;
+  } else {
+    return (string)$sxml;
+  }
+}
+
+
+// drupal_add_js cannot add external javascript, so we use hook_footer instead.
+function fb_footer($is_front) {
+  global $_fb, $_fb_app;
+  if (isset($_fb)) {
+    $output = "<div id=\"fb-root\"></div>\n";
+    $output .= "
+<script type=\"text/javascript\">debugger;</script>
+<script src=\"http://connect.facebook.net/en_US/all.js\"></script>
+<script type=\"text/javascript\">
+  FB.init({apiKey: '{$_fb_app->apikey}', 
+           status: true, 
+           cookie: true,
+           xfbml: true});
+  //FB.Event.subscribe('auth.sessionChange', FB_Connect.sessionChange);
+";
+      
+    $output .= "
+</script>\n";
+  }
+  return $output;
+}
+
+function fb_is_canvas() {
+  return (isset($_REQUEST['fb_sig_in_iframe']) && $_REQUEST['fb_sig_in_iframe']) || fb_settings(FB_SETTINGS_CB);
+}
+
 /**
  * Sometimes calls to fb_api_init succeed, but calls to the client api
  * will fail because cookies are obsolete or what have you.  This
  * function makes a call to facebook to test the session.  Expensive,
  * so use only when necessary.
+ *
+ * New API... is this still needed??? TODO
  */
 function fb_api_check_session($fb) {
-  // TODO: caching
   $success = FALSE;
   try {
-    $is_user = $fb->api_client->users_isAppUser();
+    $session = $fb->getSession();
+    if (isset($session['session_key'])) {
+      $is_user = fb_call_method('users.isAppUser', array(
+                                  'token' => fb_access_token(),
+                                  'session_key' => $session['session_key'],
+                                ));
+    }
     // Does not matter what is returned, as long as exception is not thrown.
     $success = TRUE;
   }
@@ -303,44 +316,18 @@ function fb_facebook_user($fb = NULL) {
   
   if (!$fb)
     return;
-  
-  $fbu = $fb->get_loggedin_user();
-  if (isset($fb->api_client->error_code)) {
-    if (fb_verbose()) {
-      watchdog('fb', 'Failed to get Facebook user id.  detail: !detail',
-               array('!detail' => print_r($_REQUEST, 1)), WATCHDOG_ERROR);
-    }
-  }
-  return $fbu;
-}
 
-/**
- * Determine whether current page is FBML canvas page.
- */
-function fb_is_fbml_canvas() {
-  if (function_exists('fb_canvas_is_fbml'))
-    // More complex logic if fb_canvas.module enabled.
-    return fb_canvas_is_fbml();
-  else {
-    if (isset($GLOBALS['_fb'])) {
-      return $GLOBALS['_fb']->in_fb_canvas();
-    }
+  try {
+    $fbu = $fb->getUser();
+    return $fbu;
+  }
+  catch (FacebookApiException $e) {
+    fb_log_exception($e,
+                     t('Failed to get Facebook user id.  detail: !detail',
+                       array('!detail' => print_r($e, 1))));
   }
 }
 
-/**
- * Determine whether current page is iframe canvas page.
- */
-function fb_is_iframe_canvas() {
-  if (function_exists('fb_canvas_is_iframe'))
-    // More complex logic if fb_canvas.module enabled.
-    return fb_canvas_is_iframe();
-  else {
-    if (isset($GLOBALS['_fb'])) {
-      return $GLOBALS['_fb']->in_frame();
-    }
-  }
-}
 
 function fb_is_connect() {
   // fb_settings.inc sets this global.
@@ -380,18 +367,6 @@ function fb_get_profile_id() {
   if (isset($_REQUEST['fb_sig_profile_id']))
     return $_REQUEST['fb_sig_profile_id'];
 }
-
-/**
- * Facebook provides a method, users_isAppUser(), which is buggy and
- * unreliable.  So we need to implement our own.
- */
-function fb_is_app_user($fb) {
-  if ($fb->api_client->added || $fb->api_client->is_user)
-    return TRUE;
-  else
-    return $fb->api_client->users_isAppUser;
-}
-
 
 /**
  * Given a local user id, find the facebook id.
@@ -507,9 +482,9 @@ function fb_get_all_apps() {
  * A convenience method for returning a list of facebook friends.  
  *
  * This should work efficiently in canvas pages for finding friends of
- * the current user.  In other cases it tries to work, but will be an
- * expensive operation and only succeed when the user is logged in via
- * Connect, or has created an infinite session.
+ * the current user.
+ *
+ * @TODO - also support users who have permitted offline access. 
  * 
  * @return: an array of facebook ids
  */
@@ -517,7 +492,7 @@ function fb_get_friends($fbu, $fb_app = NULL) {
   static $cache = array();
   if (!$fb_app)
     $fb_app = $GLOBALS['_fb_app'];
-
+  
   // Facebook only allows us to query the current user's friends, so let's try
   // to log in as that user.  It will only actually work if they are the
   // current user of a canvas page, or they've signed up for an infinite
@@ -525,17 +500,25 @@ function fb_get_friends($fbu, $fb_app = NULL) {
   $fb = fb_api_init($fb_app, $fbu);
   if (!$fb || !$fbu)
     return;
-
+  
   if (!isset($cache[$fbu])) {
     if ($fb === $GLOBALS['_fb'] && 
-        $fbu == fb_facebook_user($fb))
-      $items = $fb->api_client->friends_get();
+        $fbu == fb_facebook_user($fb)) {
+      $session = $fb->getSession();
+      $items = fb_call_method('friends_get', array(
+                                'session_key' => $session['session_key'],
+                              ));
+    }
     // friends_get does not work in cron call, so we double check.
     if (!$items || !count($items)) {
       $logged_in = fb_facebook_user($fb);
       $query = "SELECT uid2 FROM friend WHERE uid1=$fbu"; // FQL, no {curly_brackets}!
-      $result = $fb->api_client->fql_query($query);
-      fb_report_errors($fb);
+      $session = $fb->getSession(); // @TODO - offline access
+      $result = fb_call_method('fql.query', array(
+                                 'query' => $query,
+                                 'session_key' => $session['session_key'],
+                               ));
+      dpm($result, "FQL " . $query); // debug
       
       $items = array();
       if (is_array($result)) 
@@ -574,7 +557,11 @@ function fb_get_groups_data($fbu, $fb_app = NULL) {
     return;
   
   if (!isset($cache[$fbu])) {
-    $cache[$fbu] = $fb->api_client->groups_get($fbu, NULL);    
+    $session = $fb->getSession(); // @TODO - support offline access.
+    $cache[$fbu] = fb_call_method('groups.get', array(
+                                    'uid' => $fbu,
+                                    'session_key' => $session['session_key'],
+                                  ));
   }
   
   return $cache[$fbu];
@@ -783,28 +770,6 @@ function fb_scrub_urls($content) {
 }
 
  
-/**
- * Convenience method for displaying facebook api errors.
- */
-function fb_report_errors($fb = FB_APP_CURRENT, $message = NULL) {
-  if ($fb == FB_APP_CURRENT) {
-    $fb = $GLOBALS['_fb'];
-  }
-  if ($fb) {
-    if (isset($fb->api_client->error_code)) {
-      $message = t('!message Facebook API error %code (see !link).',
-                   array('%code' => $fb->api_client->error_code,
-                         '!link' => l(t('error codes'), "http://wiki.developers.facebook.com/index.php/Error_codes"),
-                         '!message' => $message,
-                   ));
-      watchdog('fb', $message, array(), WATCHDOG_ERROR);
-      if (user_access(FB_PERM_ADMINISTER)) {
-        drupal_set_message($message, 'error');
-      }
-    }
-  }
-}
-
 function fb_log_exception($e, $text = '', $fb = NULL) {
   if ($text)
     $message = $text .': '. $e->getMessage();
@@ -861,7 +826,7 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
   
   if (!is_array($oids))
     $oids = array();
-
+  
   if ($fb) {
     // First try cache
     if (!$refresh_cache)
@@ -871,20 +836,23 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
       }
     if (count($infos) != count($oids)) {
       // Session cache did not include all users, update the cache.
-      $infos = $fb->api_client->users_getInfo($oids,
-                                              array('about_me',
-                                                    'affiliations',
-                                                    'name',
-                                                    'is_app_user',
-                                                    'pic',
-                                                    'pic_big',
-                                                    'pic_square',
-                                                    'profile_update_time',
-                                                    'proxied_email',
-                                                    'status',
-                                                    'email_hashes',
-                                                    'email',
-                                              ));
+      $infos = $fb->api(array(
+                          'method' => 'users_getInfo',
+                          'uids' => $oids,
+                          'fields' => array(
+                            'about_me',
+                            'affiliations',
+                            'name',
+                            'is_app_user',
+                            'pic',
+                            'pic_big',
+                            'pic_square',
+                            'profile_update_time',
+                            'proxied_email',
+                            'status',
+                            'email_hashes',
+                            'email',
+                          )));
       // Update cache with recent results.
       if (is_array($infos)) {
         foreach ($infos as $info) {
@@ -892,49 +860,8 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
         }
       }
     }
-
+    
     return $infos;
-  }
-}
-
-/**
- * Helper function for FBJS files.
- * 
- * Useful for adding Facebook Javascript, which will be incorporated into
- * canvas pages or profile boxes.  When included this way, javascript must be
- * embedded inline, rather than refer to an external URL.  So this function
- * will actually read a local file and include the contents inline.
- */
-function fb_add_js($filename, $type) {
-  static $cache;
-  if (!$cache) {
-    $cache = array();
-    
-    // Add the most basic file we need.
-    $base_file = drupal_get_path('module', 'fb') . '/fb_fbml.js';
-    $base_file .= "?v=" . filemtime($base_file);
-    drupal_add_js($base_file, 'module', 'fbml');
-    
-    // Add some settings that FBJS code will often need.
-    $baseUrl = url('', array('absolute' => TRUE));
-    drupal_add_js(array(
-        'fbjs' => array(
-          'baseUrlFb' => $baseUrl,
-          'baseUrl' => fb_scrub_urls($baseUrl),
-        ),
-      ),
-      'setting', 'fbml');
-  }
-  
-  if (!$cache[$filename]) {
-    if (file_exists($filename)) {
-      // Refresh facebook's cache when file changes
-      $filename .= "?v=" . filemtime($filename);
-    }
-    // 'post_settings' is a hack to make our code come after settings. This is
-    // ugly, but we're doing it because there is no "onready" in FBJS.
-    drupal_add_js($filename, 'post_settings', 'fbml');
-    $cache[$filename] = TRUE;
   }
 }
 
@@ -972,3 +899,5 @@ function fb_username_alter(&$name, $account) {
     }
   }
 }
+
+

@@ -117,6 +117,14 @@ FB_Connect.sessionEnd = function(callback) {
   }
 };
 
+// An FB.Event handler
+FB_Connect.sessionChange = function(response) {
+  alert('FB_Connect.sessionChange');
+  var status = {'changed': true, 'fbu': response.session.uid};
+  $.event.trigger('fb_connect_status', status);    
+};
+
+
 // TODO: for some reason, when you start connected, then log out of facebook and log in as another user, this routine still thinks you are the first user, the next time a page is loaded.
 FB_Connect.on_connected = function(fbu) {
   var status = {'changed': false, 'fbu': fbu};

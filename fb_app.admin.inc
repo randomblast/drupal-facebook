@@ -129,6 +129,14 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#default_value' => $fb_app->id,
     '#description' => t('Facebook will generate this value when you create the application.'),
   );
+  // @TODO: get this automatically via get app properties
+  $form['canvas_name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Canvas Page'),
+    '#required' => FALSE,
+    '#default_value' => $fb_app->canvas,
+    '#description' => t('http://apps.facebook.com/...'),
+  );
 
   
   
@@ -139,7 +147,7 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
 
   $data = fb_get_app_data($fb_app);
   $form['fb_app_data']['fb_app']['set_app_props'] = array(
-    '#type' => 'checkbox',
+    '#type' => 'hidden', // @TODO - make checkbox when set app properties is supported
     '#title' => t('Set Application Properties Automatically'),
     '#default_value' => $data['fb_app']['set_app_props'],
     '#description' => t('Automatically update Facebook settings for this application.  Disable this if you have customized your callback URL, for example.  Also disable if another Drupal instance hosts the same application (i.e. with shared subdomain).'),
@@ -311,9 +319,13 @@ function fb_app_set_app_properties($fb_app) {
   $props = fb_invoke(FB_ADMIN_OP_SET_PROPERTIES, array('fb_app' => $fb_app), array(), FB_ADMIN_HOOK);
   if (count($props)) {
     if ($fb_app_data['set_app_props']) {
-      if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
+      if ($fb = fb_api_init($fb_app)) {
         try {
-          $fb->api_client->admin_setAppProperties($props);
+          $result = fb_call_method('admin.setAppProperties', array(
+                                     'properties' => json_encode($props),
+                                     'token' => fb_access_token($fb_app),
+                                   ));
+          //dpm($result, "admin.setAppProperties");
           drupal_set_message(t('Note that it may take several minutes for property changes to propigate to all facebook servers.'));
           if (fb_verbose()) {
             drupal_set_message(t('Set the following properties for %label application:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))));

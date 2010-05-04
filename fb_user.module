@@ -106,7 +106,7 @@ function _fb_user_track($fb, $fb_app, $account) {
       // Uid is accurate.
       $uid = $account->uid;
     }
-    
+    $session = $fb->getSession();
     $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=%d WHERE apikey='%s' AND fbu=%d",
                        time(), $fb->api_client->session_key, $fb->session_expires,
                        $uid,

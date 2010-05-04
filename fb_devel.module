@@ -123,18 +123,19 @@ function fb_devel_fb($op, $data, &$return) {
 
     // server URL sanity check
     // This is an expensive test, because it invokes api_client.
+    if ('fixme' == 'XXX')
     try {
       $props = $fb->api_client->admin_getAppProperties(array('connect_url', 'callback_url'));
       if (is_array($props)) {
         foreach ($props as $prop => $url) {
           if ($url && (strpos($url, $GLOBALS['base_url']) === FALSE)) {
             $message = t('The Facebook Application labeled %label has a suspicious %prop.  The value is %value, while something starting with %url was expected.  Consider editing !applink.', array(
-                         '%label' => $fb_app->label,
-                         '%prop' => $prop,
-                         '%value' => $url,
-                         '%url' => $GLOBALS['base_url'],
-                         '!applink' => l($fb_app->label, FB_PATH_ADMIN_APPS . '/' . $fb_app->label),
-                       ));
+                           '%label' => $fb_app->label,
+                           '%prop' => $prop,
+                           '%value' => $url,
+                           '%url' => $GLOBALS['base_url'],
+                           '!applink' => l($fb_app->label, FB_PATH_ADMIN_APPS . '/' . $fb_app->label),
+                         ));
             
             if (user_access('access administration pages')) {
               drupal_set_message($message, 'error');
@@ -193,17 +194,12 @@ function fb_devel_page() {
     $_fb->require_login();
   
   if ($_fb) {
-    if (fb_is_iframe_canvas())
-      drupal_set_message("fb_is_iframe_canvas() returns TRUE");
-    
-    if (fb_is_fbml_canvas())
-      drupal_set_message("fb_is_fbml_canvas() returns TRUE");
+    // TODO: determine whether connect page or canvas.
     
     drupal_set_message(t("session name: " . session_name()));
     drupal_set_message(t("session id: " . session_id()));
     drupal_set_message(t("<a href=\"!url\">processed link</a>, <a href=!url>unprocessed</a>", array('!url' => url('fb/devel'))));
-    drupal_set_message(t("get_loggedin_user returns " . $_fb->get_loggedin_user()));
-    drupal_set_message(t("current_url returns " . $_fb->current_url()));
+    drupal_set_message(t("getUser() returns " . $_fb->getUser()));
     
     drupal_set_message(t("base_url: " . $GLOBALS['base_url']));
     drupal_set_message(t("base_path: " . $GLOBALS['base_path']));
@@ -237,20 +233,41 @@ function fb_devel_page() {
  * A page which tests function which work with facebook user ids
  */
 function fb_devel_fbu_page($fbu = NULL) {
+  global $_fb, $_fb_app;
   if ($fbu) {
-    $output = "<p>Debug info about facebook id $fbu:</p>\n";
-    $friends = fb_get_friends($fbu);
-    //dpm($friends, "fb_get_friends($fbu) returned");
-    $items = array();
-    foreach ($friends as $_fbu) {
-      $items[] = l($_fbu, "fb/devel/fbu/{$_fbu}");
-    }
-    if (count($items)) {
-      $output .= "\n<p>Known friends:<ul><li>";
-      $output .= implode("</li>\n  <li>", $items);
-      $output .= "</li></ul></p>\n\n";
-    }
+    $info = $_fb->api($fbu, array('metadata' => 1));
+    $output = "<p>Debug info about facebook id $fbu ({$info[name]}):</p>\n";
+    $output .= "<img src=http://graph.facebook.com/$fbu/picture></img>";
+    $output .= "<pre>" . print_r($info, 1) . "</pre>";
 
+    foreach (array('statuses') as $connection) {
+      try {
+        if ($data = $_fb->api($fbu . '/' . $connection)) {
+          $output .= "<p>$connection<pre>";
+          $output .= print_r($data, 1);
+          $output .= "</pre></p>\n\n";
+        }
+      }
+      catch (FacebookApiException $e) {
+        fb_log_exception($e, t('Failed to lookup %connection', array('%connection' => $fbu . '/' . $connection)));
+      }
+    }
+    try {
+      $friends = $_fb->api($fbu . '/friends');
+      //dpm($friends, "$fbu/friends returned");
+      $items = array();
+      foreach ($friends['data'] as $data) {
+        $items[] = l($data['name'], "fb/devel/fbu/{$data[id]}");
+      }
+      if (count($items)) {
+        $output .= "\n<p>Known friends:<ul><li>";
+        $output .= implode("</li>\n  <li>", $items);
+        $output .= "</li></ul></p>\n\n";
+      }
+    }
+    catch (FacebookApiException $e) {
+      fb_log_exception($e, t('Failed to lookup friends of facebook user %fbu', array('%fbu' => $fbu)));
+    }
 
     
     $local_friends = fb_user_get_local_friends($fbu);
@@ -344,44 +361,25 @@ function fb_devel_info() {
   $label = fb_settings(FB_SETTINGS_CB);
   
   if ($_fb) {
-    if ($_fb->in_fb_canvas())
-      $info['Page Status'] = t('Rendering FBML canvas page.');
-    elseif ($_fb->in_frame()) {
-      $info['Page Status'] = t('Rendering iframe.');
+    if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) {
+      $info['Page Status'] = t('Serving canvas page.');
     }
-    elseif ($label) {
-      // Followed a link from within an iframe.
-      $info['Page Status'] = t('Global fb instance is set (followed link in iframe, or handling a form).');
-      $info['fb'] = $_fb;
+    elseif (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CONNECT) {
+      $info['Page Status'] = t('Connected via Facebook Connect');
+    }
+    elseif (!fb_settings(FB_SETTINGS_TYPE)) {
+      $info['Page Status'] = t('Global fb instance is set.  Probably  facebook connect is enabled but user is not logged into facebook.');
     }
     else {
-      if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) {
-        $info['Page Status'] = t('Followed link in iframe canvas, or handling form.');
-      }
-      elseif (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CONNECT) {
-        $info['Page Status'] = t('Connected via Facebook Connect');
-      }
-      elseif (!fb_settings(FB_SETTINGS_TYPE)) {
-        $info['Page Status'] = t('Global fb instance is set.  Probably  facebook connect is enabled but user is not logged into facebook.');
-      }
-      else {
-        $info['Page Status'] = t('Global fb instance is set, but page type unknown (%type).',
-                                 array('%type' => fb_settings(FB_SETTINGS_TYPE),
-                                 ));
-      }
+      $info['Page Status'] = t('Global fb instance is set, but page type unknown (%type).',
+                               array('%type' => fb_settings(FB_SETTINGS_TYPE),
+                               ));
     }
     
     $info['fb_facebook_user'] = fb_facebook_user();
     $fbu = fb_facebook_user();
     if (fb_api_check_session($_fb)) {
-      try {
-        // users_isAppUser() may be unreliable!
-        $info['users_isAppUser'] = $_fb->api_client->users_isAppUser();
-        $info["users_isAppUser($fbu)"] = $_fb->api_client->users_isAppUser($fbu);
-      }
-      catch (Exception $e) {
-        fb_log_exception($e, t('fb_devel unable to call users_isAppUser().'));
-      }
+      // XXX
     }
     else {
       $info['fb_api_check_session()'] = t('Returned FALSE');
@@ -408,10 +406,23 @@ function fb_devel_info() {
   $info['session'] = $_SESSION;
   $info['cookies'] = $_COOKIE;
 
+  
   if ($_fb) {
-    $info['api_client'] = $_fb->api_client;
+    try {
+      // app properties
+      $token = fb_access_token();
+      $props = fb_call_method('admin.getAppProperties', array(
+                                'properties' => 'about_url, application_name',
+                                'token' => $token,
+                              ));
+      $info['application properties'] = $props;
+      
+    }
+    catch (FacebookApiException $e) {
+      fb_log_exception($e, "failed to get app properties");
+    }
   }
-
+  
   $form = array();
   foreach ($info as $key => $val) {
     if (is_string($val) || is_numeric($val) || !$val) {

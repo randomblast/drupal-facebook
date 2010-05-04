@@ -227,46 +227,49 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
       $fbu = fb_get_fbu($account->uid, $fb_app);
       if ($fbu) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
-        $fb = fb_api_init($fb_app, FB_FBU_ANY);
+        $fb = fb_api_init($fb_app);
         if (fb_facebook_user($fb)) {
           try {
-            $info = $fb->api_client->users_getInfo(array($fbu), array(
-                      'about_me',
-                      'affiliations',
-                      'name',
-                      'is_app_user',
-                      'pic_big',
-                      'profile_update_time',
-                      'status',
-                    ));
+            $info = $fb->api(array('method' => 'users_getInfo',
+                                   'uids' => array($fbu),
+                                   'fields' => array(
+                                     'about_me',
+                                     'affiliations',
+                                     'name',
+                                     'is_app_user',
+                                     'pic_big',
+                                     'profile_update_time',
+                                     'status',
+                                   )));
           } catch (Exception $e) {
             fb_log_exception($e, "Failed to get Facebook user info for account $fbu");
           }
         }
         if (isset($info) && count($info)) {
-          // Is this working properly??? TODO!
           $output = theme('fb_app_user_info', $fb_app, $info[0]);
           
           $items[$fb_app->label] = array(
-            'title' => $fb_app->title,
-            'value' => $output,
-            'class' => 'fb_app');
+            '#title' => $fb_app->title,
+            '#type' => 'fieldset',
+            'value' => array('#value' => $output),
+          );
         }
         else
           fb_report_errors($fb);
       }
     }
-    if (count($items))
-      return array(t('Facebook') => $items);
+    if (count($items)) {
+      $account->content['fb_app'] = $items;
+    }
   }
 }
 
 function theme_fb_app_user_info($fb_app, $info) {
   if (isset($info['pic_big']))
     $output = '<p><img src="'. $info['pic_big'] .'" /></p>';
-
+  
   $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', array(
-               'query' => 'id=' . $info['uid']));
+                 'query' => 'id=' . $info['uid']));
   if ($info['is_app_user'])
     $output .= '<p>' . 
       t('!fb_link uses %title', array(
@@ -299,4 +302,15 @@ function fb_app_token_values($type = 'all', $object = NULL) {
     $values['fb-app-url'] = 'http://apps.facebook.com/'. $fb_app->canvas;
   }
   return $values;
+}
+
+function fb_app_theme() {
+  return array(
+    'fb_app_user_info' => array(
+      'arguments' => array( 
+        'fb_app' => NULL,
+        'info' => NULL,
+      ),
+    ),
+  );
 }

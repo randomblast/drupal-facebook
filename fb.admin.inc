@@ -43,7 +43,7 @@ function fb_admin_page() {
       $row[] = l($fb_app->application_name, 'http://www.facebook.com/apps/application.php?id=' . $fb_app->id);
       
       // Canvas Page.
-      if ($fb_app->canvas_name != $fb_app->canvas) {
+      if (FALSE && $fb_app->canvas_name != $fb_app->canvas) { // @TODO: re-enable when app props are supported.
         drupal_set_message(t('Canvas page for %label is out of sync!  Facebook believes it is %fbcanvas, while our database believes %canvas.  Edit and save the application to remedy this.', array('%label' => $fb_app->label, '%fbcanvas' => $fb_app->canvas_name, '%canvas' => $fb_app->canvas)), 'error');
       }
       if ($fb_app->canvas) {
@@ -93,12 +93,15 @@ function fb_admin_page() {
 function fb_admin_app_page($fb_app = NULL) {
   fb_get_app_data($fb_app);
   fb_admin_get_app_properties($fb_app);
+  $fb = fb_api_init($fb_app);
+
   // placeholder until theming done... XXX
   // Hide a couple things...
   unset($fb_app->secret); 
   unset($fb_app->data); 
 
   // Warn user if values have changed since last edit.
+  if (FALSE) // @TODO: XXX re-enable this with facebook supports get app properties!
   foreach (array('canvas_name' => 'canvas', 'application_name' => 'title') as $prop => $key) {
     if (isset($fb_app->$prop) && $fb_app->$prop != $fb_app->$key) {
       drupal_set_message(t("The property %prop has been changed to %value on facebook.  Go to the Edit tab, confirm values are correct and hit Save button to syncronize the local values.",
@@ -107,6 +110,7 @@ function fb_admin_app_page($fb_app = NULL) {
   }
   
   $props_map = array(
+    t('Name') => 'name',
     t('Label') => 'label',
     t('API Key') => 'apikey',
     t('ID') => 'id',
@@ -147,9 +151,12 @@ function fb_admin_get_app_properties(&$fb_app) {
   }
   
   if (!isset($cache[$fb_app->apikey])) {
-    if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
+    if ($fb = fb_api_init($fb_app)) {
       try {
-        $props = $fb->api_client->admin_getAppProperties(array_values($props_map));
+        $props = fb_call_method('admin.getAppProperties', array(
+                                  'properties' => implode(',', array_values($props_map)),
+                                  'token' => fb_access_token($fb_app),
+                                ));
         $cache[$fb_app->apikey] = $props;
       } catch (Exception $e) {
         fb_log_exception($e, t('Failed to get application properties (%label) from Facebook', array('%label' => $fb_app->label)));
@@ -164,22 +171,6 @@ function fb_admin_get_app_properties(&$fb_app) {
   foreach ($props_map as $key) {
     if ($props[$key]) {
       $fb_app->$key = $props[$key];
-    }
-  }
-}
-
-function fb_admin_set_app_properties($fb_app) {
-  $fb_app_data = fb_get_app_data($fb_app);
-  if ($fb_app_data['fb_app']['set_app_props']) {
-    $props = fb_invoke(FB_ADMIN_OP_SET_PROPERTIES, array('fb_app' => $fb_app), array(), FB_ADMIN_HOOK);
-    if (count($props)) {
-      if ($fb = fb_api_init($fb_app, FB_FBU_CURRENT)) {
-        try {
-          $fb->api_client->admin_setAppProperties($props);
-        } catch (Exception $e) {
-          fb_log_exception($e, t('Failed to set application properties on Facebook'));
-        }
-      }
     }
   }
 }

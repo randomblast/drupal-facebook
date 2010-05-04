@@ -13,7 +13,7 @@
 
 
 // Each of these are things we can learn and store in fb_settings().
-// Historically, the 'CB' values were learned by url prefixing.  Now optional.
+// The CB (callback) values are learned via URL rewriting.
 define('FB_SETTINGS_CB', 'fb_cb');
 define('FB_SETTINGS_CB_TYPE', 'fb_cb_type');
 define('FB_SETTINGS_CB_SESSION', 'fb_sess');
@@ -63,6 +63,28 @@ if (isset($_REQUEST['fb_sig']) &&
 }
 
 
+
+/**
+ * Parse a facebook session cookie.  Based on sample code http://developers.facebook.com/docs/guides/web.
+ */
+function fb_settings_get_facebook_cookie($app_id, $application_secret = NULL) {
+  $args = array();
+  parse_str(trim($_COOKIE['fbs_' . $app_id], '\\"'), $args);
+  if ($application_secret) {
+    ksort($args);
+    $payload = '';
+    foreach ($args as $key => $value) {
+      if ($key != 'sig') {
+        $payload .= $key . '=' . $value;
+      }
+    }
+    if (md5($payload . $application_secret) != $args['sig']) {
+      return null;
+    }
+  }
+  return $args;
+}
+
 /**
  * Forces the session_name and session_id to be appropriate when Facebook controls the session.
  * Call this function from custom session_inc files, before session_start() is called.
@@ -98,19 +120,18 @@ function fb_settings_session_helper() {
     }
   }
   else {
-    // Were not in a canvas page.
+    // We're not in a canvas page.
     // We might be in a facebook connect page.  We have to inspect cookies to make sure.
 
-    // Note variables initialized after session.  We can't use variable_get.
+    // Note variables initialized after session.  We can't use variable_get().
     
-    $apikey = isset($conf['fb_connect_primary_apikey']) ? $conf['fb_connect_primary_apikey'] : NULL;
+    $apikey = isset($conf['fb_apikey']) ? $conf['fb_apikey'] : NULL;
+    $secret = isset($conf['fb_secret']) ? $conf['fb_secret'] : NULL;
     if ($apikey) {
-      // Set $conf['fb_connect_primary_apikey'] for more efficent and reliable cookie inspection.
-      if (isset($_COOKIE[$primary_apikey . '_session_key'])) {
-        fb_settings(FB_SETTINGS_APIKEY, $apikey);
-        fb_settings(FB_SETTINGS_SESSION_KEY, $_COOKIE[$apikey . '_session_key']);
-        fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CONNECT);
-      }
+      $session = fb_settings_get_facebook_cookie($apikey, $secret);
+      fb_settings(FB_SETTINGS_APIKEY, $apikey);
+      fb_settings(FB_SETTINGS_SESSION_KEY, $session['session_key']);
+      fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CONNECT);
     }
     else {
       // Less efficent and more error prone cookie inspection.
@@ -118,9 +139,10 @@ function fb_settings_session_helper() {
       
       // TODO: make this more efficient.
       foreach ($_COOKIE as $key => $value) {
-        if ($pos = strpos($key, '_session_key')) {
-          $apikey = substr($key, 0, $pos);
-          $session_key = $value;
+        if (strpos($key, 'fbs_') === 0) {
+          $apikey = substr($key, 4);
+          $session = fb_settings_get_facebook_cookie($apikey);
+          $session_key = $session['session_key'];
           break;
         }
       }
@@ -151,7 +173,7 @@ function fb_settings_session_helper() {
       fb_settings('fb_session_id_force', $session_id);
     }
   }
-
+  
   // Also disable Drupal's caching, because a 'connected' user is not truly anonymous.
   if (fb_settings(FB_SETTINGS_SESSION_KEY)) {
     $GLOBALS['conf']['cache'] = 0;
@@ -167,7 +189,7 @@ function fb_settings_session_helper() {
 // session.inc.
 
 // Ensure unique session for facebook app.
-if (!isset($conf['session_inc'])) {
+if (!isset($conf['session_inc']) && FALSE) { // XXX
   $conf['session_inc'] = dirname(__FILE__) . '/fb_session.inc';
 }
 
