@@ -3,4 +3,4 @@ description = Avoid duplicate accounts when your site has local users who may be
 package = Drupal for Facebook - contrib
 dependencies[] = fb
 dependencies[] = fb_app
-core = 6.x
+;;core = 6.x @TODO - port to new libs

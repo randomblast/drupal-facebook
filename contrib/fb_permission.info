@@ -3,4 +3,4 @@ description = Extended Permissions allow apps to provide additional features, li
 package = Drupal for Facebook - contrib
 dependencies[] = fb
 dependencies[] = fb_app
-core = 6.x
+;;core = 6.x @TODO port to new libs

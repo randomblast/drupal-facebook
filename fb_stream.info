@@ -2,4 +2,4 @@ name = Drupal for Facebook Streams
 description = Post to Facebook Streams (a.k.a. News Feed or Wall)
 package = Drupal for Facebook - optional
 dependencies[] = fb
-core = 6.x
+;;core = 6.x @TODO - port to new libs

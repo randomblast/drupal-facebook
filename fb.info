@@ -1,5 +1,5 @@
 name = Drupal for Facebook
-description = <strong>REQUIRED</strong>.  Imports and uses the Facebook API.  <strong>You must also</strong> download and install the Facebook client libraries, and make manual configuration changes.  (See <em>modules/fb/README.txt</em>.)
+description = Initializes facebook's PHP and Javascript client libraries.  Allows you to add Like buttons and other FBML tags to your web site.  (See <em>modules/fb/README.txt</em>.)
 package = Drupal for Facebook
 core = 6.x
 php = 5

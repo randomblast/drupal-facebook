@@ -1,5 +1,5 @@
 name = Facebook Connect
-description = For <a href=http://developers.facebook.com/connect.php target=_blank>Facebook Connect apps</a>.  Allow users to log in using Facebook credentials.  Include XFBML and facebook javascript in your website.
+description = For <a href=http://developers.facebook.com/docs/guides/web target=_blank>Facebook Connect apps</a>.  Allow users to log in using Facebook credentials and more.
 package = Drupal for Facebook
 core = 6.x
 dependencies[] = fb

@@ -1,7 +1,7 @@
 name = Friend Features
 description = Blocks for showing and inviting friends
 package = Drupal for Facebook - contrib
-core = 6.x
+;;core = 6.x @TODO - port to 3.x
 dependencies[] = fb
 dependencies[] = fb_form
 dependencies[] = fb_app

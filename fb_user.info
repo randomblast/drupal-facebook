@@ -1,5 +1,5 @@
 name= User Management
-description = <strong>REQUIRED</strong> (unless your app is incredibly simple).  Create local accounts for users of Facebook Apps.
+description = Create local accounts for users of Facebook Apps.  Uses Drupal's authmap to link facebook accounts with local accounts.
 package = Drupal for Facebook
 dependencies[] = fb
 dependencies[] = fb_app

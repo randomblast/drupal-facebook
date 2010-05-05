@@ -1,5 +1,5 @@
 name = Canvas Pages
-description = For <a href=http://developers.facebook.com/get_started.php target=_blank>traditional Facebook Apps</a>.  Also for Profile Tabs.
+description = For hosting <a href=http://developers.facebook.com/docs/guides/canvas/ target=_blank>apps on facebook.com</a>.  (Also for Profile Tabs.)
 package = Drupal for Facebook
 dependencies[] = fb
 dependencies[] = fb_app

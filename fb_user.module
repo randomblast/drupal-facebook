@@ -107,8 +107,8 @@ function _fb_user_track($fb, $fb_app, $account) {
       $uid = $account->uid;
     }
     $session = $fb->getSession();
-    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=%d WHERE apikey='%s' AND fbu=%d",
-                       time(), $fb->api_client->session_key, $fb->session_expires,
+    $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', uid=%d WHERE apikey='%s' AND fbu=%d",
+                       time(), $session['session_key'],
                        $uid,
                        $fb_app->apikey, fb_facebook_user($fb));
     
@@ -118,10 +118,10 @@ function _fb_user_track($fb, $fb_app, $account) {
       if ($fbu) {
         $info = fb_users_getInfo(array($fbu), $fb);
         $data = $info[0];
-        $result = db_query("INSERT INTO {fb_user_app} (apikey, fbu, added, session_key, session_key_expires, time_access, uid, proxied_email, time_cron) VALUES ('%s', %d, %d, '%s', %d, %d, %d, '%s', %d)",
+        $result = db_query("INSERT INTO {fb_user_app} (apikey, fbu, added, session_key, time_access, uid, proxied_email, time_cron) VALUES ('%s', %d, %d, '%s', %d, %d, '%s', %d)",
                            $fb_app->apikey, $fbu,
                            $data['is_app_user'],
-                           $fb->session_key, $fb->session_key_expires,
+                           $session['session_key'],
                            time(),
                            $uid,
                            $data['proxied_email'],
