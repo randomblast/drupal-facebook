@@ -230,7 +230,7 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
         $fb = fb_api_init($fb_app);
         if (fb_facebook_user($fb)) {
           try {
-            $info = $fb->api(array('method' => 'users_getInfo',
+            $info = $fb->api(array('method' => 'users.getInfo',
                                    'uids' => array($fbu),
                                    'fields' => array(
                                      'about_me',
@@ -254,8 +254,6 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
             'value' => array('#value' => $output),
           );
         }
-        else
-          fb_report_errors($fb);
       }
     }
     if (count($items)) {
