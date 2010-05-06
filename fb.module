@@ -82,27 +82,31 @@ function fb_init() {
                                  '!readme' => '<a href='. base_path() . drupal_get_path('module', 'fb') .'/README.txt>README.txt</a>')), 'error');
     }
   }
+
+  // Add javascript to all pages.
+  drupal_add_js(drupal_get_path('module', 'fb') . '/fb.js');
+  drupal_add_js(array('fb' => array()), 'setting');
   
   // Ask other modules for app details.
   $_fb_app = fb_invoke(FB_OP_CURRENT_APP);
 
-  // DEPRECATED global $fb_app has been renamed to $_fb_app.
-  $GLOBALS['fb_app'] = $_fb_app; // For compatibility with old third-party modules.
-
   if ($_fb_app) {
-    // we are in a callback
+    // An App is configured.
+    // Initialize javascript.
+    drupal_add_js(array(
+                    'fb' => array(
+                      'apikey' => $_fb_app->apikey,
+                      'label' => $_fb_app->label,
+                    ),
+                  ), 'setting');
+    // Initialize the PHP API.
+    $_fb = fb_api_init($_fb_app);
     
-    // For canvas and connect pages, use current user.
-    $_fb = fb_api_init($_fb_app, FB_FBU_CURRENT);
-
-    // DEPRECATED global $fb has been renamed to $_fb.
-    $GLOBALS['fb'] = $_fb; // For compatibility with old third-party modul    
-
     if ($_fb) {
       // Give other modules a chance to initialize, require login, etc...
       fb_invoke(FB_OP_INITIALIZE, array(
-          'fb_app' => $_fb_app,
-          'fb' => $_fb));
+                  'fb_app' => $_fb_app,
+                  'fb' => $_fb));
       
       // See if the facebook user id is known
       if ($fbs = $_fb->getSession()) {
@@ -111,6 +115,13 @@ function fb_init() {
                     'fb' => $_fb,
                     'fbu' => $_fb->getUser(),
                   ));
+        
+        drupal_add_js(array(
+                        'fb' => array(
+                          'fbu' => $_fb->getUser(),
+                        ),
+                      ), 'setting');
+        
       }
     }
     else
@@ -253,28 +264,19 @@ function fb_convert_simplexml_to_array($sxml) {
 }
 
 
-// drupal_add_js cannot add external javascript, so we use hook_footer instead.
+/**
+ * Implements hook_footer().
+ */
 function fb_footer($is_front) {
   global $_fb, $_fb_app;
-  if (isset($_fb)) {
-    $output = "<div id=\"fb-root\"></div>\n";
-    $output .= "
-<script type=\"text/javascript\">debugger;</script>
-<script src=\"http://connect.facebook.net/en_US/all.js\"></script>
-<script type=\"text/javascript\">
-  FB.init({apiKey: '{$_fb_app->apikey}', 
-           status: true, 
-           cookie: true,
-           xfbml: true});
-  //FB.Event.subscribe('auth.sessionChange', FB_Connect.sessionChange);
-";
-      
-    $output .= "
-</script>\n";
-  }
+  // I don't know if this is strictly necessary, but all facebook examples seem to have it.
+  $output = "<div id=\"fb-root\"></div>\n";
   return $output;
 }
 
+/**
+ * Is the current request a canvas page?
+ */
 function fb_is_canvas() {
   return (isset($_REQUEST['fb_sig_in_iframe']) && $_REQUEST['fb_sig_in_iframe']) || fb_settings(FB_SETTINGS_CB);
 }
@@ -778,7 +780,7 @@ function fb_log_exception($e, $text = '', $fb = NULL) {
   $message .= ' ' . $e->getCode();
   
   if ($fb) {
-    $message .= '. (' . t('logged into facebook as %fbu', array('%fbu' => $fb->get_loggedin_user())) . ')';
+    $message .= '. (' . t('logged into facebook as %fbu', array('%fbu' => $fb->getUser())) . ')';
   }
   if (fb_verbose()) {
     $message .= '<pre>' . $e . '</pre>';
@@ -836,28 +838,32 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
       }
     if (count($infos) != count($oids)) {
       // Session cache did not include all users, update the cache.
-      $infos = $fb->api(array(
-                          'method' => 'users_getInfo',
-                          'uids' => $oids,
-                          'fields' => array(
-                            'about_me',
-                            'affiliations',
-                            'name',
-                            'is_app_user',
-                            'pic',
-                            'pic_big',
-                            'pic_square',
-                            'profile_update_time',
-                            'proxied_email',
-                            'status',
-                            'email_hashes',
-                            'email',
-                          )));
-      // Update cache with recent results.
-      if (is_array($infos)) {
-        foreach ($infos as $info) {
-          $_SESSION['fb'][$fb->api_key]['userinfo'][$info['uid']] = $info;
+      try {
+        $infos = $fb->api(array(
+                            'method' => 'users.getInfo',
+                            'uids' => $oids,
+                            'fields' => array(
+                              'about_me',
+                              'affiliations',
+                              'name',
+                              'is_app_user',
+                              'pic',
+                              'pic_big',
+                              'pic_square',
+                              'profile_update_time',
+                              'proxied_email',
+                              'status',
+                              'email_hashes',
+                              'email',
+                            )));
+        // Update cache with recent results.
+        if (is_array($infos)) {
+          foreach ($infos as $info) {
+            $_SESSION['fb'][$fb->api_key]['userinfo'][$info['uid']] = $info;
+          }
         }
+      } catch(FacebookApiException $e) {
+        fb_log_exception($e, t('Failed call to users.getInfo'), $fb);
       }
     }
     
