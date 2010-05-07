@@ -110,8 +110,9 @@ function fb_canvas_fb($op, $data, &$return) {
     if ($is_canvas) {
       // We are serving a canvas page.
       $conf['admin_theme'] = $custom_theme;
-      
-      if ($fb_canvas_data['require_login'] == FB_CANVAS_OPTION_REQUIRE_LOGIN) {
+
+      // @TODO - new libs provide no require_login equivalent.
+      if ($fb_canvas_data['require_login'] == FB_CANVAS_OPTION_REQUIRE_LOGIN && FALSE) {
         // The application is configured to require login on all canvas pages.
         // However, there are exceptions.
         if (fb_is_profile_tab()) {
@@ -289,7 +290,7 @@ function _fb_canvas_get_config($fb_app) {
   
   // Merge in defaults
   $fb_canvas_data += array(
-    'require_login' => FB_CANVAS_OPTION_ALLOW_ANON,
+    'require_login' => FB_CANVAS_OPTION_ALLOW_ANON, // @TODO - can this still be supported?
     'theme_fbml' => 'fb_fbml',
     'theme_iframe' => 'fb_fbml',
   );

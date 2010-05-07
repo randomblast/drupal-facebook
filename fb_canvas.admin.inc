@@ -46,7 +46,7 @@ function fb_canvas_admin_settings() {
   );
   $form['process_settings'][FB_CANVAS_VAR_PROCESS_IFRAME] = array(
     '#type' => 'checkbox',
-    '#title' => t('Enable on iframe pages and iframes embedded in FBML.'),
+    '#title' => t('Enable on iframe canvas pages.'),
     '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_IFRAME, TRUE),
   );
   
@@ -68,9 +68,27 @@ function fb_canvas_admin_form_alter(&$form, &$form_state, $form_id) {
       '#collapsed' => TRUE,
       '#title' => t('Facebook canvas pages'),
       '#description' => t('Settings which apply to <a href=!url target=_blank>canvas pages</a>.',
-                          array('!url' => 'http://developers.facebook.com/get_started.php?tab=anatomy#canvas')),
+                          array('!url' => 'http://developers.facebook.com/docs/guides/canvas/')),
     );
+
+    // Override themes
+    $themes = system_theme_data();
+    ksort($themes);
+    $theme_options[0] = t('System default');
+    foreach ($themes as $theme) {
+      $theme_options[$theme->name] = $theme->name;
+    }
+    $form['fb_app_data']['fb_canvas']['theme_iframe'] = array(
+      '#type' => 'select',
+      '#title' => t('Theme for canvas pages'),
+      '#description' => t('Choose a theme designed for 760px width iframe canvas.'),
+      '#options' => $theme_options,
+      '#required' => TRUE,
+      '#default_value' => $fb_canvas_data['theme_iframe'],
+    );
+
     
+    if (FALSE) { // @TODO - no require_login in new libs???
     $form['fb_app_data']['fb_canvas']['require_login'] = array(
       '#type' => 'radios',
       '#title' => t('Require authorization'),
@@ -82,6 +100,7 @@ function fb_canvas_admin_form_alter(&$form, &$form_state, $form_id) {
       '#default_value' => $fb_canvas_data['require_login'],
       '#required' => TRUE,
     );
+    }
     
     $form['fb_app_data']['fb_canvas']['front_anonymous'] =
       array('#type' => 'textfield',
@@ -103,22 +122,6 @@ function fb_canvas_admin_form_alter(&$form, &$form_state, $form_id) {
             '#default_value' => $fb_canvas_data['front_added'],
       );
 
-    // Override themes
-    $themes = system_theme_data();
-    ksort($themes);
-    $theme_options[0] = t('System default');
-    foreach ($themes as $theme) {
-      $theme_options[$theme->name] = $theme->name;
-    }
-    $form['fb_app_data']['fb_canvas']['theme_iframe'] = array(
-      '#type' => 'select',
-      '#title' => t('Theme for iframe pages'),
-      '#description' => t('Choose only a facebook-aware theme'),
-      '#options' => $theme_options,
-      '#required' => TRUE,
-      '#default_value' => $fb_canvas_data['theme_iframe'],
-    );
   }
-  
-  
+
 }
