@@ -96,9 +96,7 @@ function _fb_user_track($fb, $fb_app, $account) {
     // In special cases, do not modify the uid column.
     $fb_user_data = _fb_user_get_config($fb_app);
     
-    if (!$account->uid ||
-        $account->uid == $fb_user_data['not_logged_in_uid'] ||
-        $account->uid == $fb_user_data['logged_in_uid']) {
+    if (!$account->uid) {
       // Keep data for fbu, even if we do not know uid.
       $uid = 0;
     }
@@ -149,37 +147,8 @@ function fb_user_fb($op, $data, &$return) {
   if ($fb_app) {
     $fb_user_data = _fb_user_get_config($fb_app);
   }
-  
-  if ($op == FB_OP_POST_INIT) {
-    // Observe special rules for canvas page users without local accounts
-    if (!$user->uid && 
-        !_fb_user_special_page() && 
-        !isset($_REQUEST['form_id'])) {
-      if ($fbu = fb_facebook_user($fb) && 
-          fb_api_check_session($fb) && 
-          !$fb->api_client->users_isAppUser()) {
-        $uid = $fb_user_data['logged_in_uid'];
-      }
-      elseif (isset($fb_user_data['fb_user'])) {
-        $uid = $fb_user_data['fb_user']['not_logged_in_uid'];        
-      }
-      if (isset($uid)) {
-        // Be careful on maintenance pages.
-        if (!variable_get('site_offline', FALSE) || user_access('administer site configuration', $account)) {
-          $account = user_load(array('uid' => $uid));
-          $valid_user = user_external_login($account);
-          if (!$valid_user) {
-            drupal_access_denied();
-            exit();
-          }
-          if (fb_verbose() === 'extreme')
-            watchdog("fb_user", "fb_user_fb changing user to $uid"); // debug
-        }
-      }
-    }
-    
-  }
-  elseif ($op == FB_OP_APP_IS_AUTHORIZED) {
+
+  if ($op == FB_OP_APP_IS_AUTHORIZED) {
     // This hook is called on every page request, if the user has authorized the app.
     
     $fbu = $data['fbu']; // The user id on facebook.
@@ -193,8 +162,7 @@ function fb_user_fb($op, $data, &$return) {
       if ($valid_session = fb_api_check_session($fb)) {
         $_SESSION['fb_user_fbu'] = $fbu;
 
-        if ($user->uid != 0 &&
-            $user->uid != $fb_user_data['logged_in_uid']) {
+        if ($user->uid != 0) {
           // Ensure local user has proper authmap entry.
           _fb_user_set_authmap($fb_app, $fbu, $user);
         }
@@ -221,8 +189,9 @@ function fb_user_fb($op, $data, &$return) {
     }
     
     // If we've confirmed the session, user is a facebook user.
-    if ($user->uid != 0 && $user->uid != $fb_user_data['logged_in_uid'] &&
+    if ($user->uid != 0 &&
         isset($_SESSION['fb_user_fbu']) && $_SESSION['fb_user_fbu'] == $fbu) {
+      // @TODO - is this a good thing to do?  Does it lead to saving the fbu in the users.data column?
       $user->fbu = $fbu;
     }
     
@@ -310,9 +279,7 @@ function fb_user_fb($op, $data, &$return) {
         // If user has authorized then later removed, there will be a row we can replace
         db_query("DELETE FROM {fb_user_app} WHERE apikey = '%s' AND fbu = %d", $fb_app->apikey, $fbu);
         $session = $fb->getSession();
-        if ($user->uid ||
-            $user->uid == $fb_user_data['not_logged_in_uid'] ||
-            $user->uid == $fb_user_data['logged_in_uid']) {
+        if ($user->uid) {
           db_query("INSERT INTO {fb_user_app} (apikey, fbu, uid, added, session_key, session_key_expires, time_cron, time_access, proxied_email) VALUES ('%s', %d, %d, 1, '%s', %d, %d, %d, '%s')",
                    $fb_app->apikey, $fbu,
                    $user->uid,
@@ -389,23 +356,6 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
       '#description' => t('When a local user has authorized the app, the user will be granted this role.'),
       '#default_value' => $fb_user_data['new_user_rid'],
     );
-    
-    // TODO: fix this so that it prompts for username with autocomplete, not a uid.
-    $form['fb_app_data']['fb_user']['not_logged_in_uid'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Not authorized user (uid)'),
-      '#description' => t('If allowing non-logged in users, when such a user visits the site, which Drupal user should they be treated as?  Use 0 for the anonymous user (recommended - this feature is experimental and likely to disappear).'),
-      '#default_value' => $fb_user_data['not_logged_in_uid'],
-    );
-
-    $form['fb_app_data']['fb_user']['logged_in_uid'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Logged in user (uid)'),
-      '#description' => t('If allowing logged in users, when such a user visits the site, and they do not have a local Drupal account, which Drupal user should they be treated as?  Use 0 for the Anonymous user (recommended - this feature is experimental and likely to disappear), or create a dedicated account for this purpose.'),
-      '#default_value' => $fb_user_data['logged_in_uid'],
-    );
-    
- 
   }
   elseif ($form_id == 'user_edit' && ($app = $form['#fb_app'])) {
     // Disable buttons on user/edit/app pages, nothing to submit
@@ -656,8 +606,7 @@ function _fb_user_set_authmap($fb_app, $fbu, $account) {
   $fb_user_data = _fb_user_get_config($fb_app);
   if ($fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS &&
       $fbu &&
-      $account->uid != 0 &&
-      $account->uid != $fb_user_data['logged_in_uid']) {
+      $account->uid != 0) {
     list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
     user_set_authmaps($account, array($module => $authname));
     if (fb_verbose()) {
