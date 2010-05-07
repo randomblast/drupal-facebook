@@ -33,7 +33,6 @@ function fb_app_fb_admin($op, $data, &$return) {
   elseif (($op == FB_ADMIN_OP_LOCAL_LINKS) && isset($fb_app->fba_id)) {
     // Path to edit this app.
     $return[t('edit')] = FB_PATH_ADMIN_APPS . '/' . $fb_app->label . '/fb_app';
-    // TODO!!! Support delete, and maybe view.
   }
 }
 
@@ -129,16 +128,6 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#default_value' => $fb_app->id,
     '#description' => t('Facebook will generate this value when you create the application.'),
   );
-  // @TODO: get this automatically via get app properties
-  $form['canvas_name'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Canvas Page'),
-    '#required' => FALSE,
-    '#default_value' => $fb_app->canvas,
-    '#description' => t('http://apps.facebook.com/...'),
-  );
-
-  
   
   // fb_app_data is a placeholder where other modules can attach settings.
   $form['fb_app_data'] = array('#tree' => TRUE);  
@@ -147,7 +136,7 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
 
   $data = fb_get_app_data($fb_app);
   $form['fb_app_data']['fb_app']['set_app_props'] = array(
-    '#type' => 'hidden', // @TODO - make checkbox when set app properties is supported
+    '#type' => 'checkbox',
     '#title' => t('Set Application Properties Automatically'),
     '#default_value' => $data['fb_app']['set_app_props'],
     '#description' => t('Automatically update Facebook settings for this application.  Disable this if you have customized your callback URL, for example.  Also disable if another Drupal instance hosts the same application (i.e. with shared subdomain).'),
@@ -299,7 +288,7 @@ function fb_app_admin_delete_confirm_form_submit($form, &$form_state) {
   if ($form_state['values']['confirm']) {
     $fba_id = $form_state['values']['fba_id'];
 
-    // TODO: invoke hooks so that third-party modules may act.
+    // @TODO: invoke hooks so that third-party modules may act.
     
     db_query("DELETE FROM {fb_app} WHERE fba_id = %d",
              $fba_id);
