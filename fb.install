@@ -42,9 +42,14 @@ function fb_requirements($phase) {
   $items[] = $status;
   
   $status = array('title' => $t('Facebook Client API'));
-  $fb_platform = variable_get('fb_api_file', 'facebook-platform/php/facebook.php');
+  $fb_platform = variable_get('fb_api_file', 'sites/all/libraries/facebook-php-sdk/src/facebook.php');
 
-  if (include($fb_platform)) { // include() better than file_exists().
+  if (class_exists('Facebook')) {
+    $status['description'] = $t('Facebook Client API loaded.');
+    $status['severity'] = REQUIREMENT_OK;
+    $status['value'] = $t('Loaded');
+  }
+  elseif (include($fb_platform)) { // include() better than file_exists().
     $status['description'] = $t('Facebook client API found at %path',
                                 array('%path' => $fb_platform));
     $status['severity'] = REQUIREMENT_OK;
