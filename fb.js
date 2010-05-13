@@ -1,4 +1,5 @@
 
+// This function called by facebook's javascript when it is loaded.
 window.fbAsyncInit = function() {
   //debugger;
   var settings = {xfbml: true};
@@ -9,17 +10,20 @@ window.fbAsyncInit = function() {
   }
   FB.init(settings);
   FB.Event.subscribe('auth.sessionChange', FB_JS.sessionChange);
+  jQuery.event.trigger('fb_init');  // Trigger event so that other code can now execute.
 };
 
 FB_JS = function(){};
 
+// Facebook pseudo-event handler.
 FB_JS.sessionChange = function(response) {
   var status = {'changed': true, 'fbu': response.session.uid, 'session': response.session, 'response' : response};
   jQuery.event.trigger('fb_session_change', status);
 };
 
+// JQuery pseudo-event handler.
 FB_JS.sessionChangeHandler = function() {
-  debugger;
+  //debugger;
   window.location.reload();
 };
 
@@ -30,9 +34,9 @@ Drupal.behaviors.fb = function(context) {
   }
   
   // Respond to connected events
-  var events = $(document).data('events');
-  if (!events || !events.fb_connect_status) {
-    $(document).bind('fb_session_change', FB_JS.sessionChangeHandler);
+  var events = jQuery(document).data('events');
+  if (!events || !events.fb_session_change) {
+    jQuery(document).bind('fb_session_change', FB_JS.sessionChangeHandler);
   }
 
 };
