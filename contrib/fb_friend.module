@@ -86,7 +86,8 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
           ));
       
         // Exclude users who have already installed.
-        $rs = $_fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
+        $rs = fb_fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
+        // @TODO - confirm new API returns same data structure in $rs!
         $arFriends = '';
         $exclude_ids = '';
         //  Build an delimited list of users...
@@ -108,34 +109,25 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
         drupal_alter('fb_friend_invite_app', $fbml);
       
         if ($fbml) {
-          if (fb_is_fbml_canvas()) {
-            $xfbml = array(
-              'fbml' => $fbml,
-            );
-          }
-          else {
-            // Wrap in serverfbml for connect pages.
-            $xfbml = array('#type' => 'fb_form_serverfbml',
-                           'fbml' => $fbml);
-          }
-          // Allow third-party to modify wrapper
-          drupal_alter('fb_friend_invite_app_wrap', $xfbml);
-        
-          $content = drupal_render($xfbml);
-          return array('subject' => t('Invite friends to use !site',
-                                      array('!site' => $site_name)),
-                       'content' => $content,
-          );
+          // Wrap in serverfbml.
+          $xfbml = array('#type' => 'fb_form_serverfbml',
+                         'fbml' => $fbml);
         }
+        // Allow third-party to modify wrapper
+        drupal_alter('fb_friend_invite_app_wrap', $xfbml);
+        
+        $content = drupal_render($xfbml);
+        return array('subject' => t('Invite friends to use !site',
+                                    array('!site' => $site_name)),
+                     'content' => $content,
+        );
+        
       }
       elseif ($delta == FB_FRIEND_DELTA_AUTHORIZED) {
-        // TODO: handle both connect and canvas pages!
-        fb_connect_require_feature('XFBML');
-      
         if ($fbu = fb_facebook_user()) {
           // Get list of friends who have authorized this app.
-          $rs = $_fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 AND uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
-        
+          $rs = fb_fql_query("SELECT uid FROM user WHERE has_added_app=1 AND uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
+          // @TODO - confirm the data structure returned from new API still works with this code.
           if (isset($rs) && is_array($rs)) {
             foreach ($rs as $friend_data) {
               $friend_fbu = $friend_data['uid'];
@@ -193,19 +185,9 @@ function fb_friend_invite_page_fbml($alter_hook = NULL) {
   }
   
   if ($fbml) {
-    if (fb_is_fbml_canvas()) {
-      $xfbml = array(
-        'fbml' => $fbml,
-      );
-    }
-    else {
-      // Render in Facebook Connect page.
-      fb_connect_require_feature('XFBML');
-      
-      // Wrap in serverfbml for connect pages.
-      $xfbml = array('#type' => 'fb_form_serverfbml',
-                     'fbml' => $fbml);
-    }
+    // Wrap in serverfbml.
+    $xfbml = array('#type' => 'fb_form_serverfbml',
+                   'fbml' => $fbml);
     
     // Allow third-party to modify wrapper
     if (isset($alter_hook)) {

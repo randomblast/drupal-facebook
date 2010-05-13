@@ -2,4 +2,4 @@ name = Drupal for Facebook Forms
 description = Build FBML form constructs via Drupal Form API.
 package = Drupal for Facebook - optional
 dependencies[] = fb
-;;core = 6.x @TODO - port to new libs
+core = 6.x

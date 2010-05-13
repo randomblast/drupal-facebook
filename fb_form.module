@@ -44,62 +44,6 @@ function fb_form_form_alter(&$form, &$form_state, $form_id) {
   
 }
 
-// This ahah code was written for D5 and still needs updating.
-/**
- * Support for AHAH in forms.
- * 
- * This is intended to be compatible with the syntax of ahah_forms.module.
- * However, much of what that module does requires jquery.  In FBML we have to
- * jquery and are therefor limited in what we can support.  For example, we
- * only support the id selectors, you can't specify selector in your
- * ahah_bindings.
- */
-function fb_ahah_bind_form($form) {
-  static $one_time_only;
-  // Facebook javascript appears to work only when the user is logged in.  Not
-  // sure whether this is on purpose or not.  So we only activate AHAH when
-  // user is logged in.
-  global $_fb;
-  if ($_fb && $_fb->api_client->added && function_exists('ahah_forms_scan_form_children')) {
-    $bindings = array();
-    ahah_forms_scan_form_children( $form, $form['#id'],  $bindings );
-    //drupal_set_message( "After Scan: Wrapper Bindings = " . print_r( $bindings, TRUE ) ); 
-    
-    if (count($bindings) > 0) {
-      if (!$one_time_only) {
-        //add in required javascript files
-        $module_path = drupal_get_path('module', 'ahah_forms');
-        
-        fb_add_js(drupal_get_path('module', 'fb_form') . '/fb_ahah_forms.js', 'module');
-        
-        drupal_add_js(array( 
-                        'ahah' => array(
-                          'basePaths' => array(
-                            'base' => base_path(),
-                            'module' => $module_path ), 
-                          'bindings' => array( $bindings ),
-                        ),
-                      ),
-                      'setting', 'fbml'
-        );
-        $one_time_only = TRUE;
-      }
-      else {
-        drupal_add_js(array( 
-                        'ahah' => array(
-                          'bindings' => array( $bindings ),
-                        ),
-                      ),
-                      'setting', 'fbml'
-        );
-      }
-    }
-  }
-  
-  return $form;
-}
-
-
 /**
  * Create a page to invite friends to add an app.
  * 
@@ -142,7 +86,7 @@ function fb_form_multi_add_invite_form() {
   if ($fbu = fb_facebook_user($_fb)) {
     // Exclude friends who have already installed app.
     // http://wiki.developers.facebook.com/index.php/Fb:request-form
-    $rs = $_fb->api_client->fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL, no {curly_brackets}!
+    $rs = fb_fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL, no {curly_brackets}!
     $arFriends = "";
     //  Build an delimited list of users...
     if ($rs) {
@@ -253,7 +197,7 @@ function fb_form_friend_options($fbu) {
   
   if ($_fb) {
     $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=$fbu)"; // FQL not SQL, no {curly_brackets}!
-    $result = $_fb->api_client->fql_query($query);
+    $result = fb_fql_query($query);
     
     // TODO: sort results by name
     foreach ($result as $data) {
@@ -267,10 +211,10 @@ function fb_form_group_member_options($fbg, $fbu) {
   global $_fb;
 
   $query = "SELECT uid FROM group_member WHERE gid=$fbg"; // FQL not SQL, no {curly_brackets}!
-  $result = $_fb->api_client->fql_query($query);
+  $result = fb_fql_query($query);
 
   $query = "SELECT uid, first_name, last_name FROM user WHERE uid IN (SELECT uid FROM group_member WHERE gid=$fbg)"; // FQL not SQL, no {curly_brackets}
-  $result = $_fb->api_client->fql_query($query);
+  $result = fb_fql_query($query);
 
   // TODO: sort results by name
   $options = array();
@@ -349,7 +293,7 @@ function fb_form_friend_selector_process($orig) {
   static $options = NULL;
   if (!$options) {
     $query = "SELECT name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=" . fb_facebook_user() . ")"; // FQL not SQL, no {curly_brackets}
-    $result = $fb->api_client->fql_query($query);
+    $result = fb_fql_query($query);
     
     // Store list of friends in SESSION, so our autocomplete function will not
     // have to query it every time.
