@@ -29,9 +29,13 @@ define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
 define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
 define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has authorized an app.  Triggers creation of user accounts or authmap entries
 
+// @TODO - delete these. XXX
 define('FB_OP_CONNECT_JS_INIT', 'fb_connect_js_init'); // A chance to customize fbConnect javascript
 define('FB_OP_CANVAS_FBJS_INIT', 'fb_canvas_js_init'); // A chance to customize FBJS.
 define('FB_OP_CANVAS_EXIT', 'fb_op_canvas_exit'); // hook_exit for canvas pages.
+
+define('FB_OP_JS', 'fb_op_js');  // A chance to inject javascript onto the page.
+
 
 // node_access realms (belongs here?)
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
@@ -136,9 +140,7 @@ function fb_init() {
 
 
 /**
- * Include the necessary facebook-platform code and initialize the API object.
- * 
- * 
+ * Include and initialize Facebook's PHP SDK.
  */
 function fb_api_init($fb_app) {
   static $cache = array();
@@ -236,6 +238,16 @@ function fb_call_method($method, $params = array()) {
   return $data;
 }
 
+/**
+ * Helper function for fql queries.
+ *
+ * Use $params to pass a session_key, when needed.
+ */
+function fb_fql_query($query, $params = array()) {
+  $params['query'] = $query;
+  $result = fb_call_method('fql.query', $params);
+  return $result;
+}
 
 /**
  * This function emulates the convert_simplexml_to_array() function which was
@@ -271,6 +283,17 @@ function fb_footer($is_front) {
   global $_fb, $_fb_app;
   // I don't know if this is strictly necessary, but all facebook examples seem to have it.
   $output = "<div id=\"fb-root\"></div>\n";
+
+  $js_array = fb_invoke(FB_OP_JS, array('fb' => $GLOBALS['_fb'], 'fb_app' => $GLOBALS['_fb_app']), array());
+  if (count($js_array)) {
+    $output .= "<script type=\"text/javascript\">\n";
+    // The function we define in the footer will be called after FB is initialized.
+    $output .= "FB_JS.initHandler = function() {\n";
+    $output .= implode("\n", $js_array);
+    $output .= "};\n";
+    $output .= "jQuery(document).bind('fb_init', FB_JS.initHandler);\n";
+    $output .= "\n</script>\n";
+  }
   return $output;
 }
 
@@ -294,10 +317,9 @@ function fb_api_check_session($fb) {
   try {
     $session = $fb->getSession();
     if (isset($session['session_key'])) {
-      $is_user = fb_call_method('users.isAppUser', array(
-                                  'token' => fb_access_token(),
-                                  'session_key' => $session['session_key'],
-                                ));
+      $is_user = $fb->api(array(
+                            'method' => 'users.isAppUser',
+                          ));
     }
     // Does not matter what is returned, as long as exception is not thrown.
     $success = TRUE;
@@ -520,7 +542,7 @@ function fb_get_friends($fbu, $fb_app = NULL) {
                                  'query' => $query,
                                  'session_key' => $session['session_key'],
                                ));
-      dpm($result, "FQL " . $query); // debug
+      //dpm($result, "FQL " . $query); // debug
       
       $items = array();
       if (is_array($result)) 
@@ -655,6 +677,14 @@ function fb_menu() {
     'type' => MENU_CALLBACK,
     'access callback' => TRUE
   );
+
+  // Javascript helper
+  $items['fb/js'] = array(
+    'page callback' => 'fb_js_cb',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+  
   
   return $items;
 }
@@ -877,7 +907,7 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
 function fb_verbose() {
   return variable_get('fb_verbose', NULL);
 }
- 
+
 /**
  * This function will be replaced, hopefully, by format_username in D7.
  *
@@ -906,4 +936,20 @@ function fb_username_alter(&$name, $account) {
   }
 }
 
+//// Javascript and Ajax helpers
+
+/**
+ * Ajax javascript callback.
+ *
+ * For sites which use ajax, various events may create javascript which is
+ * normally embedded in a page.  For example, posting to a user's wall.  When
+ * ajax is used instead of a page reload, this callback will provide any
+ * javascript which should be run.
+ */
+function fb_js_cb() {
+  $js_array = fb_invoke(FB_OP_JS, array('fb' => $GLOBALS['_fb'], 'fb_app' => $GLOBALS['_fb_app']), array());
+  $extra_js = implode("\n", $extra);
+  print $extra_js;
+  exit();
+}
 

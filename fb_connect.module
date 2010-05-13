@@ -27,15 +27,8 @@ function fb_connect_menu() {
 
   // Cross-domain receiver.
   // XXX going away!  use fb_receiver.html instead.  This is left in to make the upgrade path easier, but it willgo away before 2.0 release.
-  $items['fb_connect/receiver'] = array(
+  $items['fb_connect/receiverXXX'] = array(
     'page callback' => 'fb_connect_receiver',
-    'type' => MENU_CALLBACK,
-    'access callback' => TRUE,
-  );
-
-  // Ajax helper
-  $items['fb_connect/js'] = array(
-    'page callback' => 'fb_connect_js_cb',
     'type' => MENU_CALLBACK,
     'access callback' => TRUE,
   );
@@ -68,6 +61,7 @@ function fb_connect_menu() {
 }
 
 
+// @TODO - session management changes in new API.
 /**
  * Session start callback.
  *
@@ -112,22 +106,6 @@ function fb_connect_session_end_cb() {
 
 
 /**
- * Ajax javascript callback.
- *
- * For sites which use ajax, various events may create javascript which is
- * normally embedded in a page.  For example, posting to a user's wall.  When
- * ajax is used instead of a page reload, this callback will provide any
- * javascript which should be run.
- */
-function fb_connect_js_cb() {
-  $extra = fb_invoke(FB_OP_CONNECT_JS_INIT, NULL, array());
-  $extra_js = implode("\n", $extra);
-  print $extra_js;
-  exit();
-}
-
-
-/**
  * Without a receiver file, cross-domain javascript will not work.
  *
  * In their infinite wisdom, facebook has decreed that the URL for
@@ -137,7 +115,7 @@ function fb_connect_js_cb() {
  *
  * Supports SSL, http://wiki.developers.facebook.com/index.php/Facebook_Connect_Via_SSL.
  */
-function fb_connect_receiver() { // DEPRECATED and will go away!
+function fb_connect_receiverXX() { // DEPRECATED and will go away!
   // facebook_config global comes from facebook's API.
   $src_suffix = $GLOBALS['facebook_config']['debug'] 
     ? '.debug'
@@ -246,11 +224,6 @@ function fb_connect_fb($op, $data, &$return) {
     // Include our admin hooks.
     if (fb_is_fb_admin_page()) {
       module_load_include('inc', 'fb_connect', 'fb_connect.admin');
-    }
-  }
-  elseif ($op == FB_OP_CONNECT_JS_INIT) {
-    foreach (fb_connect_init_js() as $js) {
-      $return[] = $js;
     }
   }
 }
@@ -507,7 +480,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
     $edit['config']['format'] = $edit['format'];
     variable_set('fb_connect_block_' . $delta, $edit['config']);
   }
-  elseif ($op == 'view') {
+  elseif ($op == 'view' && !fb_is_canvas()) {
     if (strpos($delta, 'login_') === 0) {
       // Login block
       $label = substr($delta, 6); // length of 'login_'
