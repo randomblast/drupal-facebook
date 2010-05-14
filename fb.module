@@ -167,10 +167,9 @@ function fb_api_init($fb_app) {
                          'secret' => $fb_app->secret,
                          'cookie' => TRUE,
                        ));
-    // Attempt to work around cert validation problem.
+    // Can't expect facebook to have valid certs!
     Facebook::$CURL_OPTS[CURLOPT_SSL_VERIFYPEER] = FALSE;
     Facebook::$CURL_OPTS[CURLOPT_SSL_VERIFYHOST] = FALSE;
-    //dpm(Facebook::$CURL_OPTS, "fb");
     
     // Cache the result, in case we're called again.
     $cache[$fb_app->apikey] = $fb;

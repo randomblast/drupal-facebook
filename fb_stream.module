@@ -127,11 +127,11 @@ function fb_stream_js($params_array) {
       }
     }
     */
-
+    
     $params['method'] = 'stream.publish';
     
     // Add stream dialog javascript to a canvas page.
-    $return[] = str_replace(',', ",\n", "FB.ui(" . json_encode($params) . ");\n");    
+    $return[] = "FB.ui(" . json_encode($params) . ");\n";
   }
   
   return $return;

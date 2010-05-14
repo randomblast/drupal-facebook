@@ -39,4 +39,7 @@ Drupal.behaviors.fb = function(context) {
     jQuery(document).bind('fb_session_change', FB_JS.sessionChangeHandler);
   }
 
+  // Markup with class .fb_show should be visible if javascript is enabled.  .fb_hide should be hidden
+  jQuery('.fb_hide', context).hide();
+  jQuery('.fb_show', context).show();
 };

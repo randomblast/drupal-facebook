@@ -86,7 +86,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
           ));
       
         // Exclude users who have already installed.
-        $rs = fb_fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
+        $rs = fb_fql_query($_fb, "SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
         // @TODO - confirm new API returns same data structure in $rs!
         $arFriends = '';
         $exclude_ids = '';

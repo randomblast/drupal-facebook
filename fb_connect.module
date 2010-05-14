@@ -676,7 +676,7 @@ function fb_connect_theme_user_picture_override($account) {
  */
 function fb_connect_theme_username_override($object) {
   $orig = theme('fb_connect_username_orig', $object);
-  
+
   if ($fbu = fb_get_object_fbu($object)) {
     // Theme the username with XFBML, using original username as backup.
     return theme('fb_connect_fbml_username', $fbu, $object, $orig);
@@ -715,12 +715,13 @@ function fb_connect_theme() {
   );
 }
 
+// @TODO - in what module do these theme overrides really belong???
 function theme_fb_connect_fbml_username($fbu, $object, $orig) {
   if (!$fbu) {
     return $orig;
   }
 
-  $wrap_pre = "<span class=fb_connect_hide>$orig</span><span class=fb_connect_show style='display:none'>";
+  $wrap_pre = "<span class=fb_hide>$orig</span><span class=fb_show style='display:none'>";
   $wrap_post = "</span>\n";
   if ($object->uid && user_access('access user profiles')) {
     // Provide link if local account.
@@ -739,7 +740,7 @@ function theme_fb_connect_fbml_user_picture($fbu, $object, $orig) {
     return $orig;
 
   $fbml = "<fb:profile-pic linked=false uid=\"$fbu\"></fb:profile-pic>";
-  $wrap_pre = '<span class=fb_connect_hide>' . $orig . '</span><span class="fb_connect_show" style="display:none;"><div class="picture">';
+  $wrap_pre = '<span class=fb_hide>' . $orig . '</span><span class="fb_show" style="display:none;"><div class="picture">';
   $wrap_post = '</div></span>';
   if ($object->uid && user_access('access user profiles')) {
     // Provide link to local account.
