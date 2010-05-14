@@ -29,11 +29,6 @@ define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
 define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
 define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has authorized an app.  Triggers creation of user accounts or authmap entries
 
-// @TODO - delete these. XXX
-define('FB_OP_CONNECT_JS_INIT', 'fb_connect_js_init'); // A chance to customize fbConnect javascript
-define('FB_OP_CANVAS_FBJS_INIT', 'fb_canvas_js_init'); // A chance to customize FBJS.
-define('FB_OP_CANVAS_EXIT', 'fb_op_canvas_exit'); // hook_exit for canvas pages.
-
 define('FB_OP_JS', 'fb_op_js');  // A chance to inject javascript onto the page.
 
 
@@ -172,6 +167,10 @@ function fb_api_init($fb_app) {
                          'secret' => $fb_app->secret,
                          'cookie' => TRUE,
                        ));
+    // Attempt to work around cert validation problem.
+    Facebook::$CURL_OPTS[CURLOPT_SSL_VERIFYPEER] = FALSE;
+    Facebook::$CURL_OPTS[CURLOPT_SSL_VERIFYHOST] = FALSE;
+    //dpm(Facebook::$CURL_OPTS, "fb");
     
     // Cache the result, in case we're called again.
     $cache[$fb_app->apikey] = $fb;
@@ -209,33 +208,67 @@ function _fb_api_init($fb_app = NULL) {
 }
 
 
-// When facebook fixes their weak-ass crap we won't need this anymore.
-// Note: edit facebook.php and make the makeRequest function public.
-// XXX
-function fb_access_token($fb_app = NULL) {
-  if (!isset($fb_app))
-    $fb_app = $GLOBALS['_fb_app'];
+/**
+ * Since facebook's php sdk is a joke, we have to implement the most basic
+ * crap.
+ */
+function fb_access_token($fb = NULL) {
+  static $cache;
+  if (!isset($fb))
+    $fb = $GLOBALS['_fb'];
 
-  $path = "https://graph.facebook.com/oauth/access_token?client_id={$fb_app->apikey}&client_secret={$fb_app->secret}&type=client_cred";
-  $http = drupal_http_request($path);
-  $data = explode('=', $http->data);
-  $token = $data[1];
-  return $token;
+  $apikey = $fb->getAppId();
+
+  if (!isset($cache))
+    $cache = array();
+
+  if (!isset($cache[$apikey])) {
+    $path = "https://graph.facebook.com/oauth/access_token?client_id=" . $fb->getAppId() . "&client_secret=" . $fb->getApiSecret() . "&type=client_cred";
+    $http = drupal_http_request($path);
+    $data = explode('=', $http->data);
+    $token = $data[1];
+    if ($token)
+      $cache[$apikey] = $token;
+  }
+  return $cache[$apikey];
 }
 
-function fb_call_method($method, $params = array()) {
+function fb_call_methodXXX($fb, $method, $params = array()) {
+  $params['method'] = $method;
+  // TODO: add this only when needed???
+  $params['access_token'] = fb_access_token($fb);
+  $result = $fb->api($params);
+  // At least sometimes, result is double-encoded.
+  $result = json_decode($result, TRUE);
+  return $result;
+}
+
+function fb_call_method($fb, $method, $params = array()) {
+  $params['access_token'] = fb_access_token($fb);
+  $params['api_key'] = $fb->getAppId();
+  $params['format'] = 'json-strings';
   $url = url("https://api.facebook.com/method/{$method}", array(
                'query' => $params,
              ));
   $http = drupal_http_request($url);
   //dpm($http, $url); // debug
-  $sxml = simplexml_load_string($http->data);
-  //dpm($sxml, $url); // debug
-  if (isset($sxml->error_code)) {
-    throw new FacebookApiException((array)$sxml);
+
+  if ($http->data) {
+    $data = json_decode($http->data, TRUE);
+    // Yes, it's double encoded.  At least sometimes.
+    if (is_string($data)) {
+      $data = json_decode($data, TRUE);
+    }
+    if (is_array($data)) {
+      if (isset($data['error_code'])) {
+        throw new FacebookApiException($data);      
+      }
+    }
+    else {
+      // Never reach this???
+    }
+    return $data;
   }
-  $data = json_decode($sxml[0], TRUE);
-  return $data;
 }
 
 /**
@@ -243,9 +276,12 @@ function fb_call_method($method, $params = array()) {
  *
  * Use $params to pass a session_key, when needed.
  */
-function fb_fql_query($query, $params = array()) {
+function fb_fql_query($fb, $query, $params = array()) {
   $params['query'] = $query;
-  $result = fb_call_method('fql.query', $params);
+  //$result = fb_call_method($fb, 'fql.query', $params);
+  $params['method'] = 'fql.query';
+  $result = $fb->api($params);
+                       
   return $result;
 }
 

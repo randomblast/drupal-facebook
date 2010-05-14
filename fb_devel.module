@@ -51,9 +51,9 @@ function fb_devel_fb($op, $data, &$return) {
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
   $errors = 0;
-
+  
   if ($op == FB_OP_INITIALIZE) {
-
+    
     if (fb_settings(FB_SETTINGS_APIKEY) &&
         ($fb_app->apikey != fb_settings(FB_SETTINGS_APIKEY))) {
       $message = t('Drupal for Facebook has detected a problem.  The global app has an apikey (%fb_app_apikey), while the settings indicates a different apikey (%fb_settings_apikey).', array(
@@ -175,7 +175,12 @@ function fb_devel_fb($op, $data, &$return) {
     $message .= dprint_r($data, 1);
     $message .= dprint_r($_REQUEST, 1);
     watchdog('fb_devel', $message);
- }
+  }
+
+  elseif ($op == FB_OP_JS) {
+    // Start debugger
+    //$return[] = "debugger; // added by fb_devel.module";
+  }
   
   elseif ($op == FB_OP_CANVAS_EXIT && $data['fb'] && $return) {
     watchdog('fb_devel', 'Drupal is redirecting a canvas page, destination is %destination.', array('%destination' => $return));
@@ -411,10 +416,11 @@ function fb_devel_info() {
     try {
       // app properties
       $token = fb_access_token();
-      $props = fb_call_method('admin.getAppProperties', array(
-                                'properties' => 'about_url, application_name',
-                                'token' => $token,
-                              ));
+      $props = $_fb->api(array(
+                           'method' => 'admin.getAppProperties',
+                           'properties' => 'about_url', 'application_name',
+                           'access_token' => $token,
+                         ));
       $info['application properties'] = $props;
       
     }

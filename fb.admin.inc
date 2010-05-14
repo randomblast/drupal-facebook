@@ -153,9 +153,8 @@ function fb_admin_get_app_properties(&$fb_app) {
   if (!isset($cache[$fb_app->apikey])) {
     if ($fb = fb_api_init($fb_app)) {
       try {
-        $props = fb_call_method('admin.getAppProperties', array(
+        $props = fb_call_method($fb, 'admin.getAppProperties', array(
                                   'properties' => implode(',', array_values($props_map)),
-                                  'token' => fb_access_token($fb_app),
                                 ));
         $cache[$fb_app->apikey] = $props;
       } catch (Exception $e) {

@@ -86,7 +86,7 @@ function fb_form_multi_add_invite_form() {
   if ($fbu = fb_facebook_user($_fb)) {
     // Exclude friends who have already installed app.
     // http://wiki.developers.facebook.com/index.php/Fb:request-form
-    $rs = fb_fql_query("SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL, no {curly_brackets}!
+    $rs = fb_fql_query($_fb, "SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL, no {curly_brackets}!
     $arFriends = "";
     //  Build an delimited list of users...
     if ($rs) {
@@ -197,7 +197,7 @@ function fb_form_friend_options($fbu) {
   
   if ($_fb) {
     $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=$fbu)"; // FQL not SQL, no {curly_brackets}!
-    $result = fb_fql_query($query);
+    $result = fb_fql_query($_fb, $query);
     
     // TODO: sort results by name
     foreach ($result as $data) {
@@ -211,10 +211,10 @@ function fb_form_group_member_options($fbg, $fbu) {
   global $_fb;
 
   $query = "SELECT uid FROM group_member WHERE gid=$fbg"; // FQL not SQL, no {curly_brackets}!
-  $result = fb_fql_query($query);
+  $result = fb_fql_query($_fb, $query);
 
   $query = "SELECT uid, first_name, last_name FROM user WHERE uid IN (SELECT uid FROM group_member WHERE gid=$fbg)"; // FQL not SQL, no {curly_brackets}
-  $result = fb_fql_query($query);
+  $result = fb_fql_query($_fb, $query);
 
   // TODO: sort results by name
   $options = array();
@@ -293,7 +293,7 @@ function fb_form_friend_selector_process($orig) {
   static $options = NULL;
   if (!$options) {
     $query = "SELECT name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=" . fb_facebook_user() . ")"; // FQL not SQL, no {curly_brackets}
-    $result = fb_fql_query($query);
+    $result = fb_fql_query($fb, $query);
     
     // Store list of friends in SESSION, so our autocomplete function will not
     // have to query it every time.

@@ -49,21 +49,6 @@ if (!is_array($conf))
   $conf = array();
 
 
-// Force some variables for canvas pages.
-if (isset($_REQUEST['fb_sig']) && 
-    isset($_REQUEST['fb_sig_in_canvas'])) {
-  // It's a facebook callback to an FBML page.
-
-  // Force clean URLs.  Necessary for canvas pages.
-  $conf['clean_url'] = 1;
-  
-  // Force the admin theme to be our facebook theme.
-  // TODO: find a way to make this configurable.  I.e. to support iframe apps.
-  $conf['admin_theme'] = 'fb_fbml';
-}
-
-
-
 /**
  * Parse a facebook session cookie.  Based on sample code http://developers.facebook.com/docs/guides/web.
  */

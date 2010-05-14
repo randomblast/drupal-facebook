@@ -1,7 +1,7 @@
 
 // This function called by facebook's javascript when it is loaded.
 window.fbAsyncInit = function() {
-  //debugger;
+  //debugger; // debug
   var settings = {xfbml: true};
   if (Drupal.settings.fb.apikey) {
     settings.apiKey = Drupal.settings.fb.apikey;

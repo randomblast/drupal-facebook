@@ -109,6 +109,7 @@ function fb_canvas_fb($op, $data, &$return) {
     
     if ($is_canvas) {
       // We are serving a canvas page.
+      global $conf;
       $conf['admin_theme'] = $custom_theme;
 
       // @TODO - new libs provide no require_login equivalent.
@@ -721,13 +722,7 @@ function fb_canvas_theme_user_picture_override($object) {
   }
   
   // Make no changes to non-FBML pages.
-  if (fb_canvas_is_fbml() && ($fbu = fb_get_object_fbu($object))) {
-    // Theme the username with FBML, using original username as backup.
-    return theme('fb_canvas_fbml_user_picture', $fbu, $object, $orig);
-  }
-  else {
-    return $orig;
-  }
+  return $orig;
 }
 
 /**

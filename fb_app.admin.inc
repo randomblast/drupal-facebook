@@ -310,11 +310,9 @@ function fb_app_set_app_properties($fb_app) {
     if ($fb_app_data['set_app_props']) {
       if ($fb = fb_api_init($fb_app)) {
         try {
-          $result = fb_call_method('admin.setAppProperties', array(
+          $result = fb_call_method($fb, 'admin.setAppProperties', array(
                                      'properties' => json_encode($props),
-                                     'token' => fb_access_token($fb_app),
                                    ));
-          //dpm($result, "admin.setAppProperties");
           drupal_set_message(t('Note that it may take several minutes for property changes to propigate to all facebook servers.'));
           if (fb_verbose()) {
             drupal_set_message(t('Set the following properties for %label application:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))));
@@ -325,6 +323,7 @@ function fb_app_set_app_properties($fb_app) {
                      l(t('view apps'), FB_PATH_ADMIN));
           }
         } catch (Exception $e) {
+          drupal_set_message(t('Failed to set the following properties for %label application.  You may need to manually editing remote settings!<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))), 'error');
           fb_log_exception($e, t('Failed to set application properties on Facebook'));
         }
       }
