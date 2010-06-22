@@ -126,7 +126,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       elseif ($delta == FB_FRIEND_DELTA_AUTHORIZED) {
         if ($fbu = fb_facebook_user()) {
           // Get list of friends who have authorized this app.
-          $rs = fb_fql_query("SELECT uid FROM user WHERE has_added_app=1 AND uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
+          $rs = fb_fql_query($_fb, "SELECT uid FROM user WHERE has_added_app=1 AND uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
           // @TODO - confirm the data structure returned from new API still works with this code.
           if (isset($rs) && is_array($rs)) {
             foreach ($rs as $friend_data) {
