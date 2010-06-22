@@ -16,6 +16,7 @@ define('FB_CANVAS_OPTION_REQUIRE_LOGIN', 2);
 define('FB_CANVAS_VAR_PROCESS_FBML', 'fb_canvas_process_fbml');
 define('FB_CANVAS_VAR_PROCESS_FBML_FORM', 'fb_canvas_process_fbml_form');
 define('FB_CANVAS_VAR_PROCESS_IFRAME', 'fb_canvas_process_iframe');
+define('FB_CANVAS_VAR_PROCESS_ABSOLUTE', 'fb_canvas_process_absolute_links');
 
 define('FB_CANVAS_FORM_HANDLER_WRAP', '_fb_canvas_form_handler');
 define('FB_CANVAS_FORM_HANDLER_ENABLED', '_fb_handling_form');
@@ -207,7 +208,10 @@ function fb_canvas_fb($op, $data, &$return) {
       $output = ob_get_contents();
       ob_end_clean();
       if (fb_canvas_is_iframe()) {
-        $output = fb_canvas_process($output, array('add_target' => TRUE));
+        $output = fb_canvas_process($output, array(
+                                      'add_target' => TRUE,
+                                      'absolute_links' => variable_get(FB_CANVAS_VAR_PROCESS_ABSOLUTE, TRUE),
+                                    ));
       }
     }
     
@@ -500,6 +504,9 @@ function fb_canvas_url_outbound_alter(&$path, &$options, $original_path) {
       if (!$options['absolute']) {
         // Could append all 'fb_sig' params to internal links.  But for now we rely on fb_canvas_process.
       }
+      else {
+        //dpm($options, "fb_canvas_url_outbound_alter($path)");
+      }
     }
     
     // Drupal has a habit of adding ?destination=... to some URLs.
@@ -529,9 +536,8 @@ function fb_canvas_url_outbound_alter(&$path, &$options, $original_path) {
  * @param $output is the page (or iframe block) about to be returned.
  * 
  * @param $options - 'add_target' will cause target=_top to be added
- * when producing an iframe. 'force_absolute_canvas' will turn
- * relative urls for canvas pages into absolute, for use on profile
- * tabs.
+ * when producing an iframe. 'absolute_links' will change hrefs with absolute
+ * URLs to refer to canvas pages.
  * 
  */
 function fb_canvas_process($output, $options = array()) {
@@ -549,9 +555,8 @@ function fb_canvas_process($output, $options = array()) {
       $base = $base_path . fb_url_outbound_alter($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.
     }
     else {
-      // Paving the way to make url alters optional.  (may not work properly)
+      // If no url_alter, use normal base_path.
       $base = $base_path;
-      //print("in fb_canvas_process, base is '$base'.");
     }
     
     if (fb_canvas_is_iframe()) {
@@ -565,9 +570,10 @@ function fb_canvas_process($output, $options = array()) {
         $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
         $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
         
-        // Make internal links point to canvas pages
+        // Make relative links point to canvas pages.
         $patterns[] = "|<a([^>]*)href=\"{$base}|";
         $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$_fb_app->canvas}/";
+
       }
       else {
         // Add target=_top to only external links
@@ -576,7 +582,13 @@ function fb_canvas_process($output, $options = array()) {
         $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
         $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
       }
-      
+
+      if (isset($options['absolute_links']) && $options['absolute_links']) {
+        // Make absolute links point to canvas pages.
+        $absolute_base = url('<front>', array('absolute' => TRUE));
+        $patterns[] = "|<a([^>]*)href=\"{$absolute_base}|";
+        $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$_fb_app->canvas}/";
+      }
     }
   }
   if (count($patterns)) {

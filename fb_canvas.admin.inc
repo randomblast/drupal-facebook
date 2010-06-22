@@ -13,7 +13,7 @@
 function fb_canvas_fb_admin($op, $data, &$return) {
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
-
+  
   if ($op == FB_ADMIN_OP_SET_PROPERTIES) {
     // Compute properties which we can set automatically.
     if (function_exists('fb_url_inbound_alter')) {
@@ -49,7 +49,11 @@ function fb_canvas_admin_settings() {
     '#title' => t('Enable on iframe canvas pages.'),
     '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_IFRAME, TRUE),
   );
-  
+  $form['process_settings'][FB_CANVAS_VAR_PROCESS_ABSOLUTE] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Replace absolute hrefs with canvas page URLs.  (Not just relative links.)'),
+    '#default_value' => variable_get(FB_CANVAS_VAR_PROCESS_ABSOLUTE, TRUE),
+  );
   return system_settings_form($form);
 }
 
