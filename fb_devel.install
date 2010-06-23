@@ -53,15 +53,6 @@ function fb_devel_requirements($phase) {
     );
   }
   
-  // arg_separator sanity check
-  $sep = ini_get('arg_separator.output');
-  if ($sep != '&') {
-    $items[] = array(
-      'title' => $t('Argument Separator'),
-      'severity' => REQUIREMENT_ERROR,
-      'description' => $t('Facebook client libraries will not work properly if arg_separator.output is not "&".  Currently the value is "!sep".  Please change this in settings.php or php.ini.', array('!sep' => check_plain($sep))),
-    );
-  }
   
   // clean url sanity check
   if (!variable_get('clean_url', FALSE) && module_exists('fb_canvas') && $phase == 'runtime') {
