@@ -147,8 +147,9 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#type' => 'submit',
     '#value' => t('Save'),
     '#weight' => 5,
-    '#submit' => array('fb_app_admin_form_submit'),
   );
+  
+  $form['#submit'] = array('fb_app_admin_form_submit');
   if ($fb_app->fba_id) {
     $form['buttons']['delete'] = array(
       '#type' => 'submit',
