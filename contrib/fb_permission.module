@@ -17,6 +17,11 @@ function fb_permission_access_own($account, $perm) {
     return ($GLOBALS['user']->uid == $account->uid && user_access($perm));
 }
 
+/**
+ * Which permissions can we prompt for?
+ *
+ * @TODO - update this list and/or make it customizable.
+ */
 function fb_permission_map() {
   static $perms;
   if (!isset($perms)) {
@@ -37,13 +42,28 @@ function fb_permission_map() {
   return $perms;
 }
 
+/**
+ * Implements hook_fb_required_perms_alter().
+ *
+ * fb_connect.module can calls this to learn when perms to add to login-button.
+ */
+function fb_permission_fb_required_perms_alter(&$perms) {
+  global $_fb, $_fb_app;
+  $fb_app_data = fb_get_app_data($_fb_app);
+  $fb_permission_data = $fb_app_data['fb_permission'];
+
+  foreach ($fb_permission_data['prompt'] as $key => $value) {
+    if ($value) {
+      $perms[$key] = $key;
+    }
+  }
+}
 
 /**
  * Implementation of hook_user.
  */
 function fb_permission_user($op, &$edit, &$account, $category = NULL) {
   global $user;
-
   if ($op == 'categories') {
     $items = array();
     // A tab for each application
@@ -51,7 +71,7 @@ function fb_permission_user($op, &$edit, &$account, $category = NULL) {
       // TODO: limit only to apps which can be added to a user's account.
       $items[] = array(
         'name' => $fb_app->label,
-        'title' => $fb_app->label, // TODO: human-readable title.
+        'title' => $fb_app->title,
         'access callback' => 'fb_permission_access_own',
         'access arguments' => array(1, 'edit own extended permissions'),
         'weight' => 2);
@@ -63,6 +83,7 @@ function fb_permission_user($op, &$edit, &$account, $category = NULL) {
     $fb_app = fb_get_app(array('label' => $category));
     
     if ($fb_app) {
+      $fb = fb_api_init($fb_app);
       $map = fb_permission_map(); // All known permissions.
       // Show only permissions we've configured for this app.
       $fb_app_data = fb_get_app_data($fb_app);
@@ -74,74 +95,71 @@ function fb_permission_user($op, &$edit, &$account, $category = NULL) {
         }
       }
 
-      //TODO: support for non-fbml pages
-      $form = fb_permission_form_fbml($fb_app, $map);
+      /* Should not be necessary to wrap in serverfbml, as prompt-permission is documented as XFBML.
+      $form = array(
+        'perms' => array(
+          '#prefix' => '<fb:serverfbml><script type="text/fbml><fb:fbml>',
+          '#suffix' => '</fb:fbml></script></fb:serverfbml>',
+        ),
+      );
+      */
       
-      $form['description'] =
-        array('#type' => 'markup',
-              '#value' => l(t('All settings for %application (and other Facebook Applications).', array('%application' => $fb_app->title)),
-                            'http://www.facebook.com/editapps.php',
-                            array('html' => TRUE)),
+      $t_args = array('%application' => $fb_app->title);
+      $weight = 0;
+      foreach ($map as $key => $text) {
+        $has_perm = FALSE;
+        try {
+          $has_perm = fb_call_method($fb, 'users.hasAppPermission', array(
+                                       'ext_perm' => $key,
+                                       'uid' => fb_get_fbu($account->uid, $fb_app),
+                                     ));
+        } catch (Exception $e) {
+          fb_log_exception($e, t('Call to users.hasAppPermission(%key) failed.', array('%key' => $key)));
+        }
+        if (!$has_perm) {
+          if ('facebook has fixed fb:prompt-permission bugs' == FALSE) {
+            // Ideally, fb:prompt-permission would work.  But it doesn't.
+            $form['perms'][$key] = array(
+              '#type' => 'markup',
+              '#value' => '<fb:prompt-permission perms="' . $key . '">' . t($text, $t_args) . '</fb:prompt-permission>',
+              '#weight' => $weight++,
+              '#suffix' => "<br/>\n",
+            );
+          }
+          else {
+            // Send user to facebook's extended permission page.
+            // This is weak.  Would be better to use javascript or fb:prompt-permission.
+            $url = url($_GET['q'], array('absolute' => TRUE));
+            $form['perms'][$key] = array(
+              '#type' => 'markup',
+              '#value' => l(t($text, $t_args), "http://www.facebook.com/authorize.php", array(
+                              'html' => TRUE,
+                              'query' => "api_key={$fb_app->apikey}&v=1.0&ext_perm={$key}&next={$url}&next_cancel={$url}",
+                            )),
               '#prefix' => '<p>',
-              '#suffix' => "</p>\n",
-        );
+              '#suffix' => '</p>',
+              '#weight' => $weight++,
+            );
+          }
+        }
+      }
+      $form['description'] = array(
+        '#type' => 'markup',
+        '#value' => l(t('All settings for %application (and other Facebook Applications).', array('%application' => $fb_app->title)),
+                      'http://www.facebook.com/editapps.php',
+                      array('html' => TRUE)),
+        '#prefix' => '<p>',
+        '#suffix' => "</p>\n",
+        '#weight' => $weight++,
+      );
       // A value for hook_form_alter to find.
       $form['_fb_permission'] = array('#type' => 'value',
                                       '#value' => TRUE);
-      return $form;      
+      return $form;
     }
     
   }
   
-}
-
-/**
- * for canvas pages and connect pages.
- */
-function fb_permission_form_fbml($fb_app, $map) {
-  foreach ($map as $key => $t) {
-    $form[$key] = array(
-      '#type' => 'markup',
-      '#value' => '<fb:prompt-permission perms="'. $key .'">'.
-      t($t, array('%application' => $fb_app->title)) .
-      '<br /></fb:prompt-permission>',
-    );
-  }
-
-  // Add buttons for boxes and info
-  $sections = array('profile', 'info');
-  foreach ($sections as $section) {
-    if (fb_is_fbml_canvas()) {
-      $form[$section] = array(
-        '#type' => 'markup',
-        '#value' => '<fb:add-section-button section="'. $section . '" />',
-      );
-    }
-  }
-  
-
-  return $form;
-}
-
-function fb_permission_form_html($fb_app, $map) {
-  // Non-fbml page
-  // TODO: use API to hide permissions we already have
-  $url = url($_GET['q'], array('absolute' => TRUE));
-  foreach ($map as $key => $t) {
-    $form[$key] =
-      array('#type' => 'markup',
-            '#value' => l(t($t, array('%application' => $fb_app->title)),
-                          "http://www.facebook.com/authorize.php",
-                          array('html' => TRUE),
-                          "api_key={$fb_app->api_key}&v=1.0&ext_perm={$key}&next={$url}&next_cancel={$url}"),
-            '#prefix' => '<p>',
-            '#suffix' => '</p>',
-      );
-  }
-
-  // TODO: add section buttons with http://wiki.developers.facebook.com/index.php/Fb:add-section-button
-
-  return $form;
 }
 
 function fb_permission_form_alter(&$form, $state, $id) {
