@@ -242,6 +242,10 @@ function fb_call_methodXXX($fb, $method, $params = array()) {
   return $result;
 }
 
+/**
+ * Facebook's own php-sdk is so friggin' buggy.  If you try $_fb->api(...) and
+ * get invalid parameters exceptions, this may work instead.
+ */
 function fb_call_method($fb, $method, $params = array()) {
   $params['access_token'] = fb_access_token($fb);
   $params['api_key'] = $fb->getAppId();
@@ -904,23 +908,23 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
     if (count($infos) != count($oids)) {
       // Session cache did not include all users, update the cache.
       try {
-        $infos = $fb->api(array(
-                            'method' => 'users.getInfo',
-                            'uids' => $oids,
-                            'fields' => array(
-                              'about_me',
-                              'affiliations',
-                              'name',
-                              'is_app_user',
-                              'pic',
-                              'pic_big',
-                              'pic_square',
-                              'profile_update_time',
-                              'proxied_email',
-                              'status',
-                              'email_hashes',
-                              'email',
-                            )));
+        // For historical reasons, use users.getInfo.  New code should migrate to graph api.
+        $infos = fb_call_method($fb, 'users.getInfo', array(
+                                  'uids' => $oids,
+                                  'fields' => array(
+                                    'about_me',
+                                    'affiliations',
+                                    'name',
+                                    'is_app_user',
+                                    'pic',
+                                    'pic_big',
+                                    'pic_square',
+                                    'profile_update_time',
+                                    'proxied_email',
+                                    'status',
+                                    'email_hashes',
+                                    'email',
+                                  )));
         // Update cache with recent results.
         if (is_array($infos)) {
           foreach ($infos as $info) {
