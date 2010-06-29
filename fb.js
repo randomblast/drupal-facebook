@@ -57,10 +57,16 @@ FB_JS.logoutHandler = function(event) {
 
 Drupal.behaviors.fb = function(context) {
   if (typeof(FB) == 'undefined') {
-    // Include facebook's javascript.
+    // Include facebook's javascript.  @TODO - determine locale dynamically.
     jQuery.getScript('http://connect.facebook.net/en_US/all.js');
   }
-  
+  else {
+    $(context).each(function() {
+      var elem = $(this).get(0);
+        //alert('fb_connect: ' + elem + $(elem).html()); // debug
+        FB.XFBML.parse(elem);
+    });
+  }
   // Respond to connected events
   var events = jQuery(document).data('events');
   if (!events || !events.fb_session_change) {
