@@ -374,6 +374,24 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
   
     
   }
+  elseif ($form_id == 'user_register') {
+    // user/register form.  Provide defaults for name and email.
+    if (($fb = $GLOBALS['_fb']) && ($fbu = fb_facebook_user())) {
+      try {
+        $data = $fb->api('/' . $fbu); // Facebook Graph lookup.
+        if (isset($form['name']) && !$form['name']['#default_value']) {
+          // @TODO - ensure name is unique to Drupal.
+          $form['name']['#default_value'] = $data['name'];
+        }
+        if (isset($form['mail']) && !$form['mail']['#default_value']) {
+          $form['mail']['#default_value'] = $data['email'];
+        }
+      }
+      catch (FacebookApiException $e) {
+        fb_log_exception($e, t('Failed lookup of %fbu.', array('%fbu' => $fbu)));
+      }
+    }
+  }
 }
 
 /**
