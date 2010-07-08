@@ -17,31 +17,35 @@ FB_JS = function(){};
 
 // Facebook pseudo-event handler.
 FB_JS.sessionChange = function(response) {
-  var status = {'changed': true, 'fbu': response.session.uid, 'session': response.session, 'response' : response};
+  var status = {'changed': true, 'session': response.session, 'response' : response};
+  if (response.session) {
+    status.fbu = response.session.uid;
+  }
+
   jQuery.event.trigger('fb_session_change', status);
 };
 
 FB_JS.initHandler = function() {
-    var session = FB.getLoginStatus(function(response) {
-	var status = {'session' : response.session, 'response': response};
-	if (response.session) {
-	    status.fbu = response.session.uid;
-	    if (Drupal.settings.fb.fbu != status.fbu) {
-		status.changed = true;
-	    }
-	}
-	else if (Drupal.settings.fb.fbu) {
-	    status.changed = true;
-	}
-	if (status.changed) {
-	    jQuery.event.trigger('fb_session_change', status);
-	}
+  var session = FB.getLoginStatus(function(response) {
+      var status = {'session' : response.session, 'response': response};
+      if (response.session) {
+        status.fbu = response.session.uid;
+        if (Drupal.settings.fb.fbu != status.fbu) {
+          status.changed = true;
+        }
+      }
+      else if (Drupal.settings.fb.fbu) {
+        status.changed = true;
+      }
+      if (status.changed) {
+        jQuery.event.trigger('fb_session_change', status);
+      }
     });
-
+  
 };
 
 // JQuery pseudo-event handler.
-FB_JS.sessionChangeHandler = function() {
+FB_JS.sessionChangeHandler = function(context, status) {
   //debugger;
   window.location.reload();
 };
