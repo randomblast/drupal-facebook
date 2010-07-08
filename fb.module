@@ -975,6 +975,41 @@ function fb_username_alter(&$name, $account) {
   }
 }
 
+//// Theme functions
+/**
+ * Implements hook_theme().
+ */
+function fb_theme() {
+  return array(
+    'fb_username' => array(
+      'arguments' => array( 
+        'fbu' => NULL,
+        'object' => NULL,
+        'orig' => NULL,
+       ),
+      'file' => 'fb.theme.inc',
+    ),
+    'fb_user_picture' => array(
+      'arguments' => array( 
+        'fbu' => NULL,
+        'account' => NULL,
+        'orig' => NULL,
+       ),
+      'file' => 'fb.theme.inc',
+    ),
+    'fb_popup' => array(
+      'arguments' => array('elements' => NULL),
+      'file' => 'fb.theme.inc',
+    ),
+    'fb_login_button' => array(
+      'arguments' => array(
+        'text' => 'Connect with Facebook',
+        'options' => NULL),
+      'file' => 'fb.theme.inc',
+    ),
+  );
+}
+
 //// Javascript and Ajax helpers
 
 /**

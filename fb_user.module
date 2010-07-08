@@ -25,6 +25,9 @@ define('FB_USER_OPTION_MAP_ALWAYS', 2);
 
 define('FB_USER_VAR_STATS', 'fb_user_stats'); // Whether to use fb_user_app table.
 
+define('FB_USER_VAR_ALTER_REGISTER', 'fb_user_alter_register');
+define('FB_USER_VAR_ALTER_LOGIN', 'fb_user_alter_login');
+
 /**
  * Implementation of hook_perm().
  */
@@ -310,6 +313,9 @@ function fb_user_fb($op, $data, &$return) {
   }
 }
 
+/**
+ * Implements hook_form_alter().
+ */
 function fb_user_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
@@ -374,21 +380,54 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
   
     
   }
-  elseif ($form_id == 'user_register') {
-    // user/register form.  Provide defaults for name and email.
-    if (($fb = $GLOBALS['_fb']) && ($fbu = fb_facebook_user())) {
-      try {
-        $data = $fb->api('/' . $fbu); // Facebook Graph lookup.
-        if (isset($form['name']) && !$form['name']['#default_value']) {
-          // @TODO - ensure name is unique to Drupal.
-          $form['name']['#default_value'] = $data['name'];
+  elseif (($form_id == 'user_register' && variable_get(FB_USER_VAR_ALTER_REGISTER, TRUE)) ||
+          ($form_id == 'user_login' && variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE))) {
+    if ($fb = $GLOBALS['_fb']) {
+      if ($fbu = fb_facebook_user()) {
+        // Facebook user has authorized app.
+        
+        // Show user name and picture.
+        $form['fb_user'] = array(
+          'name' => array(
+            '#value' => '<fb:name uid="' . $fbu . '" useyou="false" linked="false"></fb:name>',
+            '#type' => 'markup',
+            '#prefix' => '<div class="fb_user_name">',
+            '#suffix' => '</div>',
+          ),
+          'picture' => array(
+            '#value' => '<fb:profile-pic uid="' . $fbu .'" linked="false"></fb:profile-pic>',
+            '#type' => 'markup',
+            '#prefix' => '<div class="fb_user_picture">',
+            '#suffix' => '</div>',
+          ),
+          '#weight' => -1,
+        );
+        if ($form_id == 'user_register') {
+          // Provide defaults for name and email.
+          try {
+            $data = $fb->api('/' . $fbu); // Facebook Graph lookup.
+            if (isset($form['name']) && !$form['name']['#default_value']) {
+              // @TODO - ensure name is unique to Drupal.
+              $form['name']['#default_value'] = $data['name'];
+            }
+            if (isset($form['mail']) && !$form['mail']['#default_value']) {
+              $form['mail']['#default_value'] = $data['email'];
+            }
+          }
+          catch (FacebookApiException $e) {
+            fb_log_exception($e, t('Failed lookup of %fbu.', array('%fbu' => $fbu)));
+          }
         }
-        if (isset($form['mail']) && !$form['mail']['#default_value']) {
-          $form['mail']['#default_value'] = $data['email'];
-        }
+        
       }
-      catch (FacebookApiException $e) {
-        fb_log_exception($e, t('Failed lookup of %fbu.', array('%fbu' => $fbu)));
+      else {
+        // facebook user has not authorized app.
+        $fb_button = theme('fb_login_button', t('Connect with Facebook'), array('form_id' => $form_id));
+        $form['fb_user'] = array(
+          '#value' => $fb_button,
+          '#type' => 'markup',
+          '#weight' => -1,
+        );
       }
     }
   }

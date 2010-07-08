@@ -23,13 +23,30 @@ function fb_user_admin_settings() {
     return array('help' => array('#value' => $message));
   }
 
+  
   $form[FB_USER_VAR_STATS] = array(
     '#type' => 'checkbox',
     '#title' => t('Record Statistics'),
-    '#description' => t('If checked, maintain data about the most recent visit of each user who has authorized an app.  Enable if you want this sort of record kept.  Enable also if you want to run cron actions for each user of an app.  Disable for better performance.'),
+    '#description' => t('Maintain data about the most recent visit of each user who has authorized an app.  Enable if you want this sort of record kept.  Enable also if you want to run cron actions for each user of an app.  Disable for better performance.'),
     '#default_value' => variable_get(FB_USER_VAR_STATS, TRUE),
   );
 
+  $form['fb_user_alter'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Form alters'),
+    '#description' => t('Add connect button to user forms.  If user has connected, show the user\'s name and profile picture.'),
+  );
+  $form['fb_user_alter'][FB_USER_VAR_ALTER_REGISTER] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Registration form'),
+    '#default_value' => variable_get(FB_USER_VAR_ALTER_REGISTER, TRUE),
+  );
+  $form['fb_user_alter'][FB_USER_VAR_ALTER_LOGIN] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Login form'),
+    '#default_value' => variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE),
+  );
+  
   return system_settings_form($form);
 }
 

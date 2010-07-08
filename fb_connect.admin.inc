@@ -42,14 +42,6 @@ function fb_connect_admin_settings() {
     '#default_value' => variable_get(FB_CONNECT_VAR_PRIMARY, NULL),
   );
   
-  $form[FB_CONNECT_VAR_LOGIN] = array(
-    '#type' => 'select',
-    '#options' => $options,
-    '#title' => t('Add Button to Login Form'),
-    '#description' => t('Add a Facebook Connect button to Drupal\'s login form.'),
-    '#default_value' => variable_get(FB_CONNECT_VAR_LOGIN, NULL),
-  );
-  
   $form['theme_settings'] = array(
     '#type' => 'fieldset',
     '#title' => t('Theme overrides'),

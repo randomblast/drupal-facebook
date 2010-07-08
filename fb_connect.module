@@ -9,7 +9,7 @@
 
 // Drupal variables
 define('FB_CONNECT_VAR_PRIMARY', 'fb_connect_primary_label');
-define('FB_CONNECT_VAR_LOGIN', 'fb_connect_login_label');
+
 define('FB_CONNECT_VAR_THEME_USERNAME_1', 'fb_connect_theme_username_1');
 define('FB_CONNECT_VAR_THEME_USERNAME_2', 'fb_connect_theme_username_2');
 define('FB_CONNECT_VAR_THEME_USERPIC1', 'fb_connect_theme_userpic_1');
@@ -525,37 +525,7 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
         t('Note that checking this will replace %app as the primary Facebook Connect app.', array('%app' => $primary_label));
     }
     $form['#submit'][] = 'fb_connect_app_submit';
-  }
-  
-  // Add button to login form.
-  if (($form_id == 'user_login_block' || $form_id == 'user_login')) {
-    if ($app_label = variable_get(FB_CONNECT_VAR_LOGIN, NULL)) {
-      $fb_app = fb_get_app(array('label' => $app_label));
-
-      // Render connect link if not connected already.
-      if ($fb = fb_connect_app_init($fb_app) &&
-          !fb_facebook_user($fb)) {
-        // Ensure that facebook javascript is in the page closure.
-        fb_connect_require_feature('XFBML', $fb_app);
-        fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
-        fb_connect_init_option('ifUserNotConnected', "{FB_Connect.on_not_connected}", $fb_app);
-        
-        // Add button to the form.
-        // @TODO - make markup customizable.
-        $form['fb_connect_button'] = array(
-          '#type' => 'markup',
-          '#value' => '<fb:login-button v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>',
-          '#prefix' => '<div class="form-item" id="fb-connect-button">',
-          '#suffix' => '</div>',
-          '#weight' => 4, // LOG IN button weight is 2.
-        );
-      }
-    }
-    if ($form_id == 'user_login') {
-      // On login, we must leave the user/login page or else get access denied.
-      drupal_add_js(array('fb_connect' => array('destination' => url('user'))), 'setting');
-    }
-  }
+  }  
 }
 
 
@@ -628,7 +598,7 @@ function fb_connect_theme_user_picture_override($account) {
   }
 
   if ($fbu = fb_get_object_fbu($account)) {
-    $output = theme('fb_connect_fbml_user_picture', $fbu, $account, $orig);
+    $output = theme('fb_user_picture', $fbu, $account, $orig);
   }
   else {
     $output = $orig;
@@ -644,7 +614,7 @@ function fb_connect_theme_username_override($object) {
 
   if ($fbu = fb_get_object_fbu($object)) {
     // Theme the username with XFBML, using original username as backup.
-    return theme('fb_connect_fbml_username', $fbu, $object, $orig);
+    return theme('fb_username', $fbu, $object, $orig);
   }
   else {
     return $orig;
@@ -652,79 +622,4 @@ function fb_connect_theme_username_override($object) {
 }
 
 
-/**
- * Implements hook_theme().
- *
- * We use theme function for XFBML username and picture so that the
- * markup can be relatively easily customized.
- */
-function fb_connect_theme() {
-  return array(
-    'fb_connect_fbml_username' => array(
-      'arguments' => array( 
-        'fbu' => NULL,
-        'object' => NULL,
-        'orig' => NULL,
-       ),
-    ),
-    'fb_connect_fbml_user_picture' => array(
-      'arguments' => array( 
-        'fbu' => NULL,
-        'account' => NULL,
-        'orig' => NULL,
-       ),
-    ),
-    'fb_connect_fbml_popup' => array(
-      'arguments' => array('elements' => NULL),
-    ),
-  );
-}
 
-// @TODO - in what module do these theme overrides really belong???
-function theme_fb_connect_fbml_username($fbu, $object, $orig) {
-  if (!$fbu) {
-    return $orig;
-  }
-
-  $wrap_pre = "<span class=fb_hide>$orig</span><span class=fb_show style='display:none'>";
-  $wrap_post = "</span>\n";
-  if ($object->uid && user_access('access user profiles')) {
-    // Provide link if local account.
-    $wrap_pre = $wrap_pre . '<a href="' . url('user/' . $object->uid) . '">';
-    $wrap_post = '</a>' . $wrap_post;
-    $ifcantsee = 'ifcantsee="' . addslashes(check_plain($object->name)) . '"';
-  }
-  
-  $fbml = "<fb:name linked=false useyou=false uid=\"$fbu\" $ifcantsee></fb:name>";  $output =  $wrap_pre . $fbml . $wrap_post;
-
-  return $output;
-}
-
-function theme_fb_connect_fbml_user_picture($fbu, $object, $orig) {
-  if (!$fbu)
-    return $orig;
-
-  $fbml = "<fb:profile-pic linked=false uid=\"$fbu\"></fb:profile-pic>";
-  $wrap_pre = '<span class=fb_hide>' . $orig . '</span><span class="fb_show" style="display:none;"><div class="picture">';
-  $wrap_post = '</div></span>';
-  if ($object->uid && user_access('access user profiles')) {
-    // Provide link to local account.
-    $wrap_pre = $wrap_pre . '<a href="' . url('user/' . $object->uid) . '">';
-    $wrap_post = '</a>' . $wrap_post;
-  }
-  return $wrap_pre . $fbml . $wrap_post;
-}
-
-
-function theme_fb_connect_fbml_popup($elem) {
-  // Hide this markup until javascript shows it.
-  $t = '<div class="fb_connect_fbml_popup_wrap" style="display:none;" ' . ">\n";
-  
-  $t .= '<a href="#" title="' . check_plain($elem['#title']) . '" ' . 
-    (isset($elem['#link_attributes']) ? drupal_attributes($elem['#link_attributes']) : '') .
-    '>' . check_plain($elem['#link_text']) .'</a>';
-  $t .= '<div class="fb_connect_fbml_popup" ' . drupal_attributes($elem['#attributes']) . '>';
-  $t .= $elem['#children'];
-  $t .= "</div></div>\n";
-  return $t;
-}
