@@ -62,7 +62,7 @@ FB_JS.logoutHandler = function(event) {
 Drupal.behaviors.fb = function(context) {
   if (typeof(FB) == 'undefined') {
     // Include facebook's javascript.  @TODO - determine locale dynamically.
-    jQuery.getScript('http://connect.facebook.net/en_US/all.js');
+    jQuery.getScript(Drupal.settings.fb_js_sdk);
   }
   else {
     $(context).each(function() {

@@ -85,6 +85,8 @@ function fb_init() {
   // Add javascript to all pages.
   drupal_add_js(drupal_get_path('module', 'fb') . '/fb.js');
   drupal_add_js(array('fb' => array()), 'setting');
+  // @TODO - replace en_US with dynamically determined locale.
+  drupal_add_js(array('fb_js_sdk' => variable_get('fb_js_sdk', 'http://connect.facebook.net/en_US/all.js')), 'setting');
   
   // Ask other modules for app details.
   $_fb_app = fb_invoke(FB_OP_CURRENT_APP);
@@ -340,7 +342,15 @@ function fb_footer($is_front) {
  * Is the current request a canvas page?
  */
 function fb_is_canvas() {
-  return (isset($_REQUEST['fb_sig_in_iframe']) && $_REQUEST['fb_sig_in_iframe']) || fb_settings(FB_SETTINGS_CB);
+  if (fb_settings(FB_SETTINGS_CB)) {
+    // Using fb_url_rewrite.
+    return TRUE;
+  }
+  elseif (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) {
+    // No rewrite, but fb_settings.inc has detected type.
+    return TRUE;
+  }
+  return FALSE;
 }
 
 /**
