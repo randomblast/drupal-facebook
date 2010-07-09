@@ -47,6 +47,9 @@ function fb_devel_init() {
 
 }
 
+/**
+ * Implements hook_fb().
+ */
 function fb_devel_fb($op, $data, &$return) {
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
@@ -120,7 +123,16 @@ function fb_devel_fb($op, $data, &$return) {
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message);
     }
-
+    
+    // Old API Sanity check.
+    if (isset($_REQUEST['fb_sig'])) {
+      $message = t('Passed old-style fb_sig parameters.  Go to !url, edit your application.  Under "migrations" enable "new sdks".', array(
+                     '!url' => 'http://www.facebook.com/developers/apps.php',
+                   ));
+      dpm($message);
+      watchdog('fb_devel', $message);
+    }
+    
     // server URL sanity check
     // This is an expensive test, because it invokes api_client.
     if ('fixme' == 'XXX')
@@ -184,6 +196,8 @@ function fb_devel_fb($op, $data, &$return) {
   
   elseif ($op == FB_OP_CANVAS_EXIT && $data['fb'] && $return) {
     watchdog('fb_devel', 'Drupal is redirecting a canvas page, destination is %destination.', array('%destination' => $return));
+  }
+  elseif ($op == FB_OP_POST_INIT) {
   }
 }
 

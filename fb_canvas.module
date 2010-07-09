@@ -54,42 +54,22 @@ function fb_canvas_fb($op, $data, &$return) {
   
   if ($op == FB_OP_CURRENT_APP) {
     if (function_exists('fb_settings')) {
-      if ((fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) &&
-          ($apikey = fb_settings(FB_SETTINGS_APIKEY))) {
-        // This is the proper way to discover the app on canvas pages.
-        $fb_app = fb_get_app(array('apikey' => $apikey));
-
-        // If were on an iframe excursion, the fb_sig will be in session.
-        if (!isset($_REQUEST['fb_sig']) &&
-            isset($_SESSION['fb_canvas_fb_sig'])) {
-          foreach ($_SESSION['fb_canvas_fb_params'] as $k => $value) {
-            $key = 'fb_sig_' . $k;
-            if (!isset($_REQUEST[$key])) {
-              // We use $_REQUEST, facebook uses $_GET.
-              $_REQUEST[$key] = $value;
-              $_GET[$key] = $value;
-            }
-          }
-          $_REQUEST['fb_sig'] = $_SESSION['fb_canvas_fb_sig'];
-          $_GET['fb_sig'] = $_SESSION['fb_canvas_fb_sig'];
+      if ((fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS)) {
+        // fb_settings.inc has determined this is a canvas page.
+        if ($label = fb_settings(FB_SETTINGS_CB)) {
+          // Using fb_url_rewrite.
+          $fb_app = fb_get_app(array('label' => $label));
         }
-        
-      }
-      elseif ($id = fb_settings(FB_SETTINGS_CB)) {
-        // This is the old way dependent on url rewriting.
-        $fb_app = fb_get_app(array('id' => $id));
-
-      }
-    }
-    else {
-      // Fallback in case fb_settings not used.
-      if (isset($_REQUEST[FB_APP_REQ_API_KEY]) &&
-          ($apikey = $_REQUEST[FB_APP_REQ_API_KEY])) {
-        // If facebook has passed the app key, let's use that.
-        $fb_app = fb_get_app(array('apikey' => $apikey));
+        elseif ($id = fb_settings(FB_SETTINGS_ID)) {
+          // New SDK includes ID when session is present.
+          $fb_app = fb_get_app(array('id' => $id));
+        }
+        elseif ($apikey = fb_settings(FB_SETTINGS_APIKEY)) {
+          // Old SDK tells us APIKEY.  Deprecated.
+          $fb_app = fb_get_app(array('apikey' => $apikey));
+        }
       }
     }
-    
     if ($fb_app)
       $return = $fb_app;
   }

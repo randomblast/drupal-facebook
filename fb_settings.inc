@@ -18,10 +18,10 @@ define('FB_SETTINGS_CB', 'fb_cb');
 define('FB_SETTINGS_CB_TYPE', 'fb_cb_type');
 define('FB_SETTINGS_CB_SESSION', 'fb_sess');
 
-// These values learned via $_REQUEST['fb_sig_...'] parameters or Facebook
-// Connect cookies.
+// Things we can learn from the facebook session.
 define('FB_SETTINGS_SESSION_KEY', 'session_key');
 define('FB_SETTINGS_APIKEY', 'apikey');
+define('FB_SETTINGS_ID', 'app_id');
 define('FB_SETTINGS_TYPE', 'type'); // page type not same as cb type
 define('FB_SETTINGS_LABEL', 'label');
 define('FB_SETTINGS_CHECK', 'fb_settings_check');
@@ -75,7 +75,20 @@ function fb_settings_get_facebook_cookie($app_id, $application_secret = NULL) {
  * Call this function from custom session_inc files, before session_start() is called.
  */
 function fb_settings_session_helper() {
-  if (isset($_REQUEST['fb_sig_api_key'])) {
+  // New SDK's use session param for canvas pages.
+  if (isset($_REQUEST['session'])) {
+    // It's a canvas page.
+    $session = $_REQUEST['session'];
+    // Which app?
+    $access_tokens = explode('|', $session['access_token']);
+    if ($app_id = $access_tokens[0]) {
+      fb_settings(FB_SETTINGS_ID, $app_id);
+      fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
+      fb_settings(FB_SETTINGS_SESSION_KEY, $session['session_key']);
+    }
+  }
+  // Old SDK's use fb_sig_... params.
+  elseif (isset($_REQUEST['fb_sig_api_key'])) {
     // It's a canvas page or event callback.
     fb_settings(FB_SETTINGS_APIKEY, $_REQUEST['fb_sig_api_key']);
     fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
@@ -103,6 +116,11 @@ function fb_settings_session_helper() {
         fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
       }
     }
+  }
+  elseif (function_exists('_fb_settings_parse') &&
+          _fb_settings_parse(FB_SETTINGS_CB)) {
+    // Using url_rewrite.  Canvas page, but no session (user not logged into facebook).
+    fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
   }
   else {
     // We're not in a canvas page.
@@ -141,21 +159,24 @@ function fb_settings_session_helper() {
   
   // By default Drupal will name the session based on the $cookie_domain.
   // When facebook controls the session, we need a different name.
-  if (!isset($_REQUEST['fb_session_no']) && // (a way to override this)
-      fb_settings(FB_SETTINGS_APIKEY) && fb_settings(FB_SETTINGS_TYPE)) {
-    // Set session name differently for each app.
-    //session_name('SESS' . fb_settings(FB_SETTINGS_TYPE) . md5(fb_settings(FB_SETTINGS_APIKEY))); // not sufficient!
-    // In fb connect, one user may log out of facebook, and another log in
-    // using same browser.  We never get a logout event! For this case we must
-    // make session names different.
-    session_name('SESS' . fb_settings(FB_SETTINGS_TYPE) . md5(fb_settings(FB_SETTINGS_APIKEY) . fb_settings(FB_SETTINGS_SESSION_KEY))); // unique to session, if known.
-    
-    if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS && fb_settings(FB_SETTINGS_SESSION_KEY)) {
-      // Spoof a cookie, and make it the same for both FBML and iframe canvas pages.
-      $session_id = 'fb_canvas_' . md5(fb_settings(FB_SETTINGS_APIKEY) . fb_settings(FB_SETTINGS_SESSION_KEY));
-      session_id($session_id);
-      $_COOKIE[session_name()] = $session_id;
-      fb_settings('fb_session_id_force', $session_id);
+  if (!isset($_REQUEST['fb_session_no'])) { // (a way to override this)
+    // Depending on new SDK or old, we will know either apikey or id.
+    $app_key = fb_settings(FB_SETTINGS_APIKEY) . fb_settings(FB_SETTINGS_ID);
+    if ($app_key && fb_settings(FB_SETTINGS_TYPE)) {
+      // Set session name differently for each app.
+      //session_name('SESS' . fb_settings(FB_SETTINGS_TYPE) . md5(fb_settings(FB_SETTINGS_APIKEY))); // not sufficient!
+      // In fb connect, one user may log out of facebook, and another log in
+      // using same browser.  We never get a logout event! For this case we must
+      // make session names different.
+      session_name('SESS' . fb_settings(FB_SETTINGS_TYPE) . md5($app_key . fb_settings(FB_SETTINGS_SESSION_KEY))); // unique to session, if known.
+      
+      if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS && fb_settings(FB_SETTINGS_SESSION_KEY)) {
+        // Spoof a cookie, and make it the same for both FBML and iframe canvas pages.
+        $session_id = 'fb_canvas_' . md5(fb_settings(FB_SETTINGS_APIKEY) . fb_settings(FB_SETTINGS_SESSION_KEY));
+        session_id($session_id);
+        $_COOKIE[session_name()] = $session_id;
+        fb_settings('fb_session_id_force', $session_id);
+      }
     }
   }
   
@@ -163,19 +184,6 @@ function fb_settings_session_helper() {
   if (fb_settings(FB_SETTINGS_SESSION_KEY)) {
     $GLOBALS['conf']['cache'] = 0;
   }
-}
-
-// We will use session names to ensure a unique session for
-// facebook-controlled sessions.  That is we will keep our cookies seperate
-// from normal drupal session cookies.  The trick is we must do this after
-// conf_init() (where drupal sets the session name, during
-// DRUPAL_BOOTSTRAP_CONFIGURATION), but before session_start() (during
-// DRUPAL_BOOTSTRAP_SESSION).  The only way to do this is to define our own
-// session.inc.
-
-// Ensure unique session for facebook app.
-if (!isset($conf['session_inc']) && FALSE) { // XXX
-  $conf['session_inc'] = dirname(__FILE__) . '/fb_session.inc';
 }
 
 
