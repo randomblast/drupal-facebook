@@ -210,15 +210,9 @@ function fb_connect_fb($op, $data, &$return) {
     }
   }
   elseif ($op == FB_OP_POST_INIT) {
-    if ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
-      if ($data['fb_app']->label == $label) {
-        $fb_app = $data['fb_app'];
-        // Init Facebook javascript for primary app
-        fb_connect_require_feature('XFBML', $fb_app);
-        // fb_connect_init_option('reloadIfSessionStateChanged', TRUE, $fb_app);
-        fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
-        fb_connect_init_option('ifUserNotConnected', "{FB_Connect.on_not_connected}", $fb_app);
-      }
+    if (!fb_is_canvas()) {
+      // Init Facebook javascript for primary app
+      _fb_connect_add_js();
     }
     
     // Include our admin hooks.
@@ -297,7 +291,7 @@ function fb_connect_require_feature($feature = NULL, $fb_app = NULL) {
 /**
  * Add an option when initializing facebook's javascript api.
  */
-function fb_connect_init_option($option = NULL, $value = NULL, $fb_app = NULL) {
+function fb_connect_init_optionXXX($option = NULL, $value = NULL, $fb_app = NULL) {
   if ($option && !isset($fb_app))
     $fb_app = $GLOBALS['_fb_app'];
   if ($option && !$fb_app)
@@ -448,10 +442,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       if ($fb = fb_connect_app_init($fb_app)) {
         $fbu = $fb->getUser();
 
-        // TODO: clean out deprecated init options.
-        fb_connect_require_feature('XFBML', $fb_app);
-        fb_connect_init_option('ifUserConnected', "{FB_Connect.on_connected}", $fb_app);
-        fb_connect_init_option('ifUserNotConnected', "{FB_Connect.on_not_connected}", $fb_app);
+        _fb_connect_add_js();
         
         $base = drupal_get_path('module', 'fb_connect');
         
