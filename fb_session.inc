@@ -16,24 +16,10 @@ if (function_exists('fb_settings_session_helper')) {
 }
 
 /**
- * In canvas pages, cookies do not work.  To enforce sessions, we "spoof" a
- * cookie (see fb_settings_session_helper()).  Sometimes drupal changes the
- * session id on us, we need to change it back, because the canvas page will
- * never honor the new value.
- *
- * This function is called from fb_exit();
+ * Helper function called when handing off from drupal-controlled session to facebook-controlled session.
  */
-function fb_session_exit() {
-  if ($id = fb_settings('fb_session_id_force')) {
-    if ($id != session_id()) {
-      // In case we are called after sess_write.
-      //db_query("UPDATE {sessions} SET sid='%s' WHERE sid='%s'",
-      //        array($id, session_id()));
-
-      // We are called before sess_write.
-      session_id($id);
-    }
-  }
+function fb_session_destroy() {
+  global $user;
+  session_destroy(); // Destroy local drupal session, not session controlled by facebook cookies.
+  $user = drupal_anonymous_user();
 }
-
-

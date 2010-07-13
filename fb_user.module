@@ -311,6 +311,13 @@ function fb_user_fb($op, $data, &$return) {
                $fb_app->apikey, fb_facebook_user($fb));
     }
   }
+  elseif ($op == FB_OP_AJAX_EVENT) {
+    // fb.js has notified us of an event via AJAX.  Not the same as facebook event callback above.
+    if ($data['event_type'] == 'session_change' && isset($data['event_data']['fbu'])) {
+      // A user has logged in.
+      _fb_user_set_authmap($data['fb_app'], $data['status']['fbu'], $GLOBALS['user']);
+    }
+  }
 }
 
 /**

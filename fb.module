@@ -6,9 +6,11 @@ define('FB_HOOK', 'fb');
 
 // Paths.
 define('FB_PATH_ADMIN', 'admin/build/fb');
-define('FB_PATH_ADMIN_ARGS', 3); // args in path.
+define('FB_PATH_ADMIN_ARGS', 3); // how many args in path.
 define('FB_PATH_ADMIN_APPS', 'admin/build/fb/app');
 define('FB_PATH_ADMIN_APPS_ARGS', 4);
+define('FB_PATH_AJAX_EVENT', 'fb/ajax');
+define('FB_PATH_AJAX_EVENT_ARGS', 2);
 
 // permissions
 define('FB_PERM_ADMINISTER', 'administer fb apps');
@@ -30,7 +32,7 @@ define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.modul
 define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has authorized an app.  Triggers creation of user accounts or authmap entries
 
 define('FB_OP_JS', 'fb_op_js');  // A chance to inject javascript onto the page.
-
+define('FB_OP_AJAX_EVENT', 'fb_op_ajax'); // Notification of an event via ajax.
 
 // node_access realms (belongs here?)
 define('FB_GRANT_REALM_FRIEND', 'fb_friend');
@@ -82,11 +84,12 @@ function fb_init() {
     }
   }
 
-  // Add javascript to all pages.
-  drupal_add_js(drupal_get_path('module', 'fb') . '/fb.js');
-  drupal_add_js(array('fb' => array()), 'setting');
-  // @TODO - replace en_US with dynamically determined locale.
-  drupal_add_js(array('fb_js_sdk' => variable_get('fb_js_sdk', 'http://connect.facebook.net/en_US/all.js')), 'setting');
+  // Values needed by fb.js.
+  $js_settings = array(
+    'ajax_event_url' => url(FB_PATH_AJAX_EVENT, array('absolute' => TRUE)),
+    // @TODO - replace en_US with dynamically determined locale.
+    'js_sdk_url' => variable_get('fb_js_sdk', 'http://connect.facebook.net/en_US/all.js'),
+  );
   
   // Ask other modules for app details.
   $_fb_app = fb_invoke(FB_OP_CURRENT_APP);
@@ -94,12 +97,9 @@ function fb_init() {
   if ($_fb_app) {
     // An App is configured.
     // Initialize javascript.
-    drupal_add_js(array(
-                    'fb' => array(
-                      'apikey' => $_fb_app->apikey,
-                      'label' => $_fb_app->label,
-                    ),
-                  ), 'setting');
+    $js_settings['apikey'] = $_fb_app->apikey;
+    $js_settings['label'] = $_fb_app->label;
+
     // Initialize the PHP API.
     $_fb = fb_api_init($_fb_app);
     
@@ -116,19 +116,19 @@ function fb_init() {
                     'fb' => $_fb,
                     'fbu' => $_fb->getUser(),
                   ));
-        
-        drupal_add_js(array(
-                        'fb' => array(
-                          'fbu' => $_fb->getUser(),
-                        ),
-                      ), 'setting');
-        
+        $js_settings['fbu'] = $_fb->getUser();        
       }
     }
     else
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", array(), WATCHDOG_ERROR);
     
   }
+
+  // Add javascript to all pages.
+  drupal_add_js(drupal_get_path('module', 'fb') . '/fb.js');
+  // ??? Should $js_settings by alterable by other modules?
+  drupal_add_js(array('fb' => $js_settings), 'setting');
+
   
   fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
                                    'fb' => $_fb));
@@ -211,7 +211,9 @@ function _fb_api_init($fb_app = NULL) {
 
 /**
  * Since facebook's php sdk is a joke, we have to implement the most basic
- * crap.
+ * crap, like this.
+ * 
+ * @TODO - is this still needed? It's hard to know when their bugs are fixed.
  */
 function fb_access_token($fb = NULL) {
   static $cache;
@@ -733,7 +735,14 @@ function fb_menu() {
     'type' => MENU_CALLBACK,
     'access callback' => TRUE,
   );
-  
+
+  // Ajax event handler.
+  $items[FB_PATH_AJAX_EVENT . '/%'] = array(
+    'page callback' => 'fb_ajax_event',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+    'page arguments' => array(FB_PATH_AJAX_EVENT_ARGS),
+  );
   
   return $items;
 }
@@ -771,10 +780,6 @@ function fb_exit($destination = NULL) {
   global $_fb_app, $_fb;
   
   if ($_fb_app && $_fb) {
-    
-    // Session management
-    if (function_exists('fb_session_exit'))
-      fb_session_exit();
     
     // Invoke other modules.
     fb_invoke(FB_OP_EXIT, array('fb_app' => $_fb_app,
@@ -1037,3 +1042,40 @@ function fb_js_cb() {
   exit();
 }
 
+/**
+ * Ajax callback handles an event from facebook's javascript sdk.
+ *
+ * @see fb.js and http://developers.facebook.com/docs/reference/javascript/FB.Event.subscribe
+ *
+ * @return Array of javascript to be evaluated by the page which called this callback.
+ */
+function fb_ajax_event($event_type) {
+  $fb_app = fb_get_app(array('apikey' => $_REQUEST['apikey']));
+  $fb = fb_api_init($fb_app);
+  // Data to pass to hook_fb.
+  $data = array(
+    'fb_app' => $fb_app,
+    'fb' => $fb,
+    'event_type' => $event_type,
+    'event_data' => $_REQUEST['event_data'], // POSTed via ajax.
+  );
+
+  // global $user; // debug
+  //watchdog('fb_debug', "fb_ajax event $event_type. Current user is $user->name ($user->uid)." . dprint_r($_POST, 1)); // debug
+
+  $js_array = fb_invoke(FB_OP_AJAX_EVENT, $data, array());
+
+  if ($event_type == 'session_change') {
+    // Refresh page on session change, if no module has provided alternate actions.
+    if (!count($js_array)) {
+      $js_array[] = 'window.location.reload();';
+    }
+    // Hand-off from drupal-controlled session to facebook-controlled session.
+    if ($data['event_data']['session'] && function_exists('fb_session_destroy')) {
+      fb_session_destroy();
+    }
+  }
+  
+  drupal_json($js_array);
+  exit();
+}

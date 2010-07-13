@@ -27,27 +27,33 @@ FB_JS.sessionChange = function(response) {
 
 FB_JS.initHandler = function() {
   var session = FB.getLoginStatus(function(response) {
-      var status = {'session' : response.session, 'response': response};
-      if (response.session) {
-        status.fbu = response.session.uid;
-        if (Drupal.settings.fb.fbu != status.fbu) {
-          status.changed = true;
-        }
-      }
-      else if (Drupal.settings.fb.fbu) {
+    var status = {'session' : response.session, 'response': response};
+    if (response.session) {
+      status.fbu = response.session.uid;
+      if (Drupal.settings.fb.fbu != status.fbu) {
         status.changed = true;
       }
-      if (status.changed) {
-        jQuery.event.trigger('fb_session_change', status);
-      }
-    });
-  
+    }
+    else if (Drupal.settings.fb.fbu) {
+      status.changed = true;
+    }
+    if (status.changed) {
+      jQuery.event.trigger('fb_session_change', status);
+    }
+  });
 };
 
 // JQuery pseudo-event handler.
 FB_JS.sessionChangeHandler = function(context, status) {
   //debugger;
-  window.location.reload();
+  var data = {
+    'fb_session_no': new Boolean(status.session), // Suppress facebook-controlled session.
+    'apikey': FB._apiKey,
+    'event_type': 'session_change',
+    'event_data': status
+  };
+  FB_JS.ajaxEvent(data.event_type, data);
+  // No need to call window.location.reload().  It will be called from ajaxEvent, if needed.
 };
 
 // click handler
@@ -59,16 +65,30 @@ FB_JS.logoutHandler = function(event) {
   }  
 };
 
+// Helper to pass events via AJAX.
+// A list of javascript functions to be evaluated is returned.
+FB_JS.ajaxEvent = function(event_type, data) {
+  if (Drupal.settings.fb.ajax_event_url) {
+    jQuery.post(Drupal.settings.fb.ajax_event_url + '/' + event_type, data,
+		function(js_array, textStatus, XMLHttpRequest) {
+		  //debugger;
+		  for (var i = 0; i < js_array.length; i++) {
+		    eval(js_array[i]);
+		  }
+		}, 'json');
+  }
+};
+
 Drupal.behaviors.fb = function(context) {
   if (typeof(FB) == 'undefined') {
     // Include facebook's javascript.  @TODO - determine locale dynamically.
-    jQuery.getScript(Drupal.settings.fb_js_sdk);
+    jQuery.getScript(Drupal.settings.fb.js_sdk_url);
   }
   else {
     $(context).each(function() {
       var elem = $(this).get(0);
-        //alert('fb_connect: ' + elem + $(elem).html()); // debug
-        FB.XFBML.parse(elem);
+      //alert('fb_connect: ' + elem + $(elem).html()); // debug
+      FB.XFBML.parse(elem);
     });
   }
   // Respond to connected events
