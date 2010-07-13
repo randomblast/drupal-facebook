@@ -13,7 +13,7 @@ function fb_app_install() {
   // Create tables.
   drupal_install_schema('fb_app');
   
-  drupal_set_message(st('Facebook Application module installed. Please grant yourself <a href="!perm">permissions</a> and then browse to <a href="!create">Admin >> Facebook Applications</a> to get started.', array('!perm' => url('admin/user/permissions'), '!create' => url(FB_PATH_ADMIN))));
+  drupal_set_message(st('Facebook Application module installed. Please grant yourself <a href="!perm">permissions</a> and then browse to <a href="!create">Admin >> Facebook Applications</a> to get started.', array('!perm' => url('admin/user/permissions'), '!create' => url('admin/build/fb') /* FB_PATH_ADMIN */)));
 
 }
 
