@@ -12,11 +12,8 @@ define('FB_CONNECT_VAR_PRIMARY', 'fb_connect_primary_label');
 
 define('FB_CONNECT_VAR_THEME_USERNAME_1', 'fb_connect_theme_username_1');
 define('FB_CONNECT_VAR_THEME_USERNAME_2', 'fb_connect_theme_username_2');
-define('FB_CONNECT_VAR_THEME_USERPIC1', 'fb_connect_theme_userpic_1');
+define('FB_CONNECT_VAR_THEME_USERPIC_1', 'fb_connect_theme_userpic_1');
 define('FB_CONNECT_VAR_THEME_USERPIC_2', 'fb_connect_theme_userpic_2');
-
-define('FB_CONNECT_PATH_SESSION_START', 'fb_connect/session_start');
-define('FB_CONNECT_PATH_SESSION_END', 'fb_connect/session_end');
 
 
 /**
@@ -25,26 +22,6 @@ define('FB_CONNECT_PATH_SESSION_END', 'fb_connect/session_end');
 function fb_connect_menu() {
   $items = array();
 
-  // Cross-domain receiver.
-  // XXX going away!  use fb_receiver.html instead.  This is left in to make the upgrade path easier, but it willgo away before 2.0 release.
-  $items['fb_connect/receiverXXX'] = array(
-    'page callback' => 'fb_connect_receiver',
-    'type' => MENU_CALLBACK,
-    'access callback' => TRUE,
-  );
-
-  // Session and authmap helpers.
-  $items[FB_CONNECT_PATH_SESSION_START] = array(
-    'page callback' => 'fb_connect_session_start_cb',
-    'type' => MENU_CALLBACK,
-    'access callback' => TRUE,
-  );
-  $items[FB_CONNECT_PATH_SESSION_END] = array(
-    'page callback' => 'fb_connect_session_end_cb',
-    'type' => MENU_CALLBACK,
-    'access callback' => TRUE,
-  );
-  
   // Admin pages
   $items[FB_PATH_ADMIN . '/fb_connect'] = array(
     'title' => 'Facebook Connect',
@@ -60,84 +37,6 @@ function fb_connect_menu() {
   return $items;
 }
 
-
-// @TODO - session management changes in new API.
-/**
- * Session start callback.
- *
- * This can be invoked when a user is logging into facebook connect.  If the
- * user was previously logged into Drupal.  An authmap entry will be made
- * linking the two accounts.
- */
-function fb_connect_session_start_cb() {
-  global $_fb, $_fb_app;
-  global $user;
-
-  if (fb_verbose() == 'extreme') {
-    watchdog('fb_connect', t("fb_connect_session_start_cb, session_name is " . session_name() . ", session_id is " . session_id()));
-  }
-  //watchdog('fbc_authmap_cb', dprint_r($_REQUEST, 1)); // debug
-  if ($_fb_app->apikey == $_REQUEST['apikey']) {
-    // http://wiki.developers.facebook.com/index.php/Verifying_The_Signature
-    if ($fbu = $_fb->get_loggedin_user()) {
-      if (function_exists('_fb_user_set_authmap')) {
-        _fb_user_set_authmap($_fb_app, $fbu, $user);
-      }
-    }
-  }
-  session_destroy(); // Destroy local drupal session, not session controlled by facebook cookies.
-  $user = drupal_anonymous_user();
-  drupal_json(TRUE);
-  exit();
-}
-
-
-function fb_connect_session_end_cb() {
-  global $user;
-
-  if (fb_verbose() == 'extreme') {
-    watchdog('fb_connect', t("fb_connect_session_end_cb, session_name is " . session_name() . ", session_id is " . session_id()));
-  }
-  session_destroy(); // When user logs out of connect, give them a new session.
-  $user = drupal_anonymous_user();
-  drupal_json(TRUE);
-  exit();
-}
-
-
-/**
- * Without a receiver file, cross-domain javascript will not work.
- *
- * In their infinite wisdom, facebook has decreed that the URL for
- * this static page be in the same place as the app's callback URL.
- * So we have to make a Drupal callback for what would otherwise be a
- * simple file.
- *
- * Supports SSL, http://wiki.developers.facebook.com/index.php/Facebook_Connect_Via_SSL.
- */
-function fb_connect_receiverXX() { // DEPRECATED and will go away!
-  // facebook_config global comes from facebook's API.
-  $src_suffix = $GLOBALS['facebook_config']['debug'] 
-    ? '.debug'
-    : '' ;
-  
-  $src = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') 
-    ? "https://ssl.connect.facebook.com/js/api_lib/v0.4/XdCommReceiver$src_suffix.js" 
-    : "http://static.ak.connect.facebook.com/js/api_lib/v0.4/XdCommReceiver$src_suffix.js" ;
-  
-  $output = <<<HTML
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" >
-<body>
-  <!-- Drupal for Facebook cross-domain receiver. -->
-  <!-- http://wiki.developers.facebook.com/index.php/Cross_Domain_Communication_Channel -->
-  <script src="$src" type="text/javascript"></script>
-</body>
-</html>
-HTML;
-  print $output;
-  die(); // prevent Drupal from writing anything else.
-}
 
 /**
  * Prepare for fbConnect use.  Because a single Drupal might support
