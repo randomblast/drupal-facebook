@@ -9,6 +9,7 @@
  * rather than create a new local account for the facebook user.
  *
  * http://wiki.developers.facebook.com/index.php/Linking_Accounts_and_Finding_Friends
+ * http://developers.facebook.com/docs/reference/rest/connect.registerUsers
  */
 
 
@@ -38,7 +39,7 @@ function fb_register_menu() {
   return $items;
 }
 
-
+// @TODO: clean up and improve this page.
 function fb_register_detail_page($fb_app) {
   $output = '';
   
@@ -56,7 +57,7 @@ function fb_register_detail_page($fb_app) {
   $output .= '<p>' . t('The registration module is enabled for this application.  Users will be registered during cron jobs and when they change email addresses.  <br/><a href="!url">Click here to register ALL users now</a>.',
              array('!url' => url('fb_register/' . $fb_app->label . '/' . $how_many))) . "</p>\n";
   
-  $output .= '<pre>' . print_r($fb_app, 1) . "</pre>\n"; // debug
+  //$output .= '<pre>' . print_r($fb_app, 1) . "</pre>\n"; // debug
   
   return $output;
 }
