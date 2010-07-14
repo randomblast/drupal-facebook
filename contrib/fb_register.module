@@ -38,6 +38,7 @@ function fb_register_menu() {
   return $items;
 }
 
+
 function fb_register_detail_page($fb_app) {
   $output = '';
   
@@ -65,6 +66,8 @@ function fb_register_detail_page($fb_app) {
  * itself to register another chunk.  And so on, to quickly register
  * all users of a site, rather than waiting for cron jobs to take care
  * of it all.
+ *
+ * @TODO: convert this to drupal's batch api.
  */
 function fb_register_all_users($fb_app, $how_many) {
   $success_count = _fb_register_register_users($fb_app, $how_many);
@@ -97,7 +100,7 @@ function _fb_register_summary($fb_app) {
   
   $registered = db_result(db_query("SELECT count(uid) as count FROM {fb_register} WHERE uid <= %d", $last_uid_registered));
   $local = db_result(db_query("SELECT count(u.uid) FROM {users} u WHERE uid > 0"));
-  $registerable = db_result(db_query("SELECT count(u.uid) FROm {users} u WHERE u.uid > 0 ANd u.mail IS NOT NULL AND u.mail <> ''"));
+  $registerable = db_result(db_query("SELECT count(u.uid) FROM {users} u WHERE u.uid > 0 ANd u.mail IS NOT NULL AND u.mail <> ''"));
   
   $summary = t("%registered of %registerable accounts have been registered for !app. <br/>(Of %local total users, %registerable have email addresses.)", array(
                '%registered' => $registered,
@@ -181,9 +184,14 @@ function _fb_register_register_users($fb_app, $how_many) {
   $error_count = 0;
   if (isset($register_data) && count($register_data)) {
     try {
-      $success_data = $fb->api_client->connect_registerUsers(json_encode($register_data));
-      
+      //XXX      $success_data = $fb->api_client->connect_registerUsers(json_encode($register_data));
+      $success_data = fb_call_method($fb, 'connect.registerUsers',
+                                     array(
+                                       'v' => 1.0,
+                                       'accounts' => json_encode($register_data),
+                                     ));
       // Check results
+      //dpm($success_data, "connect.registerUsers returned"); // debug
       foreach ($register_data as $i => $data) {
         $account = $user_data[$i];
         if (isset($success_data[$i]) &&
@@ -211,6 +219,7 @@ function _fb_register_register_users($fb_app, $how_many) {
           // Make certain we try this user again next time.
           db_query("DELETE FROM {fb_register} WHERE uid=%d",
                    $account->uid);
+          
         }
       }
       
@@ -221,7 +230,6 @@ function _fb_register_register_users($fb_app, $how_many) {
       fb_log_exception($e, t('Failed to register users via connect_registerUsers'));
       $error_count++;
     }
-    fb_report_errors($fb, t('Failed to register email hash'));
   }
   else {
     drupal_set_message(t('Found no users to register.'));
@@ -325,7 +333,11 @@ function fb_register_user($op, &$edit, &$account, $category = NULL) {
             isset($fb_register_data['register_users']) && 
             $fb_register_data['register_users']) {
           $fb = fb_api_init($app);
-          $success_data = $fb->api_client->connect_registerUsers(json_encode($register_data));
+          //$success_data = $fb->api_client->connect_registerUsers(json_encode($register_data));
+          $success_data = fb_call_method($fb, 'connect.registerUsers', array(
+                                           'v' => 1.0,
+                                           'accounts' => json_encode($register_data),
+                                         ));
           if (fb_verbose()) {
             watchdog('fb_register', '%application sent email hash for !user.  Facebook returned %num_returned successfully registered.',
                      array('%application' => $app->title,
