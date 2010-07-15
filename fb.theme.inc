@@ -9,16 +9,21 @@
 
 
 function theme_fb_login_button($text, $options = array()) {
-  // Which permissions to prompt for?
-  $perms = array();
-  drupal_alter('fb_required_perms', $perms);
+  // Merge in defaults
+  $options += array(
+    'attributes' => array(),
+  );
+  if (!isset($options['attributes']['perms'])) {
+    // Which permissions to prompt for?
+    $perms = array();
+    drupal_alter('fb_required_perms', $perms);
+    if (count($perms)) {
+      $options['attributes']['perms'] = implode(',', $perms);
+    }
+  }
   
-  $button =
-    '<fb:login-button perms="' .
-    implode(',', $perms) .
-    '" onclick="FB_Connect.login_onclick()" v="2"><fb:intl>' .
-    $text .
-    '</fb:intl></fb:login-button>';
+  $button = '<fb:login-button ' . drupal_attributes($options['attributes']) . '>' .
+    '<fb:intl>' . check_plain($text) . '</fb:intl></fb:login-button>';
   return $button;
 }
 
