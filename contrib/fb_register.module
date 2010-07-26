@@ -318,8 +318,9 @@ function fb_register_user($op, &$edit, &$account, $category = NULL) {
     if ($edit['mail']) {
       $hash = fb_register_email_hash($edit['mail']);
       $register_data = array(
-        array('email_hash' => $hash,
-              'account_url' => url('user/' . $account->uid, array('absolute' => TRUE)),
+        array(
+          'email_hash' => $hash,
+          'account_url' => url('user/' . $account->uid, array('absolute' => TRUE)),
         )
       );
       db_query("DELETE FROM {fb_register} WHERE uid = %d",
