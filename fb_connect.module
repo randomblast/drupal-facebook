@@ -128,16 +128,11 @@ function fb_connect_fb($op, $data, &$return) {
 function _fb_connect_add_js() {
   static $just_once;
   if (!isset($just_once)) {
-    if ($uid = $GLOBALS['user']->uid && module_exists('fb_user')) {
-      $session_start_url = url(FB_CONNECT_PATH_SESSION_START);
-    }
     drupal_add_js(array(
                     'fb_connect' => array(
                       'front_url' => url('<front>'),
                       'fbu' => fb_facebook_user(),
                       'uid' => $uid,
-                      'session_start_url' => $session_start_url,
-                      'session_end_url' => url(FB_CONNECT_PATH_SESSION_END),
                     ),
                   ), 'setting');
     drupal_add_js(drupal_get_path('module', 'fb_connect') . '/fb_connect.js');
