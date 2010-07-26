@@ -42,7 +42,7 @@ To install:
 
   $conf['session_inc'] = "profiles/custom/modules/fb/fb_session.inc";
   
-- If you want to support multiple applications, url rewriting is
+- If you want to support canvas pages, url rewriting is
   recommended.  Enable this by adding this line to settings.php:
 
   include "sites/all/modules/fb/fb_url_rewrite.inc";
