@@ -315,7 +315,10 @@ function fb_user_fb($op, $data, &$return) {
     // fb.js has notified us of an event via AJAX.  Not the same as facebook event callback above.
     if ($data['event_type'] == 'session_change' && isset($data['event_data']['fbu'])) {
       // A user has logged in.
-      _fb_user_set_authmap($data['fb_app'], $data['status']['fbu'], $GLOBALS['user']);
+      // Don't trust fbu from $data['event_data'], too easy to spoof.
+      if ($fbu = fb_facebook_user($data['fb'])) {
+        _fb_user_set_authmap($data['fb_app'], $fbu, $GLOBALS['user']);
+      }
     }
   }
 }

@@ -376,6 +376,9 @@ function fb_api_check_session($fb) {
     $success = TRUE;
   }
   catch (Exception $e) {
+    if (fb_verbose()) {
+      watchdog('fb', 'fb_api_check_session failed.  Possible attempt to spoof a facebook session!');
+    }
     $success = FALSE;
   }
   return $success;
@@ -1057,25 +1060,26 @@ function fb_ajax_event($event_type) {
     'fb_app' => $fb_app,
     'fb' => $fb,
     'event_type' => $event_type,
-    'event_data' => $_REQUEST['event_data'], // POSTed via ajax.
+    'event_data' => $_POST, // POSTed via ajax.
   );
 
-  // global $user; // debug
-  //watchdog('fb_debug', "fb_ajax event $event_type. Current user is $user->name ($user->uid)." . dprint_r($_POST, 1)); // debug
+  global $user; // debug
+  watchdog('fb_debug', "fb_ajax event $event_type. Current user is $user->name ($user->uid)." . dprint_r($_POST, 1)); // debug
 
   $js_array = fb_invoke(FB_OP_AJAX_EVENT, $data, array());
+  
+  if ($event_type == 'session_change' && !count($js_array)) {
+    // Refresh page on session change, if no module has provided alternate actions.
+    $js_array[] = 'window.location.reload();';
+  }
+  watchdog('fb_debug', "fb_ajax_event returning " . dprint_r($js_array, 1));
+  drupal_json($js_array);
 
   if ($event_type == 'session_change') {
-    // Refresh page on session change, if no module has provided alternate actions.
-    if (!count($js_array)) {
-      $js_array[] = 'window.location.reload();';
-    }
     // Hand-off from drupal-controlled session to facebook-controlled session.
-    if ($data['event_data']['session'] && function_exists('fb_session_destroy')) {
+    if ($data['event_data']['fb_session_no'] && function_exists('fb_session_destroy')) {
       fb_session_destroy();
     }
   }
-  
-  drupal_json($js_array);
   exit();
 }
