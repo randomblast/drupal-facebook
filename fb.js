@@ -2,25 +2,55 @@
 // This function called by facebook's javascript when it is loaded.
 window.fbAsyncInit = function() {
   //debugger; // debug
+  // @TODO - make these settings completely customizable.
   var settings = {xfbml: true};
   if (Drupal.settings.fb.apikey) {
     settings.apiKey = Drupal.settings.fb.apikey;
     settings.status = true;
     settings.cookie = true;
   }
-  FB.init(settings);
-  FB.Event.subscribe('auth.sessionChange', FB_JS.sessionChange); // Catches login via connect button.
-  //FB.Event.subscribe('auth.login', FB_JS.debugHandler);
-  //FB.Event.subscribe('auth.logout', FB_JS.debugHandler);
-  //FB.Event.subscribe('auth.statusChange', FB_JS.debugHandler);
+  if (Drupal.settings.fb.page_type == 'canvas') {
+    settings.cookie = false; // No need for cookie on canvas pages.
+  }
   
-  jQuery.event.trigger('fb_init');  // Trigger event so that other code can now execute.
+  FB.init(settings);
+
+  // Async function to complete init.
+  FB.getLoginStatus(function(response) {
+    var status = {'session' : response.session, 'response': response};
+    jQuery.event.trigger('fb_init', status);  // Trigger event for third-party modules.
+    
+    if (response.session) {
+      status.fbu = response.session.uid;
+      if (Drupal.settings.fb.fbu != status.fbu) {
+        status.changed = true;
+      }
+    }
+    else if (Drupal.settings.fb.fbu) {
+      status.changed = true;
+    }
+    if (status.changed) {
+      // fbu has changed since server built the page.
+      jQuery.event.trigger('fb_session_change', status);
+    }
+    // Use FB.Event to detect Connect login/logout.
+    FB.Event.subscribe('auth.sessionChange', FB_JS.sessionChange);
+    
+    // Other events that may be of interest...
+    FB.Event.subscribe('auth.login', FB_JS.debugHandler);
+    FB.Event.subscribe('auth.logout', FB_JS.debugHandler);
+    //FB.Event.subscribe('auth.statusChange', FB_JS.debugHandler);
+    FB.Event.subscribe('auth.sessionChange', FB_JS.debugHandler);
+
+  });
+
+  
 };
 
 FB_JS = function(){};
 
 
-// Facebook pseudo-event handler.
+// Facebook pseudo-event handlers.
 FB_JS.sessionChange = function(response) {
   var status = {'changed': true, 'session': response.session, 'response' : response};
   if (response.session) {
@@ -47,7 +77,7 @@ FB_JS.sessionChangeHandler = function(context, status) {
   if (status.session) {
     data.fbu = status.session.uid;
     // Suppress facebook-controlled session.
-    data.fb_session_no = 1;
+    data.fb_session_handoff = true;
   }
   FB_JS.ajaxEvent(data.event_type, data);
   // No need to call window.location.reload().  It will be called from ajaxEvent, if needed.
@@ -76,6 +106,12 @@ FB_JS.ajaxEvent = function(event_type, data) {
 };
 
 Drupal.behaviors.fb = function(context) {
+  // Respond to our jquery pseudo-events
+  var events = jQuery(document).data('events');
+  if (!events || !events.fb_session_change) {
+    jQuery(document).bind('fb_session_change', FB_JS.sessionChangeHandler);
+  }
+  
   if (typeof(FB) == 'undefined') {
     // Include facebook's javascript.  @TODO - determine locale dynamically.
     jQuery.getScript(Drupal.settings.fb.js_sdk_url);
@@ -87,12 +123,7 @@ Drupal.behaviors.fb = function(context) {
       FB.XFBML.parse(elem);
     });
   }
-  // Respond to connected events
-  var events = jQuery(document).data('events');
-  if (!events || !events.fb_session_change) {
-    jQuery(document).bind('fb_session_change', FB_JS.sessionChangeHandler);
-  }
-  
+
   // Markup with class .fb_show should be visible if javascript is enabled.  .fb_hide should be hidden.
   jQuery('.fb_hide', context).hide();
   jQuery('.fb_show', context).show();

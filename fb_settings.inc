@@ -50,6 +50,34 @@ if (!is_array($conf))
 
 
 /**
+ * Helpers to parse signed_session.  Copied from facebook.php.
+ */
+/**
+ * Base64 encoding that doesn't need to be urlencode()ed.
+ * Exactly the same as base64_encode except it uses
+ *   - instead of +
+ *   _ instead of /
+ *
+ * @param String base64UrlEncodeded string
+ */
+function _fb_settings_base64_url_decode($input) {
+  return base64_decode(strtr($input, '-_', '+/'));
+}
+/**
+ * See facebook.php for a more reliable version of this function.  We skip
+ * validation because we do not yet know the app secret.
+ */
+function _fb_settings_parse_signed_request($signed_request) {
+  list($encoded_sig, $payload) = explode('.', $signed_request, 2);
+  
+  // decode the data
+  $sig = _fb_settings_base64_url_decode($encoded_sig);
+  $data = json_decode(_fb_settings_base64_url_decode($payload), true);
+  
+  return $data;
+}
+
+/**
  * Parse a facebook session cookie.  Based on sample code http://developers.facebook.com/docs/guides/web.
  */
 function fb_settings_get_facebook_cookie($app_id, $application_secret = NULL) {
@@ -67,6 +95,13 @@ function fb_settings_get_facebook_cookie($app_id, $application_secret = NULL) {
       return null;
     }
   }
+  if (!isset($args['session_key'])) {
+    // Session key missing first time facebook connect page is loaded (?)
+    if ($access_token = $args['access_token']) {
+      $tokens = explode('|', $access_token);
+      $args['session_key'] = $tokens[1] . '|' . $tokens[2];
+    }
+  }
   return $args;
 }
 
@@ -76,9 +111,10 @@ function fb_settings_get_facebook_cookie($app_id, $application_secret = NULL) {
  */
 function fb_settings_session_helper() {
   // New SDK's use session param for canvas pages.
+  // Wow!  This is obsolete already!  'session' has been replaced with 'signed_request'
   if (isset($_REQUEST['session'])) {
     // It's a canvas page.
-    $session = $_REQUEST['session'];
+    $session = json_decode($_REQUEST['session'], TRUE);
     // Which app?
     $access_tokens = explode('|', $session['access_token']);
     if ($app_id = $access_tokens[0]) {
@@ -87,7 +123,19 @@ function fb_settings_session_helper() {
       fb_settings(FB_SETTINGS_SESSION_KEY, $session['session_key']);
     }
   }
-  // Old SDK's use fb_sig_... params.
+  elseif (isset($_REQUEST['signed_request'])) {
+    // http://developers.facebook.com/docs/authentication/canvas
+    $sr = _fb_settings_parse_signed_request($_REQUEST['signed_request']);
+    if (isset($sr['oauth_token'])) {
+      $tokens = explode('|', $sr['oauth_token']);
+      if ($app_id = $tokens[0]) {
+        fb_settings(FB_SETTINGS_ID, $app_id);
+        fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
+        fb_settings(FB_SETTINGS_SESSION_KEY, $tokens[1] . '|' . $tokens[2]);
+      }
+    }
+  }
+  // Old SDK's use fb_sig_... params. Deprecated.
   elseif (isset($_REQUEST['fb_sig_api_key'])) {
     // It's a canvas page or event callback.
     fb_settings(FB_SETTINGS_APIKEY, $_REQUEST['fb_sig_api_key']);
@@ -159,7 +207,7 @@ function fb_settings_session_helper() {
   
   // By default Drupal will name the session based on the $cookie_domain.
   // When facebook controls the session, we need a different name.
-  if (!isset($_REQUEST['fb_session_no'])) { // (a way to override this)
+  if (!isset($_REQUEST['fb_session_handoff'])) { // (a way to override this)
     // Depending on new SDK or old, we will know either apikey or id.
     $app_key = fb_settings(FB_SETTINGS_APIKEY) . fb_settings(FB_SETTINGS_ID);
     if ($app_key && fb_settings(FB_SETTINGS_TYPE)) {
@@ -170,7 +218,8 @@ function fb_settings_session_helper() {
       // make session names different.
       session_name('SESS' . fb_settings(FB_SETTINGS_TYPE) . md5($app_key . fb_settings(FB_SETTINGS_SESSION_KEY))); // unique to session, if known.
       
-      if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS && fb_settings(FB_SETTINGS_SESSION_KEY)) {
+      if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS &&
+          fb_settings(FB_SETTINGS_SESSION_KEY)) {
         // Spoof a cookie, and make it the same for both FBML and iframe canvas pages.
         $session_id = 'fb_canvas_' . md5(fb_settings(FB_SETTINGS_APIKEY) . fb_settings(FB_SETTINGS_SESSION_KEY));
         session_id($session_id);

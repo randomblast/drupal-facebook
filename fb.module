@@ -99,7 +99,8 @@ function fb_init() {
     // Initialize javascript.
     $js_settings['apikey'] = $_fb_app->apikey;
     $js_settings['label'] = $_fb_app->label;
-
+    $js_settings['page_type'] = fb_settings(FB_SETTINGS_TYPE); // canvas or connect.
+    
     // Initialize the PHP API.
     $_fb = fb_api_init($_fb_app);
     
@@ -1070,14 +1071,14 @@ function fb_ajax_event($event_type) {
   
   if ($event_type == 'session_change' && !count($js_array)) {
     // Refresh page on session change, if no module has provided alternate actions.
+    //$js_array[] = 'debugger;'; // debug
     $js_array[] = 'window.location.reload();';
   }
-  watchdog('fb_debug', "fb_ajax_event returning " . dprint_r($js_array, 1));
   drupal_json($js_array);
 
   if ($event_type == 'session_change') {
     // Hand-off from drupal-controlled session to facebook-controlled session.
-    if ($data['event_data']['fb_session_no'] && function_exists('fb_session_destroy')) {
+    if ($data['event_data']['fb_session_handoff'] && function_exists('fb_session_destroy')) {
       fb_session_destroy();
     }
   }
