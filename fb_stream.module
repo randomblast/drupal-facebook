@@ -89,6 +89,9 @@ function fb_stream_fb($op, $data, &$return) {
     $js = fb_stream_js($params_array);
     $return += $js;
   }
+  if ($op == FB_OP_POST_INIT) {
+    drupal_add_js(drupal_get_path('module', 'fb_stream') . '/fb_stream.js');
+  }
 }
 
 /**

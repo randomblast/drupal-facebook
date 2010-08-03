@@ -381,6 +381,9 @@ function fb_api_check_session($fb) {
       watchdog('fb', 'fb_api_check_session failed.  Possible attempt to spoof a facebook session!');
     }
     $success = FALSE;
+    if (fb_verbose()) {
+      fb_log_exception($e, t("fb_api_check_session failed."));
+    }
   }
   return $success;
 }

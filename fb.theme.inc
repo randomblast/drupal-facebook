@@ -24,6 +24,7 @@ function theme_fb_login_button($text, $options = array()) {
   
   $button = '<fb:login-button ' . drupal_attributes($options['attributes']) . '>' .
     '<fb:intl>' . check_plain($text) . '</fb:intl></fb:login-button>';
+
   return $button;
 }
 
