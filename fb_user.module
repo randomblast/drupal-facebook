@@ -180,10 +180,19 @@ function fb_user_fb($op, $data, &$return) {
               
               if (fb_verbose() === 'extreme')
                 watchdog("fb_user", "fb_user_fb changing user to $account->uid");
+
               $valid_user = user_external_login($account);
               if (!$valid_user) {
                 drupal_access_denied();
                 exit();
+              }
+
+              // user_external_login() will call sess_regenerate, which will
+              // screw up our carefully constructed session_id.
+              // Let's hope no code uses $_SESSION in hook_user('login').
+              if ($session_id = fb_settings('fb_session_id_force')) {
+                // @TODO - Is there a better way to do this?
+                session_id($session_id); // Restore sanity.
               }
             }
           }
