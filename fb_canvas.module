@@ -263,7 +263,7 @@ function fb_canvas_redirect($url) {
  */
 function fb_canvas_is_iframe() {
   // Use either parameters passed from facebook, or url rewriting.
-  return $_REQUEST['fb_sig_in_iframe'] || fb_settings(FB_SETTINGS_CB);
+  return (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS);
 }
 
 /**
