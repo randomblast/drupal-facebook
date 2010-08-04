@@ -123,16 +123,16 @@ function fb_settings_session_helper() {
       fb_settings(FB_SETTINGS_SESSION_KEY, $session['session_key']);
     }
   }
-  elseif (isset($_REQUEST['signed_request'])) {
+  elseif (isset($_REQUEST['signed_request']) &&
+          ($sr = _fb_settings_parse_signed_request($_REQUEST['signed_request'])) &&
+          isset($sr['oauth_token'])) {
     // http://developers.facebook.com/docs/authentication/canvas
-    $sr = _fb_settings_parse_signed_request($_REQUEST['signed_request']);
-    if (isset($sr['oauth_token'])) {
-      $tokens = explode('|', $sr['oauth_token']);
-      if ($app_id = $tokens[0]) {
-        fb_settings(FB_SETTINGS_ID, $app_id);
-        fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
-        fb_settings(FB_SETTINGS_SESSION_KEY, $tokens[1] . '|' . $tokens[2]);
-      }
+    // We get useful info from signed_request only when user is logged in and therefore oauth_token is set.
+    $tokens = explode('|', $sr['oauth_token']);
+    if ($app_id = $tokens[0]) {
+      fb_settings(FB_SETTINGS_ID, $app_id);
+      fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
+      fb_settings(FB_SETTINGS_SESSION_KEY, $tokens[1] . '|' . $tokens[2]);
     }
   }
   // Old SDK's use fb_sig_... params. Deprecated.
@@ -166,9 +166,12 @@ function fb_settings_session_helper() {
     }
   }
   elseif (function_exists('_fb_settings_parse') &&
-          _fb_settings_parse(FB_SETTINGS_CB)) {
+          ($label = _fb_settings_parse(FB_SETTINGS_CB))) {
     // Using url_rewrite.  Canvas page, but no session (user not logged into facebook).
+    fb_settings(FB_SETTINGS_LABEL, $label);
     fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
+    // We don't really have a session, but we don't want to share a session with another tab visting the site.
+    fb_settings(FB_SETTINGS_SESSION_KEY, 'fb_canvas_' . session_id());
   }
   else {
     // We're not in a canvas page.
@@ -210,6 +213,10 @@ function fb_settings_session_helper() {
   if (!isset($_REQUEST['fb_session_handoff'])) { // (a way to override this)
     // Depending on new SDK or old, we will know either apikey or id.
     $app_key = fb_settings(FB_SETTINGS_APIKEY) . fb_settings(FB_SETTINGS_ID);
+    if (!$app_key) {
+      // Fallback to label, if known.
+      $app_key = fb_settings(FB_SETTINGS_LABEL);
+    }
     if ($app_key && fb_settings(FB_SETTINGS_TYPE)) {
       // Set session name differently for each app.
       //session_name('SESS' . fb_settings(FB_SETTINGS_TYPE) . md5(fb_settings(FB_SETTINGS_APIKEY))); // not sufficient!
