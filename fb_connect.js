@@ -151,9 +151,9 @@ FB_Connect.on_not_connected = function() {
   $.event.trigger('fb_connect_status', status);
 };
 
-// Deprecated and to be deleted.
 FB_Connect.login_onclick = function() {
-  alert('XXX call to deprecated FB_Connect.login_onclick.');
+  // This will execute before the user fills out the login form.
+  // More important is FB_Connect.on_connected, above.
 };
 
 FB_Connect.logout_onclick = function() {
