@@ -174,7 +174,6 @@ function fb_canvas_fb($op, $data, &$return) {
       // Include our javascript.
       drupal_add_js(array(
                       'fb_canvas' => array(
-                        'canvas_url' => fb_scrub_urls('http://apps.facebook.com/' . $fb_app->canvas . '/' . $_REQUEST['q']),
                         'fbu' => fb_facebook_user(),
                         'uid' => $GLOBALS['user']->uid,
                       ),

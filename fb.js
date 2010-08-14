@@ -49,12 +49,15 @@ FB_JS = function(){};
 /**
  * Reload the current page, whether on canvas page or facebook connect.
  */
-FB_JS.reload = function() {
-  if (typeof(Drupal.settings.fb_canvas) != 'undefined') {
-    window.top.location = Drupal.settings.fb_canvas.canvas_url;
+FB_JS.reload = function(destination) {
+  if (typeof(destination) != 'undefined' && destination) {
+    window.top.location = destination;
+  }
+  else if (typeof(Drupal.settings.fb.reload_url) != 'undefined') {
+    window.top.location = Drupal.settings.fb.reload_url;
   }
   else {
-    window.location.reload;
+    window.location.reload();
   }
 };
 

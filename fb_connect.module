@@ -255,15 +255,15 @@ function fb_connect_get_connect_url($fb_app) {
 function _fb_connect_block_login_defaults() {
   return array('anon_not_connected' => array(
                  'title' => t('Facebook Connect'),
-                 'body' => t('<fb:login-button perms="!perms" onclick="FB_Connect.login_onclick()" v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>'),
+                 'body' => t('<fb:login-button perms="!perms" onlogin="FB_JS.reload();" v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>'),
                ),
                'user_not_connected' => array(
                  'title' => t('Facebook Connect'),
-                 'body' => t('<fb:login-button perms="!perms" onclick="FB_Connect.login_onclick()" v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>'),
+                 'body' => t('<fb:login-button perms="!perms" onlogin="FB_JS.reload();" v="2"><fb:intl>Connect with Facebook</fb:intl></fb:login-button>'),
                ),
                'connected' => array(
                  'title' => t('Facebook Connect'),
-                 'body' => "<fb:profile-pic uid=!fbu></fb:profile-pic><!--<fb:login-button onclick='FB_Connect.logout_onclick();' autologoutlink=true></fb:login-button>-->",
+                 'body' => "<fb:profile-pic uid=!fbu></fb:profile-pic><!--<fb:login-button autologoutlink=true></fb:login-button>-->",
                ),
   );
 }

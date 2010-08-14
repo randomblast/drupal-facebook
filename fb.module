@@ -108,7 +108,8 @@ function fb_init() {
       // Give other modules a chance to initialize, require login, etc...
       fb_invoke(FB_OP_INITIALIZE, array(
                   'fb_app' => $_fb_app,
-                  'fb' => $_fb));
+                  'fb' => $_fb,
+                ));
       
       // See if the facebook user id is known
       if ($fbs = $_fb->getSession()) {
@@ -128,9 +129,15 @@ function fb_init() {
     }
     else
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", array(), WATCHDOG_ERROR);
-    
   }
 
+  if (fb_is_canvas()) {
+    $js_settings['reload_url'] = 'http://apps.facebook.com/' . $_fb_app->canvas . '/' . fb_scrub_urls($_REQUEST['q']);
+  }
+  else {
+    $js_settings['reload_url'] = url($_REQUEST['q'], array('absolute' => TRUE));
+  }
+  
   // Add javascript to all pages.
   drupal_add_js(drupal_get_path('module', 'fb') . '/fb.js');
   // ??? Should $js_settings by alterable by other modules?
