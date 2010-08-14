@@ -9,9 +9,6 @@ window.fbAsyncInit = function() {
     settings.status = true;
     settings.cookie = true;
   }
-  if (Drupal.settings.fb.page_type == 'canvas') {
-    settings.cookie = false; // No need for cookie on canvas pages.
-  }
   
   FB.init(settings);
 
@@ -37,10 +34,10 @@ window.fbAsyncInit = function() {
     FB.Event.subscribe('auth.sessionChange', FB_JS.sessionChange);
     
     // Other events that may be of interest...
-    FB.Event.subscribe('auth.login', FB_JS.debugHandler);
-    FB.Event.subscribe('auth.logout', FB_JS.debugHandler);
+    //FB.Event.subscribe('auth.login', FB_JS.debugHandler);
+    //FB.Event.subscribe('auth.logout', FB_JS.debugHandler);
     //FB.Event.subscribe('auth.statusChange', FB_JS.debugHandler);
-    FB.Event.subscribe('auth.sessionChange', FB_JS.debugHandler);
+    //FB.Event.subscribe('auth.sessionChange', FB_JS.debugHandler);
 
   });
 
@@ -49,6 +46,17 @@ window.fbAsyncInit = function() {
 
 FB_JS = function(){};
 
+/**
+ * Reload the current page, whether on canvas page or facebook connect.
+ */
+FB_JS.reload = function() {
+  if (typeof(Drupal.settings.fb_canvas) != 'undefined') {
+    window.top.location = Drupal.settings.fb_canvas.canvas_url;
+  }
+  else {
+    window.location.reload;
+  }
+};
 
 // Facebook pseudo-event handlers.
 FB_JS.sessionChange = function(response) {
@@ -67,11 +75,10 @@ FB_JS.debugHandler = function(response) {
 
 // JQuery pseudo-event handler.
 FB_JS.sessionChangeHandler = function(context, status) {
-  //debugger;
   // Pass data to ajax event.
   var data = {
     'apikey': FB._apiKey,
-    'event_type': 'session_change',
+    'event_type': 'session_change'
   };
   
   if (status.session) {
@@ -89,15 +96,21 @@ FB_JS.logoutHandler = function(event) {
     FB.logout(function () {
       //debugger;
     });
-  }  
+  }
 };
 
 // Helper to pass events via AJAX.
 // A list of javascript functions to be evaluated is returned.
 FB_JS.ajaxEvent = function(event_type, data) {
   if (Drupal.settings.fb.ajax_event_url) {
+
+    // Include session, in the format faceboook's PHP sdk expects it.
+    // @TODO - pass this only if fbs_APIKEY cookie is not set.
+    data.session = JSON.stringify(FB.getSession());
+
     jQuery.post(Drupal.settings.fb.ajax_event_url + '/' + event_type, data,
 		function(js_array, textStatus, XMLHttpRequest) {
+		  //debugger; // debug
 		  for (var i = 0; i < js_array.length; i++) {
 		    eval(js_array[i]);
 		  }
