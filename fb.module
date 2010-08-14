@@ -119,6 +119,12 @@ function fb_init() {
                   ));
         $js_settings['fbu'] = $_fb->getUser();        
       }
+      else {
+        // Add perms to settings, for calling FB.login().
+        $perms = array();
+        drupal_alter('fb_required_perms', $perms);
+        $js_settings['perms'] = implode(',', $perms);
+      }
     }
     else
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", array(), WATCHDOG_ERROR);
@@ -237,15 +243,6 @@ function fb_access_token($fb = NULL) {
   return $cache[$apikey];
 }
 
-function fb_call_methodXXX($fb, $method, $params = array()) {
-  $params['method'] = $method;
-  // TODO: add this only when needed???
-  $params['access_token'] = fb_access_token($fb);
-  $result = $fb->api($params);
-  // At least sometimes, result is double-encoded.
-  $result = json_decode($result, TRUE);
-  return $result;
-}
 
 /**
  * Facebook's own php-sdk is so friggin' buggy.  If you try $_fb->api(...) and
@@ -368,10 +365,18 @@ function fb_api_check_session($fb) {
   $success = FALSE;
   try {
     $session = $fb->getSession();
+    // Older API used session_key.  Still needed?
     if (isset($session['session_key'])) {
       $is_user = $fb->api(array(
                             'method' => 'users.isAppUser',
                           ));
+    }
+
+    // Newer API uses access_token
+    if (isset($session['access_token'])) {
+      $is_user = $fb->api(array(
+                            'method' => 'users.isAppUser',
+                          ));      
     }
     // Does not matter what is returned, as long as exception is not thrown.
     $success = TRUE;
@@ -404,19 +409,6 @@ function fb_facebook_user($fb = NULL) {
     fb_log_exception($e,
                      t('Failed to get Facebook user id.  detail: !detail',
                        array('!detail' => print_r($e, 1))));
-  }
-}
-
-
-function fb_is_connect() {
-  // fb_settings.inc sets this global.
-  if (isset($GLOBALS['_fb_connect_apikey'])) {
-    return $GLOBALS['_fb_connect_apikey'];
-  }
-  elseif (function_exists('fb_connect_get_app')) {
-    $fb_app = fb_connect_get_app();
-    if (isset($fb_app))
-      return $fb_app->apikey;
   }
 }
 
@@ -583,19 +575,16 @@ function fb_get_friends($fbu, $fb_app = NULL) {
   if (!isset($cache[$fbu])) {
     if ($fb === $GLOBALS['_fb'] && 
         $fbu == fb_facebook_user($fb)) {
-      $session = $fb->getSession();
-      $items = fb_call_method('friends_get', array(
-                                'session_key' => $session['session_key'],
+      $items = fb_call_method($fb, 'friends.get', array(
+                                'uid' => $fbu,
                               ));
     }
-    // friends_get does not work in cron call, so we double check.
+    // friends_get does not work in cron call, so we double check. @TODO - still needed?
     if (!$items || !count($items)) {
       $logged_in = fb_facebook_user($fb);
       $query = "SELECT uid2 FROM friend WHERE uid1=$fbu"; // FQL, no {curly_brackets}!
-      $session = $fb->getSession(); // @TODO - offline access
-      $result = fb_call_method('fql.query', array(
+      $result = fb_call_method($fb, 'fql.query', array(
                                  'query' => $query,
-                                 'session_key' => $session['session_key'],
                                ));
       //dpm($result, "FQL " . $query); // debug
       
@@ -636,10 +625,8 @@ function fb_get_groups_data($fbu, $fb_app = NULL) {
     return;
   
   if (!isset($cache[$fbu])) {
-    $session = $fb->getSession(); // @TODO - support offline access.
-    $cache[$fbu] = fb_call_method('groups.get', array(
+    $cache[$fbu] = fb_call_method($fb, 'groups.get', array(
                                     'uid' => $fbu,
-                                    'session_key' => $session['session_key'],
                                   ));
   }
   
@@ -723,7 +710,15 @@ function fb_menu() {
     'weight' => -2,
     'type' => MENU_DEFAULT_LOCAL_TASK,
   );
-  
+  $items[FB_PATH_ADMIN_APPS . '/%fb/fb/set_props'] = array(
+    'title' => 'Set Properties',
+    'description' => 'Set Facebook Application Properties',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fb_admin_set_properties_form', FB_PATH_ADMIN_APPS_ARGS),
+    'access arguments' => array(FB_PERM_ADMINISTER),
+    'type' => MENU_CALLBACK,
+  );
+
   
   // When forms are submitted directly to us, we cache the results,
   // and show them later via this callback
@@ -753,15 +748,22 @@ function fb_menu() {
 
 /**
  * Implementation of a %wildcard_load(). http://drupal.org/node/224170
+ *
+ * Seems to get called a lot(!) so we cache.
  */
 function fb_load($id) {
-  $query = array('label' => $id);
-  if (fb_is_fb_admin_page()) {
-    // Show disabled apps to admins.
-    $query['status'] = 0; // status >= 0
+  static $cache;
+  if (!isset($cache))
+    $cache = array();
+  if (!isset($cache[$id])) {
+    $query = array('label' => $id);
+    if (fb_is_fb_admin_page()) {
+      // Show disabled apps to admins.
+      $query['status'] = 0; // status >= 0
+    }
+    $cache[$id] = fb_get_app($query);
   }
-  $fb_app = fb_get_app($query);
-  return $fb_app;
+  return $cache[$id];
 }
 
 /**
@@ -1064,23 +1066,13 @@ function fb_ajax_event($event_type) {
     'event_data' => $_POST, // POSTed via ajax.
   );
 
-  global $user; // debug
-  watchdog('fb_debug', "fb_ajax event $event_type. Current user is $user->name ($user->uid)." . dprint_r($_POST, 1)); // debug
-
   $js_array = fb_invoke(FB_OP_AJAX_EVENT, $data, array());
   
   if ($event_type == 'session_change' && !count($js_array)) {
     // Refresh page on session change, if no module has provided alternate actions.
     //$js_array[] = 'debugger;'; // debug
-    $js_array[] = 'window.location.reload();';
+    $js_array[] = 'FB_JS.reload();';
   }
   drupal_json($js_array);
-
-  if ($event_type == 'session_change') {
-    // Hand-off from drupal-controlled session to facebook-controlled session.
-    if ($data['event_data']['fb_session_handoff'] && function_exists('fb_session_destroy')) {
-      fb_session_destroy();
-    }
-  }
   exit();
 }
