@@ -450,6 +450,7 @@ function fb_devel_info() {
   $info['session_name'] = session_name();
   $info['fbsettings(FB_SETTINGS_COOKIE_DOMAIN)'] = fb_settings(FB_SETTINGS_COOKIE_DOMAIN);
 
+  $info['signed_request'] = $_fb->getSignedRequest();
   $info['request'] = $_REQUEST;
   $info['user'] = $GLOBALS['user'];
   $info['fb_app'] = $_fb_app;
@@ -523,21 +524,39 @@ function fb_devel_user($op, &$edit, &$account, $category = NULL) {
         '#collapsed' => TRUE,
         '#weight' => 99,
       );
-      foreach (fb_get_all_apps() as $app) {
-        $account->content['fb_devel'][$app->label] = array(
+      foreach (fb_get_all_apps() as $fb_app) {
+        $account->content['fb_devel'][$fb_app->label] = array(
           '#type' => 'fieldset',
-          '#title' => $app->title,
+          '#title' => $fb_app->title,
         );
-        if ($fbu = fb_get_fbu($account, $app)) {
-          $fb = fb_api_init($app);
-          $info = fb_users_getInfo(array($fbu), $fb, TRUE);
-          $account->content['fb_devel'][$app->label]['info'] = array(
-            '#type' => 'markup',
-            '#value' => dprint_r($info[0], 1),
-          );
+        if ($fbu = fb_get_fbu($account, $fb_app)) {
+          $fb = fb_api_init($fb_app);
+          try {
+            $info = $fb->api("/$fbu");
+            //$info = fb_users_getInfo(array($fbu), $fb, TRUE);
+            $account->content['fb_devel'][$fb_app->label]['info'] = array(
+              '#type' => 'markup',
+              '#value' => dprint_r($info[0], 1),
+            );
+          }
+          catch (Exception $e) {
+            dpm($fb);
+            $account->content['fb_devel'][$fb_app->label]['#description'] = $e->getMessage();
+            $account->content['fb_devel'][$fb_app->label]['info'] = array(
+              '#type' => 'fieldset',
+              '#title' => t('Failed to get info for !app.',
+                            array('!app' => $fb_app->title)),
+              '#collapsible' => TRUE,
+              '#collapsed' => TRUE,
+              'exception' => array(
+                '#type' => 'markup',
+                '#value' => dprint_r($e, 1),
+              ),
+            );            
+          }
         }
         else {
-          $account->content['fb_devel'][$app->label]['info'] = array(
+          $account->content['fb_devel'][$fb_app->label]['info'] = array(
             '#type' => 'markup',
             '#value' => t('No mapping to a facebook account.'),
           );
