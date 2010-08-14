@@ -21,7 +21,8 @@ define('FB_USER_OPTION_CREATE_NEVER', 1);
 define('FB_USER_OPTION_CREATE_LOGIN', 2);
 
 define('FB_USER_OPTION_MAP_NEVER', 1);
-define('FB_USER_OPTION_MAP_ALWAYS', 2);
+define('FB_USER_OPTION_MAP_ALWAYS', 2); // Map when user is registered and authorized.
+define('FB_USER_OPTION_MAP_EMAIL', 3); // Map when email is exact match.
 
 define('FB_USER_VAR_STATS', 'fb_user_stats'); // Whether to use fb_user_app table.
 
@@ -64,11 +65,14 @@ function fb_user_menu() {
 function _fb_user_get_config($fb_app) {
   $fb_app_data = fb_get_app_data($fb_app);
   $fb_user_data = $fb_app_data['fb_user'] ? $fb_app_data['fb_user'] : array();
-
+  
   // Merge in defaults
   $fb_user_data += array(
     'create_account' => FB_USER_OPTION_CREATE_NEVER,
-    'map_account' => FB_USER_OPTION_MAP_ALWAYS,
+    'map_account' => array(
+      FB_USER_OPTION_MAP_ALWAYS => FB_USER_OPTION_MAP_ALWAYS,
+      FB_USER_OPTION_MAP_EMAIL => FB_USER_OPTION_MAP_EMAIL,
+    ),
   );
   return $fb_user_data;
 }
@@ -150,53 +154,71 @@ function fb_user_fb($op, $data, &$return) {
   if ($fb_app) {
     $fb_user_data = _fb_user_get_config($fb_app);
   }
-
-  if ($op == FB_OP_APP_IS_AUTHORIZED) {
+  if ($op == FB_OP_POST_INIT) {
+    if (isset($_SESSION['fb_user_fbu']) &&
+        $_SESSION['fb_user_fbu'] != fb_facebook_user()) {
+      // User has logged out of facebook, and drupal is only now learning about it.
+      session_destroy();
+      $user = drupal_anonymous_user();
+    }
+  }
+  elseif ($op == FB_OP_APP_IS_AUTHORIZED) {
     // This hook is called on every page request, if the user has authorized the app.
-    
     $fbu = $data['fbu']; // The user id on facebook.
-
+    
     // Remember the original uid, in case we have to change it.
     $original_uid = $user->uid;
     
     // Make sure session is valid and authmap table is correct.
     // Relatively expensive operations, so we perform them only once per session.
-    if (!isset($_SESSION['fb_user_fbu']) || $_SESSION['fb_user_fbu'] != $fbu) {
+    if (!isset($_SESSION['fb_user_fbu']) || $_SESSION['fb_user_fbu'] != $fbu || TRUE) {
       if ($valid_session = fb_api_check_session($fb)) {
         $_SESSION['fb_user_fbu'] = $fbu;
-
-        if ($user->uid != 0) {
+        $config = _fb_user_get_config($fb_app);
+        
+        if ($user->uid != 0 &&
+            $config['map_account'][FB_USER_OPTION_MAP_ALWAYS]) {
           // Ensure local user has proper authmap entry.
           _fb_user_set_authmap($fb_app, $fbu, $user);
         }
         else {
           // We're anonymous.  Check authmap to see if there is a local user for this fbu.
           $account = fb_user_get_local_user($fbu, $fb_app);
+
+          // If authmap has no entry, try by email.
+          if (!$account &&
+              $config['map_account'][FB_USER_OPTION_MAP_EMAIL]) {
+            $account = fb_user_get_local_user_by_email($fbu);
+            _fb_user_set_authmap($fb_app, $fbu, $account);
+          }
           
           if ($account) {
             // Honoring facebook accounts in off-line mode causes problems.
             if (!variable_get('site_offline', FALSE) || 
                 user_access('administer site configuration', $account)) {
               
-              if (fb_verbose() === 'extreme')
+              if (fb_verbose() === 'extreme') { // debug
                 watchdog("fb_user", "fb_user_fb changing user to $account->uid");
-
+                $session_id = session_id();
+              }
+              
               $valid_user = user_external_login($account);
+              
+              if (fb_verbose() === 'extreme') { // debug
+                watchdog("fb_user", "fb_user_fb changed session from $session_id to " . session_id());
+              }
+              
               if (!$valid_user) {
                 drupal_access_denied();
                 exit();
               }
-
-              // user_external_login() will call sess_regenerate, which will
-              // screw up our carefully constructed session_id.
-              // Let's hope no code uses $_SESSION in hook_user('login').
-              if ($session_id = fb_settings('fb_session_id_force')) {
-                // @TODO - Is there a better way to do this?
-                session_id($session_id); // Restore sanity.
-              }
+              
             }
           }
         }
+      }
+      else {
+        // Not a valid session.
       }
     }
     
@@ -325,7 +347,9 @@ function fb_user_fb($op, $data, &$return) {
     if ($data['event_type'] == 'session_change' && isset($data['event_data']['fbu'])) {
       // A user has logged in.
       // Don't trust fbu from $data['event_data'], too easy to spoof.
-      if ($fbu = fb_facebook_user($data['fb'])) {
+      if (($fbu = fb_facebook_user($data['fb'])) &&
+          ($config = _fb_user_get_config($data['fb_app'])) &&
+          $config['map_account'][FB_USER_OPTION_MAP_ALWAYS]) {
         _fb_user_set_authmap($data['fb_app'], $fbu, $GLOBALS['user']);
       }
     }
@@ -336,51 +360,10 @@ function fb_user_fb($op, $data, &$return) {
  * Implements hook_form_alter().
  */
 function fb_user_form_alter(&$form, &$form_state, $form_id) {
-  // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
-    $fb_app = $form['#fb_app'];
-    $fb_user_data = _fb_user_get_config($fb_app);
-    
-    $form['fb_app_data']['fb_user'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('Facebook user settings'),
-      '#tree' => TRUE,
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-    );
-        
-    $form['fb_app_data']['fb_user']['create_account'] = array(
-      '#type' => 'radios',
-      '#title' => t('Create Local Account'),
-      '#description' => t('This option will create a local account and an entry in the authmap table when a user authorizes a canvas page or connects using Facebook Connect.  If not, Drupal\'s built in user registration will still work.'),
-      '#options' => array(
-        FB_USER_OPTION_CREATE_NEVER => t('Do not create accounts automatically'),
-        FB_USER_OPTION_CREATE_LOGIN => t('If user has authorized the app'),
-      ),
-      '#default_value' => $fb_user_data['create_account'],
-      '#required' => TRUE,
-    );
-
-    $form['fb_app_data']['fb_user']['map_account'] = array(
-      '#type' => 'radios',
-      '#title' => t('Map Accounts'),
-      '#description' => t('Mapping an account means creating an entry in the authmap table.  This entry allows Drupal to know which Facebook id corresponds to which local uid.'),
-      '#options' => array(
-        FB_USER_OPTION_MAP_NEVER => t('Never map accounts'),
-        FB_USER_OPTION_MAP_ALWAYS => t('Map account when both local uid and Facebook id are known'),
-      ),
-      '#default_value' => $fb_user_data['map_account'],
-      '#required' => TRUE,
-    );
-    
-    // Choose a role to be granted to anyone who authorizes the app.
-    $form['fb_app_data']['fb_user']['new_user_rid'] = array(
-      '#type' => 'select',
-      '#title' => t('App user role'),
-      '#options' => user_roles(1),
-      '#description' => t('When a local user has authorized the app, the user will be granted this role.'),
-      '#default_value' => $fb_user_data['new_user_rid'],
-    );
+    // Add our settings to the fb_app edit form.
+    module_load_include('inc', 'fb_user', 'fb_user.admin');
+    fb_user_admin_form_alter($form, $form_state, $form_id);
   }
   elseif ($form_id == 'user_edit' && ($app = $form['#fb_app'])) {
     // Disable buttons on user/edit/app pages, nothing to submit
@@ -570,7 +553,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       if ($fbu && !$info[$fbu]) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app);
-        // Note: this requires infinite session with facebook or active fbconnect session.  TODO: fallback to fb_user_app table.
+        /* $fb->api fails with "invalid API key"
         $info[$fbu] = $fb->api(array(
                                  'method' => 'users.getInfo',
                                  'uids' => array($fbu),
@@ -579,6 +562,14 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
                                    'is_app_user',
                                  ),
                                ));
+        */
+        $info[$fbu] = fb_call_method($fb, 'users.getInfo',
+                                     array('uids' => array($fbu),
+                                           'fields' => array(
+                                             'name',
+                                             'is_app_user',
+                                           ),
+                                     ));
       }
       
       if ($fbu) {
@@ -679,9 +670,7 @@ function _fb_user_get_authmap($fb_app, $fbu) {
  * Helper function to keep the authmap table in sync.
  */
 function _fb_user_set_authmap($fb_app, $fbu, $account) {
-  $fb_user_data = _fb_user_get_config($fb_app);
-  if ($fb_user_data['map_account'] == FB_USER_OPTION_MAP_ALWAYS &&
-      $fbu &&
+  if ($fbu &&
       $account->uid != 0) {
     list($module, $authname) = _fb_user_get_authmap($fb_app, $fbu);
     user_set_authmaps($account, array($module => $authname));
@@ -804,6 +793,20 @@ function fb_user_get_local_user($fbu, $fb_app) {
   }
   if ($result) {
     return user_load($result);
+  }
+}
+
+/**
+ * Try to determine the local user account by the email address.
+ */
+function fb_user_get_local_user_by_email($fbu) {
+  global $_fb;
+  if (isset($_fb) && $fbu) {
+    $info = $_fb->api($fbu);
+    if (isset($info['email']) &&
+        ($email = $info['email'])) {
+      return user_load(array('mail' => $email));
+    }
   }
 }
 
