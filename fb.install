@@ -1,5 +1,6 @@
 <?php
 // $Id$
+
 /**
  * @file
  * Install file to support fb.module.
@@ -122,4 +123,24 @@ function fb_update_6002() {
   drupal_set_message($message);
   watchdog('fb', $message);  
   return $ret;
+}
+
+
+function fb_update_6003() {
+  $ret = array();
+  $result = db_query("SELECT * FROM {fb_app}");
+  $items = array();
+  while ($data = db_fetch_object($result)) {
+    $items[] = l($data->title, 'admin/build/fb/app/' . $data->label . '/fb/set_props');
+  }
+  if (count($items)) {
+    $message = 'Manual action required!.  Callback URLs for canvas page applications have changed.  Click below to update the settings, on facebook, for each of your applications.';
+    $message .= theme('item_list', $items);
+    drupal_set_message($message);
+    watchdog('fb', $message, array(), WATCHDOG_WARNING);
+  }
+
+  $ret[] = array('success' => FALSE, 'query' => t('Manual action required.  Go to !link and set properties for each facebook application.', array('!link' => l('Facebook Applications', 'admin/build/fb'))));
+  return $ret;
+  
 }

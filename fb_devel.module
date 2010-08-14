@@ -38,13 +38,24 @@ function fb_devel_menu() {
 
 
 function fb_devel_init() {
-  if (fb_verbose() === 'extreme') {
-    if (arg(0) == 'fb_connect' && arg(1) == 'receiver') {
-      // useful for tracking down tricky connect bugs.
-      watchdog('fb_devel', "Facebook Connect receiver called" . "                                                       " . dpr($_REQUEST, 1));
+  // $conf['fb_apikey'] sanity check
+  if ($apikey = variable_get('fb_apikey', NULL)) {
+    if ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
+      $fb_app = fb_get_app(array('label' => $label));
+      if ($fb_app && ($fb_app->apikey != $apikey)) {
+        $message = t('Drupal for Facebook has detected a problem.  \'fb_apikey\' (%fb_apikey) is not the same as the primary application %label (%fb_primary_apikey).',
+                     array(
+                       '%fb_apikey' => $apikey,
+                       '%fb_primary_apikey' => $fb_app->apikey,
+                       '%label' => $fb_app->label,
+                     ));
+        if (user_access(FB_PERM_ADMINISTER)) {
+          drupal_set_message($message, 'error');
+        }
+        watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
+      }
     }
   }
-
 }
 
 /**
@@ -59,7 +70,7 @@ function fb_devel_fb($op, $data, &$return) {
     
     if (fb_settings(FB_SETTINGS_APIKEY) &&
         ($fb_app->apikey != fb_settings(FB_SETTINGS_APIKEY))) {
-      $message = t('Drupal for Facebook has detected a problem.  The global app has an apikey (%fb_app_apikey), while the settings indicates a different apikey (%fb_settings_apikey).', array(
+      $message = t('Drupal for Facebook has detected a problem.  The initialized app has an apikey (%fb_app_apikey), while the settings indicates a different apikey (%fb_settings_apikey).', array(
                      '%fb_app_apikey' => $fb_app->apikey,
                      '%fb_settings_apikey' => fb_settings(FB_SETTINGS_APIKEY),
                    ));
@@ -68,21 +79,14 @@ function fb_devel_fb($op, $data, &$return) {
       $errors++;      
     }
 
+    // This value comes from url rewriting.  Recommended on canvas pages.
+    $apikey = fb_settings(FB_SETTINGS_CB);
     
-    $label = fb_settings(FB_SETTINGS_CB);
-    
-    // deprecated nid check.
-    if ($label == $fb_app->nid) {
-      $message = t('Facebook callback is using deprecated node id (%nid) instead of application label (%label).  <a href="!url">Editing the application</a> will usually correct this problem, which was caused by an update to the Drupal for Facebook modules.  Sorry for the inconvenience.', array('%nid' => $fb_app->nid, '%label' => $fb_app->label, '!url' => url(FB_PATH_ADMIN_APPS . '/' . $fb_app->label)));
-      drupal_set_message($message, 'warning');
-      watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
-      $errors++;
-    }
     // Sanity check.
-    elseif ($label && $label != $fb_app->label) {
+    if ($apikey && $apikey != $fb_app->apikey) {
       $message = t('fb_app id (%fb_app_id) does not equal fb settings id (%fb_settings_id).  This is usually caused by the wrong callback url on your <a href="!url">facebook application settings form</a>.',
-                   array('%fb_app_id' => $fb_app->label,
-                         '%fb_settings_id' => $label,
+                   array('%fb_app_id' => $fb_app->apikey,
+                         '%fb_settings_id' => $apikey,
                          '!url' => "http://www.facebook.com/developers/apps.php",
                    ));
       drupal_set_message($message, 'warning');
@@ -104,11 +108,11 @@ function fb_devel_fb($op, $data, &$return) {
     }
 
     // Catch badly formed links ASAP.
-    if ($label && (fb_is_connect() && !fb_is_iframe_canvas())) {
+    if ($apikey && !fb_is_canvas()) {
       // Skip check on callbacks from facebook.
       if ((arg(0) != 'fb_app') || (arg(1) != 'event')) {
         $message = t('URL starts with %prefix.  This should never happen on connect pages.  Did the previous page have a badly formed link?', array(
-                     '%prefix' => FB_SETTINGS_CB . '/' . $label,
+                     '%prefix' => FB_SETTINGS_CB . '/' . $apikey,
                    ));
         drupal_set_message($message, 'error');
         $errors++;
@@ -165,16 +169,18 @@ function fb_devel_fb($op, $data, &$return) {
         fb_log_exception($e, t('Failed to get app properties for %name.', array('%name' => $fb_app->title)));
       }
     }
-  
-    // Require login sanity check.
+
+    // App data sanity checks.
     $fb_app_data = fb_get_app_data($fb_app);
-    if (isset($fb_app_data['fb_user']) && $fb_app_data['fb_user']['require_login'] == FB_USER_OPTION_REQUIRE_LOGIN) {
-      $message = 'Drupal for Facebook options for require login have changed.  You must manually <a href=!url>edit your application</a>.  Look for the require login options under canvas page options.  No longer under user options.';
+    
+    // Account mapping format has changed!
+    if (isset($fb_app_data['fb_user']) && !is_array($fb_app_data['fb_user']['map_account'])) {
+      $message = 'The options for mapping facebook account to local accounts has changed.  You must manually <a href=!url>edit your application</a>.  Look for the map accounts options under facebook user settings.';
       $args = array('!url' => url(FB_PATH_ADMIN_APPS . '/' . $fb_app->label));
       if (user_access('access administration pages')) {
         drupal_set_message(t($message, $args), 'error');
       }
-      watchdog('fb_devel', $message, $args, WATCHDOG_ERROR);      
+      watchdog('fb_devel', $message, $args, WATCHDOG_ERROR);
     }
   }
   
@@ -198,6 +204,24 @@ function fb_devel_fb($op, $data, &$return) {
     watchdog('fb_devel', 'Drupal is redirecting a canvas page, destination is %destination.', array('%destination' => $return));
   }
   elseif ($op == FB_OP_POST_INIT) {
+    $_SESSION['fb_devel']['FB_OP_POST_INIT'] = $_SESSION['fb_devel']['FB_OP_POST_INIT'] + 1;
+    // Javascript to help us with sanity checks.
+    drupal_add_js(array(
+                    'fb_devel' => array(
+                      'session_id' => session_id(),
+                      'session_name' => session_name(),
+                    ),
+                  ), 'setting');
+  }
+  elseif ($op == FB_OP_AJAX_EVENT) {
+    if (fb_verbose() == 'extreme') {
+      $session_id = session_id();
+      $session_name = session_name();
+      $return[] = "alert('fb_devel.module extreme verbosity: original session_id is ' + Drupal.settings.fb_devel.session_name + ':' + Drupal.settings.fb_devel.session_id + ', session_id during FB_OP_AJAX_EVENT is $session_name:$session_id');";
+      $fbu = fb_facebook_user($data['fb']);
+      $return[] = "alert('fb_facebook_user() during FB_OP_AJAX_EVENT is $fbu, data[event_data][fbu] is {$data[event_data][fbu]}');";
+      $_SESSION['fb_devel']['FB_AJAX_EVENT'] = 'XXX';
+    }
   }
 }
 
@@ -377,7 +401,6 @@ function fb_devel_info() {
   global $base_path;
 
   $info = array();
-  $label = fb_settings(FB_SETTINGS_CB);
   
   if ($_fb) {
     if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) {
@@ -394,13 +417,20 @@ function fb_devel_info() {
                                array('%type' => fb_settings(FB_SETTINGS_TYPE),
                                ));
     }
-    
-    $info['fb_facebook_user'] = fb_facebook_user();
     $fbu = fb_facebook_user();
-    if (fb_api_check_session($_fb)) {
-      // XXX
+    $info['fb_facebook_user'] = $fbu;
+
+    if (!$fbu) {
+      $info['login button'] = theme('fb_login_button', 'Connect');
+      $info['login link'] = "<a href=# onclick='FB.login(function(response) {alert(\"FB.login() success.\");}, {perms:Drupal.settings.fb.perms}); return false;'>fb login</a>";
     }
-    else {
+
+    // Tests for link on canvas pages (iframe cookie test)
+    //$link_test = url(fb_scrub_urls($_REQUEST['q']), array('absolute' => TRUE));
+    //$info['link test'] = "<a href=\"$link_test\">link test (processed)</a>";
+    //$info['link test 2'] = "<a href='$link_test'>link test (not processed)</a>";
+    
+    if (!fb_api_check_session($_fb)) {
       $info['fb_api_check_session()'] = t('Returned FALSE');
     }
   }
@@ -418,6 +448,7 @@ function fb_devel_info() {
   $info['arg(1) is'] = arg(1);
   $info['session_id'] = session_id();
   $info['session_name'] = session_name();
+  $info['fbsettings(FB_SETTINGS_COOKIE_DOMAIN)'] = fb_settings(FB_SETTINGS_COOKIE_DOMAIN);
 
   $info['request'] = $_REQUEST;
   $info['user'] = $GLOBALS['user'];
@@ -440,6 +471,16 @@ function fb_devel_info() {
     }
     catch (FacebookApiException $e) {
       fb_log_exception($e, "failed to get app properties");
+    }
+    $info["fb->getSession()"] = $_fb->getSession();
+    $info["fb->getSignedRequest()"] = $_fb->getSignedRequest();
+    if ($fbu) {
+      try {
+        $info["fb->api($fbu)"] = $_fb->api($fbu);
+      }
+      catch (FacebookApiException $e) {
+        fb_log_exception($e, "failed to look up _fb->api($fbu)");
+      }    
     }
   }
   

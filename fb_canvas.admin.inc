@@ -17,7 +17,7 @@ function fb_canvas_fb_admin($op, $data, &$return) {
   if ($op == FB_ADMIN_OP_SET_PROPERTIES) {
     // Compute properties which we can set automatically.
     if (function_exists('fb_url_inbound_alter')) {
-      $callback_url = url('', array('absolute' => TRUE)) . FB_SETTINGS_CB . '/' . $fb_app->label . '/';
+      $callback_url = url('', array('absolute' => TRUE)) . FB_SETTINGS_CB . '/' . $fb_app->apikey . '/';
     }
     else {
       // Paving the way to make URL alters optional.

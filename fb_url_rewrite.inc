@@ -127,9 +127,9 @@ function fb_url_inbound_alter(&$result, $path, $path_language) {
     while (count($args) && in_array($args[0], _fb_settings_url_rewrite_prefixes())) {
       $key = array_shift($args);
       $value = array_shift($args);
-      $app_nid = fb_settings($key, $value); // Store for use later.
+      fb_settings($key, $value); // Store for use later.
     }
-    if ($app_label = fb_settings(FB_SETTINGS_CB)) {
+    if (fb_settings(FB_SETTINGS_CB)) {
       if (count($args)) {
         $path = implode('/', $args); // remaining args
         $alias = drupal_lookup_path('source', $path, $path_language); //can't use drupal_get_normal_path, it calls custom_url_rewrite_inbound

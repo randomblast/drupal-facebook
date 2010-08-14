@@ -31,29 +31,12 @@ function fb_app_fb($op, $data, &$return) {
     // Load app data, using the criteria passed in.
     $args = array();
     $where = array();
-    
-    // This implementation uses 'label' as the unique id.
-    foreach (array(FB_SETTINGS_CB, FB_SETTINGS_LABEL) as $key) {
-      if (isset($data[$key]) &&
-          is_numeric($data[$key])) {
-        // DEPRECATED
-        // for backward compatibility we accept the nid, but that will go away in a later release!
-        $where[] = "(label = '%s' || nid = '%d')";
-        $args[] = $data[$key];
-        $args[] = $data[$key];
-      }
-      elseif (isset($data[$key])) {
-        // This is the right way, using label.
-        $where[] = "label = '%s'";
-        $args[] = $data[$key];
-      }
-    }
-
-    // We also support these ways to query an app.
+        
+    // We also support these ways to query an app.  Columns in fb_app table.
     foreach (array(
                'fba_id' => '%d', 
-               'apikey' => "'%s'", 
-               'nid' => '%d', // DEPRECATED
+               'apikey' => "'%s'",
+               'label' => "'%s'",
              ) as $key => $type) {
       if (isset($data[$key])) {
         $where[] = "$key = $type";
@@ -132,7 +115,7 @@ function fb_app_menu() {
   );
   $items[FB_PATH_ADMIN_APPS . '/%fb/fb_app'] = array(
     'title' => 'Edit',
-    'description' => 'Add Facebook Application',
+    'description' => 'Edit Facebook Application',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fb_app_edit_form', FB_PATH_ADMIN_APPS_ARGS),
     'access arguments' => array(FB_PERM_ADMINISTER),
