@@ -56,7 +56,9 @@ function fb_admin_page() {
       $local_links =
         fb_invoke(FB_ADMIN_OP_LOCAL_LINKS,
                   array('fb_app' => $fb_app),
-                  array(t('view') => FB_PATH_ADMIN_APPS . '/' . $fb_app->label),
+                  array(t('view') => FB_PATH_ADMIN_APPS . '/' . $fb_app->label,
+                        t('set props') => FB_PATH_ADMIN_APPS . '/' . $fb_app->label . '/fb/set_props',
+                  ),
                   FB_ADMIN_HOOK);
       
       $links = array();
@@ -194,4 +196,71 @@ function fb_admin_get_app_options($include_current = FALSE, $key = 'label') {
     }
   }
   return $options;
+}
+
+function fb_admin_set_properties_form(&$form_state, $fb_app) {
+  $form['fba_id'] = array(
+    '#type' => 'value',
+    '#value' => $fb_app->fba_id,
+  );
+
+  $props = fb_invoke(FB_ADMIN_OP_SET_PROPERTIES, array('fb_app' => $fb_app), array(), FB_ADMIN_HOOK);
+
+  $form['#fb_props'] = $props;
+  
+  $form['desc'] = array(
+    '#type' => 'markup',
+    '#value' => t('This will attempt to set the following application properties on facebook.com.'),
+    '#prefix' => '<p>',
+    '#suffix' => '</p>',
+  );
+  // @TODO - beautify display of properties.
+  $form['props'] = array(
+    '#type' => 'markup',
+    '#value' => print_r($props, 1),
+    '#prefix' => '<pre>',
+    '#suffix' => '</pre>',
+  );
+
+  return confirm_form($form,
+                      t('Are you sure you set properties for %title?', array('%title' => $fb_app->title)),
+                      isset($_GET['destination']) ? $_GET['destination'] : FB_PATH_ADMIN_APPS . '/' . $fb_app->label,
+                      t('This action cannot be undone.'),
+                      t('Set Properties'),
+                      t('Cancel')
+  );
+}
+
+/**
+ * Button submit function.  Use has clicked delete, send them to confirm page.
+ */
+function fb_admin_set_properties_form_submit($form, &$form_state) {
+  $fba_id = $form_state['values']['fba_id'];
+  $fb_app = fb_get_app(array('fba_id' => $fba_id));
+  $props = $form['#fb_props'];
+  if ($fb_app && count($props)) {
+    if ($fb = fb_api_init($fb_app)) {
+      try {
+        $result = fb_call_method($fb, 'admin.setAppProperties', array(
+                                   'properties' => json_encode($props),
+                                 ));
+        // Success.
+        $form_state['redirect'] = FB_PATH_ADMIN_APPS . '/' . $fb_app->label;
+        
+        drupal_set_message(t('Note that it may take several minutes for property changes to propigate to all facebook servers.'));
+        if (fb_verbose()) {
+          drupal_set_message(t('Set the following properties for %label application:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))));
+          watchdog('fb_app', 'Set facebook app properties for %label.',
+                   array('%label' => $fb_app->label,
+                   ),
+                   WATCHDOG_NOTICE,
+                   l(t('view apps'), FB_PATH_ADMIN));
+        }
+      } catch (Exception $e) {
+        drupal_set_message(t('Failed to set the following properties for %label application.  You may need to manually editing remote settings!<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))), 'error');
+        fb_log_exception($e, t('Failed to set application properties on Facebook'));
+      }
+    }
+  }
+
 }
