@@ -578,24 +578,35 @@ function fb_get_friends($fbu, $fb_app = NULL) {
   $fb = fb_api_init($fb_app, $fbu);
   if (!$fb || !$fbu)
     return;
-  
+
+  $items = array();
   if (!isset($cache[$fbu])) {
     if ($fb === $GLOBALS['_fb'] && 
         $fbu == fb_facebook_user($fb)) {
-      $items = fb_call_method($fb, 'friends.get', array(
-                                'uid' => $fbu,
-                              ));
+      try {
+        $items = fb_call_method($fb, 'friends.get', array(
+                                  'uid' => $fbu,
+                                ));
+      }
+      catch (Exception $e) {
+        fb_log_exception($e, t('Failed call to friends.get'), $fb);
+      }
+
     }
     // friends_get does not work in cron call, so we double check. @TODO - still needed?
     if (!$items || !count($items)) {
       $logged_in = fb_facebook_user($fb);
       $query = "SELECT uid2 FROM friend WHERE uid1=$fbu"; // FQL, no {curly_brackets}!
-      $result = fb_call_method($fb, 'fql.query', array(
-                                 'query' => $query,
-                               ));
-      //dpm($result, "FQL " . $query); // debug
+      try {
+        $result = fb_call_method($fb, 'fql.query', array(
+                                   'query' => $query,
+                                 ));
+        //dpm($result, "FQL " . $query); // debug
+      }
+      catch (Exception $e) {
+        fb_log_exception($e, t('Failed call to fql.query: !query', array('!query' => $query)), $fb);
+      }
       
-      $items = array();
       if (is_array($result)) 
         foreach ($result as $data) {
           $items[] = $data['uid2'];
