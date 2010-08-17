@@ -25,6 +25,11 @@ window.fbAsyncInit = function() {
     }
     else if (Drupal.settings.fb.fbu) {
       status.changed = true;
+
+      // Sometimes Facebook's invalid cookies are left around.  Let's try to clean up their crap.
+      alert ("Attempting to delete cookie fbs_" + Drupal.settings.fb.apikey);
+      // @TODO - delete cookie only if it exists.
+      FB_JS.deleteCookie('fbs_' + Drupal.settings.fb.apikey, '/', '');
     }
     if (status.changed) {
       // fbu has changed since server built the page.
@@ -121,6 +126,15 @@ FB_JS.ajaxEvent = function(event_type, data) {
   }
 };
 
+// Delete a cookie.
+FB_JS.deleteCookie = function( name, path, domain ) {
+  document.cookie = name + "=" +
+  ( ( path ) ? ";path=" + path : "") +
+  ( ( domain ) ? ";domain=" + domain : "" ) +
+  ";expires=Thu, 01-Jan-1970 00:00:01 GMT";
+};
+
+
 Drupal.behaviors.fb = function(context) {
   // Respond to our jquery pseudo-events
   var events = jQuery(document).data('events');
@@ -147,3 +161,4 @@ Drupal.behaviors.fb = function(context) {
   // Logout of facebook when logging out of drupal
   jQuery("a[href^='" + Drupal.settings.basePath + "logout']", context).click(FB_JS.logoutHandler);
 };
+
