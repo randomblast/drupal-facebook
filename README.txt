@@ -31,21 +31,17 @@ To install:
   http://www.drupalforfacebook.org/node/1106.  This also applies to
   themes used for iframe canvas pages.
 
-- Edit your settings.php file (sites/default/settings.php, depending
-  on your install) to include fb_settings.inc (in this directory).
-  For example, add this at the very end of your settings.php:
-
-  require_once "sites/all/modules/fb/fb_settings.inc";
-
-- If you want to honor facebook controlled sessions, as opposed to
-  drupal-controlled sessions, add this line to your settings.php:
-
-  $conf['session_inc'] = "profiles/custom/modules/fb/fb_session.inc";
-  
 - If you want to support canvas pages, url rewriting is
   recommended.  Enable this by adding this line to settings.php:
 
   include "sites/all/modules/fb/fb_url_rewrite.inc";
+
+
+- Edit your settings.php file (sites/default/settings.php, depending
+  on your install) to include fb_settings.inc (in this directory).
+  For example, add this at the very end of your settings.php:
+
+  include "sites/all/modules/fb/fb_settings.inc";
 
 
 - Go to Administer >> Site Building >> Modules and enable the Facebook
@@ -108,17 +104,14 @@ if (!is_array($conf))
 $conf['fb_verbose'] = TRUE; // debug output
 //$conf['fb_verbose'] = 'extreme'; // for verbosity fetishists.
 
-/**
- * Enable Drupal for Facebook.  
- * Sets up custom_url_rewrite and session handling required for 
- * canvas pages and Facebook Connect.
- */
+// More efficient connect session discovery.
+// Needed if supporting multiple apps.
+$conf['fb_apikey'] = '123.....XYZ'; // Your connect app's apikey goes here.
 
-// More effiecent connect session discovery.
-$conf['fb_apikey'] = '123.....XYZ'; // Your app's apikey goes here.
+// Enable URL rewriting (for canvas page apps).
+include "sites/all/modules/fb/fb_url_rewrite.inc";
 
-include "sites/all/modules/fb/fb_settings.inc";
-$conf['session_inc'] = "sites/all/modules/fb/fb_session.inc";
+include "sites/all/modules/fb/fb_settings.inc"; // REQUIRED.
 
-
+// end of settings.php
 ?>
