@@ -21,10 +21,7 @@ function theme_fb_login_button($text, $options = array()) {
       $options['attributes']['perms'] = implode(',', $perms);
     }
   }
-  if (!isset($options['attributes']['onlogin'])) {
-    // By default, reload on login.
-    $options['attributes']['onlogin'] = 'FB_JS.reload();';
-  }
+  
   $button = '<fb:login-button ' . drupal_attributes($options['attributes']) . '>' .
     '<fb:intl>' . check_plain($text) . '</fb:intl></fb:login-button>';
   return $button;
