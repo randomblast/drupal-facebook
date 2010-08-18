@@ -27,7 +27,7 @@ window.fbAsyncInit = function() {
       status.changed = true;
 
       // Sometimes Facebook's invalid cookies are left around.  Let's try to clean up their crap.
-      alert ("Attempting to delete cookie fbs_" + Drupal.settings.fb.apikey);
+      //alert ("Attempting to delete cookie fbs_" + Drupal.settings.fb.apikey);
       // @TODO - delete cookie only if it exists.
       FB_JS.deleteCookie('fbs_' + Drupal.settings.fb.apikey, '/', '');
     }
