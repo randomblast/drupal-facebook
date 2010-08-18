@@ -26,6 +26,12 @@ function fb_devel_menu() {
     'access callback' => TRUE,
   );
 
+  $items['fb/devel/tab'] = array(
+    'page callback' => 'fb_devel_tab',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE, /* TODO: restrict access */    
+  );
+  
   // Return some info for debugging AHAH problems
   $items['fb/devel/js'] = array(
     'page callback' => 'fb_devel_js',
@@ -108,7 +114,7 @@ function fb_devel_fb($op, $data, &$return) {
     }
 
     // Catch badly formed links ASAP.
-    if ($apikey && !fb_is_canvas()) {
+    if ($apikey && !fb_is_canvas() && !fb_is_tab()) {
       // Skip check on callbacks from facebook.
       if ((arg(0) != 'fb_app') || (arg(1) != 'event')) {
         $message = t('URL starts with %prefix.  This should never happen on connect pages.  Did the previous page have a badly formed link?', array(
@@ -271,6 +277,65 @@ function fb_devel_page() {
   return "This is the facebook debug page.";
 }
 
+
+/**
+ * Provides a profile tab (FBML) with useful debug info.
+ * 
+ */
+function fb_devel_tab() {
+  global $_fb, $_fb_app;
+  global $user;
+
+  $info['session_id'] = session_id();
+  $info['session_name'] = session_name();
+  $info['cookie domain'] = fb_settings(FB_SETTINGS_COOKIE_DOMAIN);
+
+  // Tests for links
+  $link_test = url(fb_scrub_urls($_REQUEST['q']), array('absolute' => TRUE));
+  $info['link test'] = "<a href=\"$link_test\">link test (processed)</a>";
+  $info['link test 2'] = "<a href='$link_test'>link test (not processed)</a>";
+
+  //$info['fb_app'] = $_fb_app;
+  //$info['fb'] = $_fb;
+  $info['fb->getSignedRequest()'] = $_fb->getSignedRequest();
+  $info['REQUEST'] = $_REQUEST;
+  $info['SESSION'] = $_SESSION;
+  $info['COOKIE'] = $_COOKIE;
+
+  $fbu = fb_facebook_user();
+  try {
+    $info["fb->api(/$fbu)"] = $_fb->api('/' . $fbu);
+  }
+  catch (Exception $e) {
+    $info["fb->api(/$fbu)"] = $e->getMessage();
+  }
+  
+  if ($app_id = $_REQUEST['fb_sig_app_id']) {
+    try {
+      $info['fb->api(fb_sig_app_id)'] = $_fb->api($_REQUEST['fb_sig_app_id']);
+    }
+    catch (Exception $e) {
+      $info['fb->api(fb_sig_app_id)'] = $e->getMessage();
+    }
+  }
+  
+  print '<p>fb_devel.module tab</p>';
+  foreach ($info as $key => $value) {
+    print "<p>$key:\n";
+    if (is_array($value)) {
+      print '<pre>' . check_plain(print_r($value, 1)) . '</pre>';
+    }
+    elseif (is_object($value)) {
+      print '<pre>' . check_plain(print_r($value, 1)) . '</pre>';
+    }
+    else {
+      print '<pre>' . $value . '</pre>';
+    }
+    print "\n</p>\n\n";
+  }
+  
+  exit();
+}
 
 /**
  * A page which tests function which work with facebook user ids

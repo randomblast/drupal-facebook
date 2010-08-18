@@ -1,0 +1,64 @@
+<?php
+
+/**
+ * @file
+ * 
+ * This module provides support for "Profile Tabs" which can be added to both
+ * user profiles and facebook pages.
+ *
+ * http://developers.facebook.com/docs/guides/canvas/#tabs
+ *
+ */
+
+function fb_tab_fb($op, $data, &$return) {
+  $fb = isset($data['fb']) ? $data['fb'] : NULL;
+  $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
+  
+  if ($op == FB_OP_POST_INIT) {
+    // Include our admin hooks.
+    if (fb_is_fb_admin_page()) {
+      require drupal_get_path('module', 'fb_tab') . '/fb_tab.admin.inc';
+    }
+  }
+  elseif ($op == FB_OP_CURRENT_APP) {
+    if (fb_is_tab()) {
+      $return = fb_get_app(array('apikey' => $_REQUEST['fb_sig_api_key']));
+    }
+  }
+  elseif ($op == FB_OP_INITIALIZE) {
+    if (fb_is_tab()) {
+      $config = _fb_tab_get_config($fb_app);
+      if (!isset($GLOBALS['custom_theme'])) {
+        $GLOBALS['custom_theme'] = $config['custom_theme'];
+      }
+    }
+  }
+}
+
+/**
+ * Implements fb_tab_form_alter.
+ */
+function fb_tab_form_alter(&$form, &$form_state, $form_id) {
+  if (isset($form['fb_app_data']) && is_array($form['fb_app_data'])) {
+    // Add our settings to the fb_app edit form.
+    //require 'fb_canvas.admin.inc';
+    fb_tab_admin_form_alter($form, $form_state, $form_id);
+  }
+}
+
+
+/**
+ * Helper returns configuration for this module, on a per-app basis.
+ */
+function _fb_tab_get_config($fb_app) {
+  $fb_app_data = fb_get_app_data($fb_app);
+  $config = $fb_app_data['fb_tab'] ? $fb_app_data['fb_tab'] : array();
+  
+  // Merge in defaults
+  $config += array(
+    'custom_theme' => NULL,
+    'tab_default_name' => NULL,
+    'profile_tab_url' => NULL,
+  );
+  return $config;
+}

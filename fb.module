@@ -349,7 +349,10 @@ function fb_footer($is_front) {
  * Is the current request a canvas page?
  */
 function fb_is_canvas() {
-  if (fb_settings(FB_SETTINGS_CB)) {
+  if (fb_is_tab()) {
+    return FALSE;
+  }
+  elseif (fb_settings(FB_SETTINGS_CB)) {
     // Using fb_url_rewrite.
     return TRUE;
   }
@@ -359,6 +362,27 @@ function fb_is_canvas() {
   }
   return FALSE;
 }
+
+/**
+ * Is the current page a profile tab.
+ *
+ * Only works when "Canvas Session Parameter" is disabled.
+ */
+function fb_is_tab() {
+  global $_fb;
+  // Old way, no migrations enabled.
+  if (isset($_REQUEST['fb_sig_in_profile_tab']) &&
+      $_REQUEST['fb_sig_in_profile_tab']) {
+    return TRUE;
+  }
+  // signed request migration enabled.
+  elseif ($_fb && ($sr = $_fb->getSignedRequest()) &&
+          isset($sr['profile_id'])) {
+    return TRUE;
+  }
+  return FALSE;
+}
+
 
 /**
  * Sometimes calls to fb_api_init succeed, but calls to the client api
