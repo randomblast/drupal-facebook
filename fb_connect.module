@@ -41,9 +41,6 @@ function fb_connect_menu() {
 /**
  * Prepare for fbConnect use.  Because a single Drupal might support
  * multiple apps, we don't know in advance which is the fbConnect app.
- * Theoretically, it might be possible to simultaneously use multiple
- * apps and fbConnect, but my suspicion is facebook would throw a
- * total hissy-fit if you tried.
  */
 function fb_connect_app_init($fb_app) {
   if (isset($GLOBALS['_fb_app']) &&
@@ -104,7 +101,11 @@ function fb_connect_fb($op, $data, &$return) {
   //dpm(func_get_args(), "fb_connect_fb($op)");
   if ($op == FB_OP_CURRENT_APP && !$return && !fb_is_canvas()) {
     // This will cause fb.module to set the global $_fb when user is logged in via fbConnect.
-    if ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
+    if ($apikey = variable_get('fb_apikey', NULL)) {
+      // Honor $conf['fb_apikey'] if set in settings.php.
+      $return = fb_get_app(array('apikey' => $apikey));
+    }
+    elseif ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
       $return = fb_get_app(array('label' => $label));
     }
   }
