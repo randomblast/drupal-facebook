@@ -169,14 +169,14 @@ function fb_user_fb($op, $data, &$return) {
     // Remember the original uid, in case we have to change it.
     $original_uid = $user->uid;
     
-    // Make sure session is valid and authmap table is correct.
+    // Make sure facebook session is valid and authmap table is correct.
     // Relatively expensive operations, so we perform them only once per session.
-    if (!isset($_SESSION['fb_user_fbu']) || $_SESSION['fb_user_fbu'] != $fbu || TRUE) {
+    if (!isset($_SESSION['fb_user_fbu']) || $_SESSION['fb_user_fbu'] != $fbu) {
       if ($valid_session = fb_api_check_session($fb)) {
-        $_SESSION['fb_user_fbu'] = $fbu;
         $config = _fb_user_get_config($fb_app);
         
         if ($user->uid != 0 &&
+            !isset($_SESSION['fb_user_fb']) && 
             $config['map_account'][FB_USER_OPTION_MAP_ALWAYS]) {
           // Ensure local user has proper authmap entry.
           _fb_user_set_authmap($fb_app, $fbu, $user);
@@ -184,7 +184,7 @@ function fb_user_fb($op, $data, &$return) {
         else {
           // We're anonymous.  Check authmap to see if there is a local user for this fbu.
           $account = fb_user_get_local_user($fbu, $fb_app);
-
+          
           // If authmap has no entry, try by email.
           if (!$account &&
               $config['map_account'][FB_USER_OPTION_MAP_EMAIL]) {
@@ -216,6 +216,8 @@ function fb_user_fb($op, $data, &$return) {
             }
           }
         }
+        // Remember that we've already confirmed facebook session.
+        $_SESSION['fb_user_fbu'] = $fbu;
       }
       else {
         // Not a valid session.
@@ -347,9 +349,12 @@ function fb_user_fb($op, $data, &$return) {
     if ($data['event_type'] == 'session_change' && isset($data['event_data']['fbu'])) {
       // A user has logged in.
       // Don't trust fbu from $data['event_data'], too easy to spoof.
+      // Don't set authmap if SESSION[fb_user_fbu], could be an old session not properly cleaned up.
       if (($fbu = fb_facebook_user($data['fb'])) &&
           ($config = _fb_user_get_config($data['fb_app'])) &&
-          $config['map_account'][FB_USER_OPTION_MAP_ALWAYS]) {
+          $config['map_account'][FB_USER_OPTION_MAP_ALWAYS] &&
+          ($valid_session = fb_api_check_session($fb)) &&
+          !isset($_SESSION['fb_user_fbu'])) {
         _fb_user_set_authmap($data['fb_app'], $fbu, $GLOBALS['user']);
       }
     }
