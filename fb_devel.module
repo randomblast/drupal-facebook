@@ -226,6 +226,7 @@ function fb_devel_fb($op, $data, &$return) {
       $return[] = "alert('fb_devel.module extreme verbosity: original session_id is ' + Drupal.settings.fb_devel.session_name + ':' + Drupal.settings.fb_devel.session_id + ', session_id during FB_OP_AJAX_EVENT is $session_name:$session_id');";
       $fbu = fb_facebook_user($data['fb']);
       $return[] = "alert('fb_facebook_user() during FB_OP_AJAX_EVENT is $fbu, data[event_data][fbu] is {$data[event_data][fbu]}');";
+      $return[] = "alert('_COOKIE[fbu_{$fb_app->apikey}] is " . $_COOKIE['fbu_' . $fb_app->apikey] . "');";
       $_SESSION['fb_devel']['FB_AJAX_EVENT'] = 'XXX';
     }
   }
@@ -246,7 +247,9 @@ function fb_devel_page() {
     // TODO: determine whether connect page or canvas.
     
     drupal_set_message(t("session name: " . session_name()));
+    drupal_set_message(t("cookie domain: " . fb_settings(FB_SETTINGS_COOKIE_DOMAIN)));
     drupal_set_message(t("session id: " . session_id()));
+    drupal_set_message(t("fbs_" . $_fb_app->apikey . ": " . $_COOKIE["fbs_" . $_fb_app->apikey]));
     drupal_set_message(t("<a href=\"!url\">processed link</a>, <a href=!url>unprocessed</a>", array('!url' => url('fb/devel'))));
     drupal_set_message(t("getUser() returns " . $_fb->getUser()));
     
