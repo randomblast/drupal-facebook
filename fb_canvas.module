@@ -501,12 +501,12 @@ function fb_canvas_url_outbound_alter(&$path, &$options, $original_path) {
       else {
         //dpm($options, "fb_canvas_url_outbound_alter($path)");
       }
-    }
     
-    // Drupal has a habit of adding ?destination=... to some URLs.
-    // And Facebook for no good reason screws up when you do that.
-    if ($options['query']) {
-      $options['query'] = str_replace('destination=', 'fb_canvas_destination=', $options['query']);
+      // Drupal has a habit of adding ?destination=... to some URLs.
+      // And Facebook for no good reason screws up when you do that.
+      if ($options['query']) {
+        $options['query'] = str_replace('destination=', 'fb_canvas_destination=', $options['query']);
+      }
     }
     
   }
