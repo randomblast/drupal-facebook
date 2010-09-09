@@ -102,7 +102,7 @@ function fb_connect_fb($op, $data, &$return) {
   if ($op == FB_OP_CURRENT_APP && !$return && !fb_is_canvas()) {
     // This will cause fb.module to set the global $_fb when user is logged in via fbConnect.
     if ($apikey = variable_get('fb_apikey', NULL)) {
-      // Honor $conf['fb_apikey'] if set in settings.php.
+      // Use $conf['fb_apikey'] if set in settings.php.
       $return = fb_get_app(array('apikey' => $apikey));
     }
     elseif ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
