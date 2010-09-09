@@ -518,7 +518,6 @@ function fb_devel_info() {
   $info['session_name'] = session_name();
   $info['fbsettings(FB_SETTINGS_COOKIE_DOMAIN)'] = fb_settings(FB_SETTINGS_COOKIE_DOMAIN);
 
-  $info['signed_request'] = $_fb->getSignedRequest();
   $info['request'] = $_REQUEST;
   $info['user'] = $GLOBALS['user'];
   $info['fb_app'] = $_fb_app;
@@ -527,6 +526,7 @@ function fb_devel_info() {
 
   
   if ($_fb) {
+    $info['signed_request'] = $_fb->getSignedRequest();
     try {
       // app properties
       $token = fb_access_token();
