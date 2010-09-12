@@ -223,10 +223,11 @@ function fb_devel_fb($op, $data, &$return) {
     if (fb_verbose() == 'extreme') {
       $session_id = session_id();
       $session_name = session_name();
-      $return[] = "alert('fb_devel.module extreme verbosity: original session_id is ' + Drupal.settings.fb_devel.session_name + ':' + Drupal.settings.fb_devel.session_id + ', session_id during FB_OP_AJAX_EVENT is $session_name:$session_id');";
+      $return[] = "console.log('fb_devel.module extreme verbosity: original session_id is ' + Drupal.settings.fb_devel.session_name + ':' + Drupal.settings.fb_devel.session_id + ', session_id during FB_OP_AJAX_EVENT is $session_name:$session_id');";
       $fbu = fb_facebook_user($data['fb']);
-      $return[] = "alert('fb_facebook_user() during FB_OP_AJAX_EVENT is $fbu, data[event_data][fbu] is {$data[event_data][fbu]}');";
-      $return[] = "alert('_COOKIE[fbu_{$fb_app->apikey}] is " . $_COOKIE['fbu_' . $fb_app->apikey] . "');";
+      $return[] = "console.log('fb_facebook_user() during FB_OP_AJAX_EVENT is $fbu, data[event_data][fbu] is {$data[event_data][fbu]}');";
+      $return[] = "console.log('_COOKIE[fbu_{$fb_app->apikey}] is " . $_COOKIE['fbu_' . $fb_app->apikey] . "');";
+      $return[] = "FB_JS.reload();";
       $_SESSION['fb_devel']['FB_AJAX_EVENT'] = 'XXX';
     }
   }
@@ -478,7 +479,7 @@ function fb_devel_info() {
       $info['Page Status'] = t('Connected via Facebook Connect');
     }
     elseif (!fb_settings(FB_SETTINGS_TYPE)) {
-      $info['Page Status'] = t('Global fb instance is set.  Probably  facebook connect is enabled but user is not logged into facebook.');
+      $info['Page Status'] = t('Facebook SDK iniatilized. User is not logged into facebook or has not authorized application.');
     }
     else {
       $info['Page Status'] = t('Global fb instance is set, but page type unknown (%type).',
