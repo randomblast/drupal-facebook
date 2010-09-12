@@ -34,18 +34,72 @@ window.fbAsyncInit = function() {
 FB_JS = function(){};
 
 /**
+ * Helper parses URL params.
+ *
+ * http://jquery-howto.blogspot.com/2009/09/get-url-parameters-values-with-jquery.html
+ */
+FB_JS.getUrlVars = function(href)
+{
+  var vars = [], hash;
+  var hashes = href.slice(href.indexOf('?') + 1).split('&');
+  for(var i = 0; i < hashes.length; i++)
+  {
+    hash = hashes[i].split('=');
+    vars[hash[0]] = hash[1];
+    if (hash[0] != 'fb_js_fbu')
+      vars.push(hashes[i]); // i.e. "foo=bar"
+  }
+  return vars;
+}
+
+/**
  * Reload the current page, whether on canvas page or facebook connect.
  */
 FB_JS.reload = function(destination) {
+  // Determine fbu.
+  var session = FB.getSession();
+  var fbu;
+  if (session != null)
+    fbu = session.uid;
+  else
+    fbu = 0;
+
+  // Avoid infinite reloads
+  var vars = FB_JS.getUrlVars(window.location.href);
+  if (vars.fb_js_fbu === fbu) {
+    return; // Do not reload (again)
+  }
+
+  // Determine where to send user.
   if (typeof(destination) != 'undefined' && destination) {
-    window.top.location = destination;
+    // Use destination passed in.
   }
   else if (typeof(Drupal.settings.fb.reload_url) != 'undefined') {
-    window.top.location = Drupal.settings.fb.reload_url;
+    destination = Drupal.settings.fb.reload_url;
   }
   else {
-    window.location.reload();
+    detination = window.location.href;
   }
+  
+  // Split and parse destination
+  var path;
+  if (destination.indexOf('?') == -1) {
+    vars = [];
+    path = destination;
+  }
+  else {
+    vars = FB_JS.getUrlVars(destination);
+    path = destination.substr(0, destination.indexOf('?'));
+  }
+  
+  // Add fb_js_fbu to params before reload.
+  if (fbu) {
+    vars.push('fb_js_fbu=' + fbu);
+  }
+
+  // Use window.top for iframe canvas pages.
+  destination = path + '?' + vars.join('&');
+  window.top.location = destination;
 };
 
 // Facebook pseudo-event handlers.
