@@ -15,7 +15,7 @@ Drupal.behaviors.fb_connect = function(context) {
   FB_RequireFeatures(['XFBML'], function() {
       $(context).each(function() {
           var elem = $(this).get(0);
-          //alert('fb_connect: ' + elem + $(elem).html()); // debug
+          //console.log('fb_connect: ' + elem + $(elem).html()); // debug
           FB.XFBML.Host.parseDomElement(elem);
           
       });
@@ -32,14 +32,14 @@ Drupal.behaviors.fb_connect = function(context) {
       this.fbml_popup = $(this).next().html();
       this.fbml_popup_width = parseInt($(this).next().attr('width'));
       this.fbml_popup_height = parseInt($(this).next().attr('height'));
-      //alert("stored fbml_popup markup: " + this.fbml_popup); // debug
+      //console.log("stored fbml_popup markup: " + this.fbml_popup); // debug
       $(this).next().remove(); // Remove FBML so facebook does not expand it.
     })
   // Handle clicks on the link element.
   .bind('click', 
         function (e) {
           var popup;
-          //alert('Clicked!  Will show ' + this.fbml_popup); // debug
+          //console.log('Clicked!  Will show ' + this.fbml_popup); // debug
           popup = new FB.UI.FBMLPopupDialog($(this).attr('title'), this.fbml_popup, true, true);
           if (this.fbml_popup_width) {
             popup.setContentWidth(this.fbml_popup_width);
@@ -72,14 +72,14 @@ FB_Connect.statusHandle = function(e, data) {
     else if (data.fbu) {
       // User has connected.
       FB_Connect.sessionStart(function(data) {
-	  //alert("reloading because user connected.");
+	  //console.log("reloading because user connected.");
 	  window.location.reload();
 	});
     }
     else {
       // Refresh page for not-connected user.
       FB_Connect.sessionEnd(function(data) {
-	  //alert("reloading because user disconnected.");
+	  //console.log("reloading because user disconnected.");
 	  
 	  // User has disconnected.
 	  // Sometimes bogus cookies are left behind, here we try to clean up.
@@ -121,7 +121,7 @@ FB_Connect.sessionEnd = function(callback) {
 
 // An FB.Event handler
 FB_Connect.sessionChange = function(response) {
-  alert('FB_Connect.sessionChange');
+  console.log('FB_Connect.sessionChange');
   var status = {'changed': true, 'fbu': response.session.uid};
   $.event.trigger('fb_connect_status', status);    
 };
@@ -153,7 +153,7 @@ FB_Connect.on_not_connected = function() {
 
 // Deprecated and to be deleted.
 FB_Connect.login_onclick = function() {
-  alert('XXX call to deprecated FB_Connect.login_onclick.');
+  console.log('XXX call to deprecated FB_Connect.login_onclick.');
 };
 
 FB_Connect.logout_onclick = function() {
