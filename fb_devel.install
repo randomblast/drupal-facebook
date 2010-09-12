@@ -65,15 +65,6 @@ function fb_devel_requirements($phase) {
     );
   }
   
-  // Moved files sanity check.
-  if (file_exists(dirname(__FILE__) . '/fb_feed.module')) { // http://drupal.org/node/906666
-    $items[] = array(
-      'title' => $t('Drupal for Facebook obsolete files'),
-      'severity' => REQUIREMENT_ERROR,
-      'description' => $t('Drupal for Facebook modules have moved to <em>modules/fb/contrib/</em>, but your install still has old out-of-date files!  Delete the entire <em>modules/fb/</em> directory and re-install.'),
-    );
-  }
-
   if (!count($items) && $phase == 'runtime') {
     $items[] = array(
       'title' => $t('Drupal for Facebook Devel'),
