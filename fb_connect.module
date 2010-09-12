@@ -348,13 +348,9 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
           // substitute %fbu
           $content = str_replace('!fbu', $fbu, $content);
         } 
-        elseif ($GLOBALS['user']->uid > 1) {
+        elseif ($GLOBALS['user']->uid >= 1) {
           $subject = $defaults['user_not_connected']['title'];
           $content = $defaults['user_not_connected']['body'];
-        } 
-        elseif ($GLOBALS['user']->uid == 1) {
-          $subject = $defaults['user_not_connected']['title'];
-          $content = '<em>' . t('Facebook Connect login disabled for user #1.') . '</em>';
         } 
         else {
           $subject = $defaults['anon_not_connected']['title'];
