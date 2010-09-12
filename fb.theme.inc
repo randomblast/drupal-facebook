@@ -29,7 +29,7 @@ function theme_fb_login_button($text, $options = array()) {
 
 
 function theme_fb_username($fbu, $object, $orig) {
-  if (!$fbu) {
+  if (!$fbu || arg(0) == 'admin') {
     return $orig;
   }
 
