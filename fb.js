@@ -29,8 +29,6 @@ window.fbAsyncInit = function() {
     //FB.Event.subscribe('auth.sessionChange', FB_JS.debugHandler);
 
   });
-
-  
 };
 
 FB_JS = function(){};
@@ -89,7 +87,6 @@ FB_JS.debugHandler = function(response) {
 FB_JS.sessionChangeHandler = function(context, status) {
   // Pass data to ajax event.
   var data = {
-    'apikey': FB._apiKey,
     'event_type': 'session_change'
   };
   
@@ -119,6 +116,9 @@ FB_JS.ajaxEvent = function(event_type, data) {
     // Include session, in the format faceboook's PHP sdk expects it.
     // @TODO - pass this only if fbs_APIKEY cookie is not set.
     data.session = JSON.stringify(FB.getSession());
+    // Other values to always include.
+    data.apikey = FB._apiKey;
+    data.fb_controls = Drupal.settings.fb.controls;
 
     jQuery.post(Drupal.settings.fb.ajax_event_url + '/' + event_type, data,
 		function(js_array, textStatus, XMLHttpRequest) {
