@@ -183,11 +183,8 @@ else {
     }
   }
 }
-if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CONNECT &&
-    (isset($_REQUEST['fb_session_handoff']))) {
-  // Nothing to do during connect session handoff.
-}
-elseif (fb_settings(FB_SETTINGS_TYPE)) {
+
+if (fb_settings(FB_SETTINGS_TYPE) != FB_SETTINGS_TYPE_CONNECT) {
   // Cookie domain unique to app and page type.
   $cookie_domain .= fb_settings(FB_SETTINGS_TYPE) . fb_settings(FB_SETTINGS_APIKEY) . fb_settings(FB_SETTINGS_ID);
   fb_settings(FB_SETTINGS_COOKIE_DOMAIN, $cookie_domain); // for debugging.
