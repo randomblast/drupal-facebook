@@ -5,6 +5,7 @@
  * Support for Facebook's Stream API.
  *
  * http://wiki.developers.facebook.com/index.php/Using_the_Open_Stream_API
+ * http://developers.facebook.com/docs/guides/policy/stream
  *
  * At the moment we support only fb_stream_publish_dialog() for
  * writing to a stream via a javascript dialog.  The Stream API allows
