@@ -140,6 +140,14 @@ function _fb_user_track($fb, $fb_app, $account) {
 }
 
 /**
+ * Helper to ensure local user is logged out.
+ */
+function _fb_user_logout() {
+  session_destroy();
+  $user = drupal_anonymous_user();
+}
+
+/**
  * Implementation of hook_fb.
  */
 function fb_user_fb($op, $data, &$return) {
@@ -155,8 +163,8 @@ function fb_user_fb($op, $data, &$return) {
     if (isset($_SESSION['fb_user_fbu']) &&
         $_SESSION['fb_user_fbu'] != fb_facebook_user()) {
       // User has logged out of facebook, and drupal is only now learning about it.
-      session_destroy();
-      $user = drupal_anonymous_user();
+      _fb_user_logout();
+      drupal_goto($_GET['q']); // @TODO - need request params here?
     }
 
     if (_fb_user_special_page() ||
@@ -253,25 +261,26 @@ function fb_user_fb($op, $data, &$return) {
         // could lead to new session start which would not actually have any
         // effect in ajax callback.
         fb_controls(FB_USER_CONTROL_NO_HONOR_MAP, TRUE);
-        _fb_user_process_authorized_user($data['fb'], $data['fb_app']);
+        _fb_user_process_authorized_user();
       }
     }
   }
 }
 
 function fb_user_footer() {
-  if (($fbu = fb_facebook_user($data['fb'])) &&
+  if (($fbu = fb_facebook_user()) &&
       $fbu != fb_get_fbu($GLOBALS['user']) &&
-      $_GET['q'] !== variable_get('site_403', NULL) &&
-      $_GET['q'] !== variable_get('site_404', NULL)) {
+      $_GET['q'] !== variable_get('site_403', FALSE) &&
+      $_GET['q'] !== variable_get('site_404', FALSE)) {
     $uid = $GLOBALS['user']->uid; // Remember original uid.
-    _fb_user_process_authorized_user($data['fb'], $data['fb_app']);
+    _fb_user_process_authorized_user();
     if ($uid != $GLOBALS['user']->uid) {
       // during user processing, we started a new session.
-      drupal_goto($_REQUEST['q']);
+      drupal_goto($_GET['q']); // @TODO - need request params here?
     }
   }
 }
+
 /**
  * Test facebook session by calling into facebook.  This is expensive, so
  * limit check to once per session.  Use session variable to flag that we have
@@ -313,6 +322,11 @@ function _fb_user_external_login() {
     if (fb_verbose() === 'extreme') { // debug
       watchdog("fb_user", "fb_user_fb changing user to $account->uid");
       $session_id = session_id();
+    }
+
+    // user_external_login() fails if already logged in, so log out first.
+    if ($GLOBALS['user']->uid) {
+      _fb_user_logout();
     }
     
     $valid_user = user_external_login($account);
