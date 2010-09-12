@@ -66,7 +66,7 @@ function fb_devel_requirements($phase) {
   }
   
   // Moved files sanity check.
-  if (file_exists(drupal_get_path('module', 'fb_devel') . '/fb_feed.module')) {
+  if (file_exists(dirname(__FILE__) . '/fb_feed.module')) { // http://drupal.org/node/906666
     $items[] = array(
       'title' => $t('Drupal for Facebook obsolete files'),
       'severity' => REQUIREMENT_ERROR,
