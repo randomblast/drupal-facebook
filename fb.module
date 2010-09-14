@@ -90,7 +90,7 @@ function fb_controls($control = NULL, $value = NULL) {
     elseif ($value === TRUE)
       $controls[$control] = TRUE;
     
-    return $controls[$control]; // Return requested control.
+    return isset($controls[$control]) ? $controls[$control] : FALSE; // Return requested control.
   }
   return array_keys($controls); // Return all controls.
 }
@@ -109,12 +109,6 @@ function fb_init() {
   // Globals provided for internal use and convenience to third-parties.
   global $_fb;
   global $_fb_app;
-
-  // http://drupal.org/node/329810
-  if (!function_exists('arg')) {
-    // Ensure arg function is defined.
-    drupal_bootstrap(DRUPAL_BOOTSTRAP_PATH);
-  }
 
   // Perform sanity check, help users who skip the README.
   if (!function_exists('fb_settings')) {
@@ -541,6 +535,9 @@ function fb_get_fbu($uid, $fb_app = NULL) {
     $fbu = fb_invoke(FB_OP_GET_FBU, array('fb_app' => $fb_app,
                                           'uid' => $uid,
                                           'fb' => $GLOBALS['_fb']));
+  }
+  else {
+    $fbu = NULL;
   }
   return $fbu;
 }
