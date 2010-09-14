@@ -206,9 +206,6 @@ function fb_devel_fb($op, $data, &$return) {
     //$return[] = "debugger; // added by fb_devel.module";
   }
   
-  elseif ($op == FB_OP_CANVAS_EXIT && $data['fb'] && $return) {
-    watchdog('fb_devel', 'Drupal is redirecting a canvas page, destination is %destination.', array('%destination' => $return));
-  }
   elseif ($op == FB_OP_POST_INIT) {
     $_SESSION['fb_devel']['FB_OP_POST_INIT'] = $_SESSION['fb_devel']['FB_OP_POST_INIT'] + 1;
     // Javascript to help us with sanity checks.

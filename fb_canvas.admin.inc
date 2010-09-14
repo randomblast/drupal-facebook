@@ -69,7 +69,7 @@ function fb_canvas_admin_form_alter(&$form, &$form_state, $form_id) {
     $form['fb_app_data']['fb_canvas'] = array(
       '#type' => 'fieldset',
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
+      '#collapsed' => isset($fb_app->label),
       '#title' => t('Facebook canvas pages'),
       '#description' => t('Settings which apply to <a href=!url target=_blank>canvas pages</a>.',
                           array('!url' => 'http://developers.facebook.com/docs/guides/canvas/')),

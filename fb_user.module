@@ -66,7 +66,7 @@ function fb_user_menu() {
  */
 function _fb_user_get_config($fb_app) {
   $fb_app_data = fb_get_app_data($fb_app);
-  $fb_user_data = $fb_app_data['fb_user'] ? $fb_app_data['fb_user'] : array();
+  $fb_user_data = isset($fb_app_data['fb_user']) ? $fb_app_data['fb_user'] : array();
   
   // Merge in defaults
   $fb_user_data += array(
@@ -75,6 +75,7 @@ function _fb_user_get_config($fb_app) {
       FB_USER_OPTION_MAP_ALWAYS => FB_USER_OPTION_MAP_ALWAYS,
       FB_USER_OPTION_MAP_EMAIL => FB_USER_OPTION_MAP_EMAIL,
     ),
+    'new_user_rid' => NULL,
   );
   return $fb_user_data;
 }

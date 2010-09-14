@@ -21,7 +21,8 @@ define('FB_ADMIN_OP_LOCAL_LINKS', 'fb_admin_links');
  */
 function fb_admin_page() {
   $apps = fb_get_all_apps();
-
+  $output = ''; // Avoid PHP notice.
+  
   if (count($apps)) {
     $header = array(
       t('Label'), 

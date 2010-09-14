@@ -52,7 +52,7 @@ function fb_tab_form_alter(&$form, &$form_state, $form_id) {
  */
 function _fb_tab_get_config($fb_app) {
   $fb_app_data = fb_get_app_data($fb_app);
-  $config = $fb_app_data['fb_tab'] ? $fb_app_data['fb_tab'] : array();
+  $config = isset($fb_app_data['fb_tab']) ? $fb_app_data['fb_tab'] : array();
   
   // Merge in defaults
   $config += array(

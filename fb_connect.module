@@ -133,7 +133,7 @@ function _fb_connect_add_js() {
                     'fb_connect' => array(
                       'front_url' => url('<front>'),
                       'fbu' => fb_facebook_user(),
-                      'uid' => $uid,
+                      'uid' => $GLOBALS['user']->uid,
                     ),
                   ), 'setting');
     drupal_add_js(drupal_get_path('module', 'fb_connect') . '/fb_connect.js');
@@ -378,20 +378,31 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
   }
 }
 
+/**
+ * Helper returns configuration for this module, on a per-app basis.
+ */
+function _fb_connect_get_config($fb_app) {
+  $fb_app_data = fb_get_app_data($fb_app);
+  $config = isset($fb_app_data['fb_connect']) ? $fb_app_data['fb_connect'] : array();
+  
+  // Merge in defaults
+  $config += array(
+
+  );
+  return $config;
+}
 
 function fb_connect_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
     $fb_app = $form['#fb_app'];
-    $fb_app_data = fb_get_app_data($fb_app);
-    $fb_connect_data = $fb_app_data['fb_connect'];
     
     $form['fb_app_data']['fb_connect'] = array(
       '#type' => 'fieldset',
       '#title' => 'Facebook Connect',
       '#tree' => TRUE,
       '#collapsible' => TRUE,
-      '#collapsed' => $node->label ? TRUE : FALSE,
+      '#collapsed' => $fb_app->label ? TRUE : FALSE,
     );
     
     // "Primary" will be initialized on every non-canvas page.

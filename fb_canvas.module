@@ -83,7 +83,8 @@ function fb_canvas_fb($op, $data, &$return) {
     $fb_canvas_data = $fb_app_data['fb_canvas'];
     
     $is_canvas = FALSE;
-
+    $use_ob = FALSE;
+    
     // Set an app-specific theme.
     global $custom_theme; // Set by this function.
     if (fb_canvas_is_iframe()) {
@@ -199,7 +200,8 @@ function fb_canvas_fb($op, $data, &$return) {
     
     $destination = $return;
     
-    if ($GLOBALS['fb_canvas_post_process']) {
+    if (isset($GLOBALS['fb_canvas_post_process']) &&
+        $GLOBALS['fb_canvas_post_process']) {
       $output = ob_get_contents();
       ob_end_clean();
       if (fb_canvas_is_iframe()) {
@@ -286,13 +288,16 @@ function fb_canvas_is_iframe() {
  */
 function _fb_canvas_get_config($fb_app) {
   $fb_app_data = fb_get_app_data($fb_app);
-  $fb_canvas_data = $fb_app_data['fb_canvas'] ? $fb_app_data['fb_canvas'] : array();
+  $fb_canvas_data = isset($fb_app_data['fb_canvas']) ? $fb_app_data['fb_canvas'] : array();
   
   // Merge in defaults
   $fb_canvas_data += array(
     'require_login' => FB_CANVAS_OPTION_ALLOW_ANON, // @TODO - can this still be supported?
     'theme_fbml' => 'fb_fbml',
     'theme_iframe' => 'fb_fbml',
+    'front_anonymous' => NULL,
+    'front_loggedin' => NULL,
+    'front_added' => NULL,
   );
   return $fb_canvas_data;
 }
@@ -342,13 +347,16 @@ function fb_canvas_form_action_via_facebook(&$form, $use_facebook = TRUE) {
   }
 }
 
-
+// @TODO - deprecated and to be deleted. XXX
 function fb_canvas_handling_form($value = NULL) {
   global $_fb;
   
   // Test whether a form has been submitted via facebook canvas page.
   if ($_fb && isset($_REQUEST[FB_CANVAS_FORM_HANDLER_ENABLED])) {
     $result = $_REQUEST[FB_CANVAS_FORM_HANDLER_ENABLED];
+  }
+  else {
+    $result = FALSE;
   }
   if (isset($value)) {
     $_REQUEST[FB_CANVAS_FORM_HANDLER_ENABLED] = $value;

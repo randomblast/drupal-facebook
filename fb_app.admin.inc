@@ -118,7 +118,7 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#type' => 'textfield',
     '#title' => t('Secret'),
     '#required' => TRUE,
-    '#default_value' => $fb_app->secret,
+    '#default_value' => isset($fb_app->secret) ? $fb_app->secret : NULL,
     '#description' => t('Facebook will generate this value when you create the application.'),
   );
   $form['id'] = array(

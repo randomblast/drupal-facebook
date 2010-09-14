@@ -63,7 +63,7 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
       '#title' => t('Facebook user settings'),
       '#tree' => TRUE,
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
+      '#collapsed' => isset($fb_app->label),
     );
         
     $form['fb_app_data']['fb_user']['create_account'] = array(

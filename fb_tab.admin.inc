@@ -30,7 +30,7 @@ function fb_tab_admin_form_alter(&$form, &$form_state, $form_id) {
     $form['fb_app_data']['fb_tab'] = array(
       '#type' => 'fieldset',
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
+      '#collapsed' => isset($fb_app->label),
       '#title' => t('Facebook profile tabs'),
       '#description' => t('Settings which apply to <a href=!url target=_blank>profile tabs</a>.',
                           array('!url' => 'http://developers.facebook.com/docs/guides/canvas/#tabs')),
