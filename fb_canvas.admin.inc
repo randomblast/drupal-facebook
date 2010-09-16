@@ -106,26 +106,17 @@ function fb_canvas_admin_form_alter(&$form, &$form_state, $form_id) {
     );
     }
     
-    $form['fb_app_data']['fb_canvas']['front_anonymous'] =
-      array('#type' => 'textfield',
-            '#title' => t('Front page when user is not logged in to facebook'),
-            '#description' => t('Leave blank to use the site-wide front page.  See <a href="!link" target=_blank>Public Canvas Pages</a>.',
-                                array('!link' => 'http://wiki.developers.facebook.com/index.php/Public_Canvas_Pages')),
-            '#default_value' => $fb_canvas_data['front_anonymous'],
-      );
-    $form['fb_app_data']['fb_canvas']['front_loggedin'] =
-      array('#type' => 'textfield',
-            '#title' => t('Front page when user is logged in to facebook, but is not a user of the app'),
-            '#description' => t('Leave blank to use the site-wide front page.'),
-            '#default_value' => $fb_canvas_data['front_loggedin'],
-      );
-    $form['fb_app_data']['fb_canvas']['front_added'] =
-      array('#type' => 'textfield',
-            '#title' => t('Front page for authorized users of this application'),
-            '#description' => t('Leave blank to use the site-wide front page.'),
-            '#default_value' => $fb_canvas_data['front_added'],
-      );
-
+    $form['fb_app_data']['fb_canvas']['front_anonymous'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Front page when user has not authorized the application'),
+      '#description' => t('This is the front page for users who are not logged into facebook, or have not authorized the application.  Leave blank to use the site-wide front page.'),
+      '#default_value' => $fb_canvas_data['front_anonymous'],
+    );
+    $form['fb_app_data']['fb_canvas']['front_added'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Front page for authorized users of this application'),
+      '#description' => t('Leave blank to use the site-wide front page.'),
+      '#default_value' => $fb_canvas_data['front_added'],
+    );
   }
-
 }

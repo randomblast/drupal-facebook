@@ -110,9 +110,10 @@ function _fb_user_track($fb, $fb_app, $account) {
       $uid = $account->uid;
     }
     $session = $fb->getSession();
+    $session_key = isset($session['session_key']) ? $session['session_key'] : '';
     $result = db_query("UPDATE {fb_user_app} SET time_access=%d, session_key='%s', session_key_expires=%d, uid=%d WHERE apikey='%s' AND fbu=%d",
                        time(),
-                       $session['session_key'], $session['expires'],
+                       $session_key, $session['expires'],
                        $uid,
                        $fb_app->apikey, fb_facebook_user($fb));
     

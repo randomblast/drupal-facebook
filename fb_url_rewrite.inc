@@ -4,20 +4,26 @@
  * @file
  * Performs custom url rewriting for Drupal for Facebook.
  *
- * Historically, these modules prefixed all facebook callbacks with values
- * that could be parsed from the url.  In particular we learned which
- * application was being used.  And in advanced cases, mostly for iframe apps,
- * we learned the "page type" and session key as well.
+ * These function prefix urls for canvas pages and profile tabs.  This allows
+ * modules/fb to detect when a canvas page is requested.  This is necessary
+ * because the facebook platform does not send us sufficient information to
+ * detect this in some cases, particularly when the user is not logged into
+ * facebook or has not authorized the app.  In those case, drupal could not
+ * tell the difference between a canvas request and a regular HTML page
+ * request without this code.  The url prefix allows us to detect that the
+ * request is for a canvas page, and which specific application if more than
+ * one is hosted.
  *
- * Now, we learn these by inspecting 'fb_sig' params (canvas pages) and
- * cookies (facebook connect).  So most users will not need these functions.
- * They are available here for compatability and to support those more
- * advanced cases where they may still be necessary.
- *
- * If your application needs these, include this file in your settings.php.
+ * We define our custom_url rewrite function here, and not in
+ * fb_canvas.module, because custom_url_rewrite_inbound() must be defined
+ * *before* drupal_init_path(), which is called during DRUPAL_BOOTSTRAP_PATH,
+ * before modules are loaded.
+ * 
+ * If your application supports canvas pages and/or profile tabs, include this
+ * file in your settings.php.
  * I.e. the end of your settings.php might look like:
  *
- * include 'sites/all/modules/fb/fb_url_rewrite.inc'; // This on only if necessary.
+ * include 'sites/all/modules/fb/fb_url_rewrite.inc'; // For canvas pages support.
  * include 'sites/all/modules/fb/fb_settings.inc'; // Always include this.
  */
    
@@ -60,25 +66,12 @@ function _fb_settings_parse($key) {
 }
 
 
-
-
 //// URL Management
-
-// We define our custom_url rewrite function here, and not in
-// fb_canvas.module, because custom_url_rewrite_inbound() must be defined
-// *before* drupal_init_path(), which is called during DRUPAL_BOOTSTRAP_PATH,
-// *before modules are loaded.  Set $conf['fb_url_rewrite'] = FALSE in
-// *settings.php to disable this behavior.  That is safe for sites
-// *implementing facebook connect, but not canvas pages or profile tabs.
-
-// Enable by default.
-if (!isset($conf['fb_url_rewrite']))
-  $conf['fb_url_rewrite'] = TRUE;
 
 /**
  * Define custom_url_rewrite_inbound() if not defined already.
  */
-if (!function_exists('custom_url_rewrite_inbound') && $conf['fb_url_rewrite']) {
+if (!function_exists('custom_url_rewrite_inbound')) {
   function custom_url_rewrite_inbound(&$result, $path, $path_language) {
     fb_url_inbound_alter($result, $path, $path_language);
   }
@@ -87,7 +80,7 @@ if (!function_exists('custom_url_rewrite_inbound') && $conf['fb_url_rewrite']) {
 /**
  * Define custom_url_rewrite_outbound() if not defined already.
  */
-if (!function_exists('custom_url_rewrite_outbound') && $conf['fb_url_rewrite']) {
+if (!function_exists('custom_url_rewrite_outbound')) {
   function custom_url_rewrite_outbound(&$path, &$options, $original_path) {
     if (function_exists('fb_canvas_url_outbound_alter'))
       fb_canvas_url_outbound_alter($path, $options, $original_path);
