@@ -423,10 +423,9 @@ function _fb_user_process_authorized_user() {
   if ($fbu && _fb_user_check_session($fbu)) {
     // First check if map already exists.
     $account = _fb_user_external_login();
+    $config = _fb_user_get_config($GLOBALS['_fb_app']);  
     
     if (!$account) {
-      $config = _fb_user_get_config($GLOBALS['_fb_app']);
-      
       if ($GLOBALS['user']->uid > 0 &&
           $config['map_account'][FB_USER_OPTION_MAP_ALWAYS]) {
         // Create map for logged in user.

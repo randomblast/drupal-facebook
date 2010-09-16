@@ -175,7 +175,8 @@ function fb_init() {
     $js_settings['reload_url'] = 'http://apps.facebook.com/' . $_fb_app->canvas . '/' . fb_scrub_urls($_REQUEST['q']);
   }
   else {
-    $js_settings['reload_url'] = url($_REQUEST['q'], array('absolute' => TRUE));
+    $js_settings['reload_url'] = url(isset($_GET['q']) ? $_GET['q'] : '<front>',
+                                     array('absolute' => TRUE));
   }
 
   // Allow third-parties to act again.

@@ -207,7 +207,14 @@ function fb_devel_fb($op, $data, &$return) {
   }
   
   elseif ($op == FB_OP_POST_INIT) {
-    $_SESSION['fb_devel']['FB_OP_POST_INIT'] = $_SESSION['fb_devel']['FB_OP_POST_INIT'] + 1;
+    if (isset($_SESSION['fb_devel'])) {
+      // Counter helps track how long session has been around.
+      $_SESSION['fb_devel']['FB_OP_POST_INIT'] = $_SESSION['fb_devel']['FB_OP_POST_INIT'] + 1;
+    }
+    else {
+      $_SESSION['fb_devel']['FB_OP_POST_INIT'] = 1;
+    }
+    
     // Javascript to help us with sanity checks.
     drupal_add_js(array(
                     'fb_devel' => array(
@@ -232,7 +239,8 @@ function fb_devel_fb($op, $data, &$return) {
 
 /**
  * Provides a page with useful debug info.
- * 
+ *
+ * @TODO - clean this up and rely less on drupal_set_message() and dpm().
  */
 function fb_devel_page() {
   global $_fb, $_fb_app;
@@ -254,7 +262,6 @@ function fb_devel_page() {
     drupal_set_message(t("base_url: " . $GLOBALS['base_url']));
     drupal_set_message(t("base_path: " . $GLOBALS['base_path']));
     drupal_set_message(t("url() returns: " . url()));
-    drupal_set_message(t("session_key is " . $_fb->api_client->session_key));
   }
 
   if ($fbu = fb_get_fbu($user)) {
@@ -266,8 +273,9 @@ function fb_devel_page() {
   dpm(fb_get_fbu($user), 'Facebook user via fb_get_fbu');
   //dpm($user, "Local user " . theme('username', $user));
   
-  if ($GLOBALS['fb_connect_apikey'])
+  if (isset($GLOBALS['fb_connect_apikey'])) {
     drupal_set_message(t("fb_connect_apikey = " . $GLOBALS['fb_connect_apikey']));
+  }
   
   dpm($_COOKIE, 'cookie');
   dpm($_REQUEST, "Request");
