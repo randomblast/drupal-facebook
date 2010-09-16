@@ -85,7 +85,9 @@ function _fb_connect_set_app($fb_app = NULL) {
 }
 
 /**
- * Which apps are fbConnect enabled?
+ * Which apps are fbConnect enabled?  (As opposed to canvas page only).
+ *
+ * @TODO - Does not actuall work.
  */
 function fb_connect_enabled_apps() {
   // We do a bit of work for each enabled app, so really we want to restrict this list to only apps which have been "turned on".
@@ -110,7 +112,7 @@ function fb_connect_fb($op, $data, &$return) {
     }
   }
   elseif ($op == FB_OP_POST_INIT) {
-    if (!fb_is_canvas()) {
+    if (!fb_is_canvas() && !fb_is_tab()) {
       // Init Facebook javascript for primary app
       _fb_connect_add_js();
     }
@@ -125,6 +127,8 @@ function fb_connect_fb($op, $data, &$return) {
 /**
  * This wrapper function around drupal_add_js() ensures that our
  * settings are added once and only once when needed.
+ *
+ * @TODO - still needed?  Much javascript has been moved from fb_connect.js to fb.js.
  */
 function _fb_connect_add_js() {
   static $just_once;
@@ -141,102 +145,6 @@ function _fb_connect_add_js() {
   }
 }
 
-/**
- * Here we attempt to log the user out of facebook connect, not just Drupal.
- * If we fail, the user will be reconnected right away, because
- * connect cookies are still in place.
- */
-function fb_connect_exit($url = NULL) {
-  if (isset($GLOBALS['fb_connect_logging_out'])) {
-    global $_fb;
-    session_write_close(); // drupal_goto calls this, so why not us?
-    if (!isset($url))
-      $url = url('<front>', NULL, NULL, TRUE);
-    $_fb->logout($url);
-  }
-}
-
-/**
- * Allows other modules to specify which Facebook Connect features are
- * required.  This will affect how the FB_RequireFeatures javascript method is
- * called.
- */
-function fb_connect_require_feature($feature = NULL, $fb_app = NULL) {
-  if ($feature && !isset($fb_app) && isset($GLOBALS['_fb_app']))
-    $fb_app = $GLOBALS['_fb_app'];
-  
-  // some features may apply without an app, but for now let's enforce that an app is required.
-  if ($feature && !isset($fb_app))
-    return;
-  
-  static $features;
-  if (!$features) {
-    _fb_connect_add_js(); // include our javascript.
-    $features = array();
-  }
-  if ($fb_app && !isset($features[$fb_app->apikey]))
-    $features[$fb_app->apikey] = array(
-      'fb_app' => $fb_app,
-      'features' => array());
-  if ($feature)
-    $features[$fb_app->apikey]['features'][$feature] = $feature;
-  return $features;
-}
-
-/**
- * Add an option when initializing facebook's javascript api.
- */
-function fb_connect_init_optionXXX($option = NULL, $value = NULL, $fb_app = NULL) {
-  if ($option && !isset($fb_app))
-    $fb_app = $GLOBALS['_fb_app'];
-  if ($option && !$fb_app)
-    return;
-  
-  static $options;
-  if (!$options)
-    $options = array();
-  if ($fb_app && !isset($options[$fb_app->apikey])) {
-    $options[$fb_app->apikey] = array();
-  }
-  
-  if ($option)
-    $options[$fb_app->apikey][$option] = $value;
-  return $options;
-}
-
-/**
- * Add javascript to a facebook connect page.
- *
- * Use this to add calls to facebook JS,
- * http://wiki.developers.facebook.com/index.php/JS_API_Index.
- * 
- * We use Drupal's cache to store the javascript until it is rendered
- * to a page.  This approach is analogous to drupal_set_message
- * storing data temporarily in the session.  We use cache instead of
- * session, because the session is not shared between Facebook's event
- * callbacks and regular page requests.
- *
- */
-function fb_connect_init_js($js = NULL) {
-  $fbu = fb_facebook_user();
-  $fb_app = $GLOBALS['_fb_app'];
-  $cid = 'fb_connect_init_js_' . $fb_app->apikey . '_' . $fbu;
-  $cache = cache_get($cid, 'cache');
-  if (!isset($cache->data)) {
-    $cache = new stdClass();
-    $cache->data = array();
-  }
-  
-  if ($js) {
-    $cache->data[] = $js;
-    cache_set($cid, $cache->data, 'cache', time() + 60000); // Update cache
-  }
-  elseif ($js === NULL) {
-    cache_clear_all($cid, 'cache');
-  }
-  
-  return $cache->data;
-}
 
 
 /**
@@ -252,7 +160,9 @@ function fb_connect_get_connect_url($fb_app) {
 }
 
 
-
+/**
+ * Default markup for our login block.
+ */
 function _fb_connect_block_login_defaults() {
   return array('anon_not_connected' => array(
                  'title' => t('Facebook Connect'),
@@ -270,7 +180,7 @@ function _fb_connect_block_login_defaults() {
 }
 
 /**
- * Implementation of hook_block.
+ * Implements hook_block().
  */
 function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {
@@ -392,6 +302,9 @@ function _fb_connect_get_config($fb_app) {
   return $config;
 }
 
+/**
+ * Implements hook_form_alter().
+ */
 function fb_connect_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
@@ -421,7 +334,9 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
   }  
 }
 
-
+/**
+ * Submit callback.  Sets or unsets "primary" app.
+ */
 function fb_connect_app_submit($form, &$form_state) {
   $values = $form_state['values'];
   $label = $values['label'];
@@ -436,6 +351,9 @@ function fb_connect_app_submit($form, &$form_state) {
   }
 }
 
+
+// @TODO
+// Theme functions below are deprecated!  Use the theme functions in fb.theme.inc instead.  They work on both conenct pages and iframe canvas pages.
 
 /**
  * Implementation of hook_theme_registry_alter().
