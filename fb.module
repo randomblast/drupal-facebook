@@ -1076,9 +1076,9 @@ function fb_format_username($account) {
  * Return a user's facebook name, instead of local username.
  */
 function fb_username_alter(&$name, $account) {
-  //dpm(func_get_args(), "fb_username_alter($name)");
-  if (isset($account->fbu) && ($name == $account->fbu . '@facebook')) {
-    $info = fb_users_getInfo(array($account->fbu));
+  // dpm(func_get_args(), "fb_username_alter($name)");
+  if ($fbu = fb_get_fbu($account)) { // @TODO - is fb_get_fbu() a performance hit here?
+    $info = fb_users_getInfo(array($fbu));
     if (is_array($info) && is_array($info[0])) {
       if ($info[0]['name']) {
         $name = $info[0]['name'];
