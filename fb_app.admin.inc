@@ -97,13 +97,13 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#title' => t('Label'),
     '#required' => TRUE,
     '#default_value' => $fb_app->label,
-    '#description' => t('A short name for this application.  Use letters and numerals only (no spaces, etc). <br/>This label will be used by code to customize the behavior of this app.<br/>Working with multiple copies of a site (i.e. development, staging, production)?  Use the <strong>same label</strong> on all servers!  Apikey, secret and ID usually change from server to server, but <strong>the label remains the same</strong>.'),
+    '#description' => t('A short name for this application.  Use letters and numerals only (no spaces, etc). <br/>Module code may refer to this label, in order to customize the behavior of this app.<br/>When working with multiple copies of an application (i.e. development, staging, production),  use the <strong>same label</strong> on all servers.  Apikey, secret and ID will change from server to server, but <strong>the label remains the same</strong>.'),
   );
   $form['status'] = array(
     '#type' => 'checkbox',
     '#title' => t('Enabled'),
     '#default_value' => $fb_app->status,
-    '#description' => t('Uncheck if this server no longer hosts this application.'),
+    '#description' => t('Uncheck if this server no longer hosts this application, but you prefer not to delete the settings.'),
   );
 
   // ID, apikey and secret are shown on facebook.  User copies and pastes values.
@@ -138,7 +138,7 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
   $form['fb_app_data']['fb_app']['set_app_props'] = array(
     '#type' => 'checkbox',
     '#title' => t('Set Application Properties Automatically'),
-    '#default_value' => $data['fb_app']['set_app_props'],
+    '#default_value' => isset($data['fb_app']) ? $data['fb_app']['set_app_props'] : NULL,
     '#description' => t('Automatically update Facebook settings for this application.  Disable this if you have customized your callback URL, for example.  Also disable if another Drupal instance hosts the same application (i.e. with shared subdomain).'),
   );
 
@@ -170,6 +170,11 @@ function fb_app_edit_form_validate($form, &$form_state) {
   $fb_app->data = serialize($fb_app->fb_app_data);
   
   if ($form_state['values']['op'] != t('Delete')) {
+    // Labels must be alphanumeric.
+    if (preg_match('/[^a-zA-Z0-9_]/', $fb_app->label)) {
+      form_error($form['label'], t('Label must be alphanumeric or underscores only.'));
+    }
+
     // Labels must be unique.
     $apps = fb_get_all_apps();
     foreach ($apps as $app) {

@@ -28,7 +28,7 @@ function fb_admin_page() {
       t('Label'), 
       t('About'), 
       t('Canvas'), 
-      t('Local Settings'), 
+      t('Local Operations'), 
       t('Remote Settings'),
     );
     
@@ -53,7 +53,7 @@ function fb_admin_page() {
       else {
         $row[] = t('n/a');
       }
-      // Local Settings
+      // Local Ops
       $local_links =
         fb_invoke(FB_ADMIN_OP_LOCAL_LINKS,
                   array('fb_app' => $fb_app),
