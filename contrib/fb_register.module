@@ -323,8 +323,8 @@ function fb_register_user($op, &$edit, &$account, $category = NULL) {
           'account_url' => url('user/' . $account->uid, array('absolute' => TRUE)),
         )
       );
-      db_query("DELETE FROM {fb_register} WHERE uid = %d",
-               $account->uid);
+      db_query("DELETE FROM {fb_register} WHERE uid = %d OR email_hash='%s'",
+               $account->uid, $hash);
       db_query("INSERT INTO {fb_register} (uid, email_hash) VALUES (%d, '%s')",
                $account->uid, $hash);
       $apps = fb_get_all_apps();
