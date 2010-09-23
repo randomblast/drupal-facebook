@@ -24,8 +24,11 @@ define('FB_USER_OPTION_MAP_NEVER', 1);
 define('FB_USER_OPTION_MAP_ALWAYS', 2); // Map when user is registered and authorized.
 define('FB_USER_OPTION_MAP_EMAIL', 3); // Map when email is exact match.
 
-define('FB_USER_VAR_STATS', 'fb_user_stats'); // Whether to use fb_user_app table.
+define('FB_USER_VAR_USERNAME_STYLE', 'fb_user_username_style'); // Key used in variables table for this option.
+define('FB_USER_OPTION_USERNAME_FULL', 1); // Get full name from FB
+define('FB_USER_OPTION_USERNAME_FBU', 2); // Use unique name
 
+define('FB_USER_VAR_STATS', 'fb_user_stats'); // Whether to use fb_user_app table.
 define('FB_USER_VAR_ALTER_REGISTER', 'fb_user_alter_register');
 define('FB_USER_VAR_ALTER_LOGIN', 'fb_user_alter_login');
 
@@ -307,9 +310,11 @@ function _fb_user_check_session($fbu) {
  *
  * @return - TRUE, if user_external_login succeeds.
  */
-function _fb_user_external_login() {
+function _fb_user_external_login($account = NULL) {
   $fbu = fb_facebook_user();
-  $account = fb_user_get_local_user($fbu, $GLOBALS['_fb_app']);
+  if (!$account) {
+    $account = fb_user_get_local_user($fbu, $GLOBALS['_fb_app']);
+  }
   if ($account &&
       $account->uid == $GLOBALS['user']->uid) {
     // Already logged in.
@@ -325,14 +330,14 @@ function _fb_user_external_login() {
       watchdog("fb_user", "fb_user_fb changing user to $account->uid");
       $session_id = session_id();
     }
-
+    
     // user_external_login() fails if already logged in, so log out first.
     if ($GLOBALS['user']->uid) {
       _fb_user_logout();
     }
     
     $valid_user = user_external_login($account);
-
+    
     if (fb_verbose() === 'extreme') { // debug
       watchdog("fb_user", "fb_user_fb changed session from $session_id to " . session_id());
     }
@@ -389,9 +394,25 @@ function _fb_user_create_local_account() {
       !fb_controls(FB_USER_CONTROL_NO_CREATE_ACCOUNT)) {
     $config = _fb_user_get_config($GLOBALS['_fb_app']);
     
-    // A name that is likely to be unique.
-    $username = "$fbu@facebook";
-    
+    // Establish user name. 
+    // Case 1: use name from FB
+    // Case 2: create a unique user name ourselves
+    // Which we use is determined by the setting at 
+    // admin/build/fb/fb_user
+    if (variable_get(FB_USER_VAR_USERNAME_STYLE, FB_USER_OPTION_USERNAME_FBU) == FB_USER_OPTION_USERNAME_FULL) {  
+      try {
+        // Use fb->api() rather than fb_users_getInfo().  Later fails to learn name on test accounts.
+        $info = $GLOBALS['_fb']->api($fbu);
+        $username = $info['name'];
+      } catch (Exception $e) {
+        fb_log_exception($e, t('Failed to learn full name of new user'), $GLOBALS['_fb']);
+      }
+    }
+    else {
+      // Create a name that is likely to be unique.
+      $username = "$fbu@facebook";
+    }
+
     if ($config['new_user_rid']) {
       $roles = array($config['new_user_rid'] => TRUE);
     }
@@ -407,7 +428,7 @@ function _fb_user_create_local_account() {
     watchdog('fb_user', 
              t("Created new user !username for application %app", array(
                  '!username' => l($account->name, 'user/' . $account->uid),
-                 '%app' => $fb_app->label)));
+                 '%app' => $GLOBALS['_fb_app']->label)));
     
     return $account;
   }
@@ -423,8 +444,8 @@ function _fb_user_process_authorized_user() {
   
   if ($fbu && _fb_user_check_session($fbu)) {
     // First check if map already exists.
-    $account = _fb_user_external_login();
-    $config = _fb_user_get_config($GLOBALS['_fb_app']);  
+    $account = fb_user_get_local_user($fbu, $GLOBALS['_fb_app']);
+    $config = _fb_user_get_config($GLOBALS['_fb_app']);
     
     if (!$account) {
       if ($GLOBALS['user']->uid > 0 &&
@@ -445,7 +466,7 @@ function _fb_user_process_authorized_user() {
       }
       
       if ($mapped) {
-        $account = _fb_user_external_login();
+        $account = fb_user_get_local_user($fbu, $GLOBALS['_fb_app']);
       }
     }
     
@@ -453,15 +474,18 @@ function _fb_user_process_authorized_user() {
       // Ensure the user has any roles associated with this app.
       $rid = $config['new_user_rid'];
       if ($account && $rid &&
-          !$account->roles[$rid]) {
+          (!isset($account->roles[$rid]) || !$account->roles[$rid])) {
         // there should be an API for this...
         db_query('INSERT INTO {users_roles} (uid, rid) VALUES (%d, %d)', 
-                 $user->uid, $rid);
+                 $account->uid, $rid);
         watchdog('fb_user', "Added role %role to existing user !username for application %app", array(
-                   '!username' => theme('username', $user),
+                   '!username' => theme('username', $account),
                    '%app' => $fb_app->label,
                    '%role' => $rid));
       }
+
+      // Login as facebook user, if not already.
+      _fb_user_external_login($account);
     }
   }
 }
@@ -671,7 +695,7 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       
       $fbu = _fb_user_get_fbu($account->uid, $fb_app);
 
-      if ($fbu && !$info[$fbu]) {
+      if ($fbu && (!isset($info) || !$info[$fbu])) {
         // The drupal user is a facebook user.  Now, learn more from facebook.
         $fb = fb_api_init($fb_app);
         /* $fb->api fails with "invalid API key"
@@ -702,13 +726,14 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
         $shared_authname = $authname;
       }
       
-      if ($shared_maps) {
+      if (isset($shared_maps)) {
         // One authmap entry applies to more than on app.
         $form['map'][$shared_module] = array(
           '#type' => 'checkbox',
           '#title' => implode(', ', $shared_maps),
           '#default_value' => $shared_authname,
           '#return_value' => $shared_authname,
+          '#description' => '',
         );
         if ($info[$shared_fbu]) {
           $data = $info[$shared_fbu][0];
@@ -835,11 +860,11 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
     // All Drupal users get authenticated user role.
     $edit['roles'][DRUPAL_AUTHENTICATED_RID] = 'authenticated user';
     
-    // Ensure unique username.  Append "_N" if necessary.
     if (isset($edit['name']) && $edit['name']) {
       $username = $edit['name'];
     }
     else {
+      // Fallback, should never be reached.
       $username = "$fbu@facebook";
       $edit['name'] = $username;
     }
@@ -866,7 +891,7 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
       // Fill in any default that are missing.
       $defaults = array(
         'pass' => user_password(),
-        'init' => db_escape_string($edit['name']),
+        'init' => db_escape_string($fbu . '@facebook'), // Supposed to be email, but we may not know it.
         'status' => 1,
         'authname_fb_user' => $authname, // authmap entry
       );
@@ -879,10 +904,10 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
       $edit = array_merge($defaults, $edit);
       
       // Confirm username is not taken.  FB_OP_PRE_USER may have changed it.    
-      if ($uid = db_result(db_query("SELECT uid FROM {users} WHERE name='%s'", $user_data_sanitized['name']))) {
+      if ($uid = db_result(db_query("SELECT uid FROM {users} WHERE name='%s'", $edit['name']))) {
         // The desired name is taken.
         watchdog('fb_user', 'Failed to create new user %name.  That name is already in the users table.', 
-                 array('%name' => $user_data_sanitized['name']),
+                 array('%name' => $edit['name']),
                  WATCHDOG_ERROR, l(t('view user'), 'user/' . $uid));
       }
       else {
