@@ -60,9 +60,6 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
         }
       }
       elseif ($delta == FB_FRIEND_DELTA_INVITE_APP) {
-        // TODO: support canvas pages, in addition to connect pages.
-        fb_connect_require_feature('XFBML');
-      
         $app_url = url('<front>', array('absolute' => TRUE));
         $page_url = url($_GET['q'], array('absolute' => TRUE));
         $site_name = variable_get('site_name', t('application'));
