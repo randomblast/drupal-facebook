@@ -227,6 +227,21 @@ function fb_form_group_member_options($fbg, $fbu) {
 
 function fb_form_elements() {
   $items = array();
+
+  $items['fb_form_requestform'] = array(
+    '#input' => FALSE,
+  );
+  $items['fb_form_req_choice'] = array(
+    '#input' => FALSE,
+  );
+  $items['fb_form_multi_friend_selector'] = array(
+    '#input' => FALSE,
+  );
+
+  // Theme('fb_fbml_popup') function defined in fb.module.
+  $items['fb_fbml_popup'] = array(
+    '#input' => FALSE,
+  );
   
   $items['fb_form_request_selector'] = array(
     '#input' => TRUE,

@@ -63,14 +63,14 @@ function theme_fb_user_picture($fbu, $object, $orig) {
 }
 
 
-function theme_fb_popup($elem) {
+function theme_fb_fbml_popup($elem) {
   // Hide this markup until javascript shows it.
-  $t = '<div class="fb_connect_fbml_popup_wrap" style="display:none;" ' . ">\n";
+  $t = '<div class="fb_fbml_popup_wrap" style="display:none;" ' . ">\n";
   
   $t .= '<a href="#" title="' . check_plain($elem['#title']) . '" ' . 
     (isset($elem['#link_attributes']) ? drupal_attributes($elem['#link_attributes']) : '') .
     '>' . check_plain($elem['#link_text']) .'</a>';
-  $t .= '<div class="fb_connect_fbml_popup" ' . drupal_attributes($elem['#attributes']) . '>';
+  $t .= '<div class="fb_fbml_popup" ' . drupal_attributes($elem['#attributes']) . '>';
   $t .= $elem['#children'];
   $t .= "</div></div>\n";
   return $t;

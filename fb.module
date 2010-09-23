@@ -1109,7 +1109,7 @@ function fb_theme() {
        ),
       'file' => 'fb.theme.inc',
     ),
-    'fb_popup' => array(
+    'fb_fbml_popup' => array(
       'arguments' => array('elements' => NULL),
       'file' => 'fb.theme.inc',
     ),
