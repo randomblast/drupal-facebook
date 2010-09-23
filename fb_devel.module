@@ -610,7 +610,7 @@ function fb_devel_user($op, &$edit, &$account, $category = NULL) {
             //$info = fb_users_getInfo(array($fbu), $fb, TRUE);
             $account->content['fb_devel'][$fb_app->label]['info'] = array(
               '#type' => 'markup',
-              '#value' => dprint_r($info[0], 1),
+              '#value' => dprint_r($info, 1),
             );
           }
           catch (Exception $e) {

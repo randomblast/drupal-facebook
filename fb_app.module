@@ -246,8 +246,9 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
 }
 
 function theme_fb_app_user_info($fb_app, $info) {
+  $output = '';
   if (isset($info['pic_big']))
-    $output = '<p><img src="'. $info['pic_big'] .'" /></p>';
+    $output .= '<p><img src="'. $info['pic_big'] .'" /></p>';
   
   $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', array(
                  'query' => 'id=' . $info['uid']));

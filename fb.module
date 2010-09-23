@@ -169,19 +169,19 @@ function fb_init() {
     }
     else
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", array(), WATCHDOG_ERROR);
-  }
 
-  if (fb_is_canvas()) {
-    $js_settings['reload_url'] = 'http://apps.facebook.com/' . $_fb_app->canvas . '/' . fb_scrub_urls($_REQUEST['q']);
+    if (fb_is_canvas()) {
+      $js_settings['reload_url'] = 'http://apps.facebook.com/' . $_fb_app->canvas . '/' . fb_scrub_urls($_REQUEST['q']);
+    }
+    else {
+      $js_settings['reload_url'] = url(isset($_GET['q']) ? $_GET['q'] : '<front>',
+                                       array('absolute' => TRUE));
+    }
+  
+    // Allow third-parties to act again.
+    fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
+                                     'fb' => $_fb));
   }
-  else {
-    $js_settings['reload_url'] = url(isset($_GET['q']) ? $_GET['q'] : '<front>',
-                                     array('absolute' => TRUE));
-  }
-
-  // Allow third-parties to act again.
-  fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
-                                   'fb' => $_fb));
   
   $js_settings['controls'] = implode(',',fb_controls());
   
@@ -439,21 +439,21 @@ function fb_api_check_session($fb) {
   $success = FALSE;
   try {
     $session = $fb->getSession();
-    // Older API used session_key.  Still needed?
-    if (isset($session['session_key'])) {
-      $is_user = $fb->api(array(
-                            'method' => 'users.isAppUser',
-                          ));
-    }
-
     // Newer API uses access_token
     if (isset($session['access_token'])) {
       $is_user = $fb->api(array(
                             'method' => 'users.isAppUser',
                           ));      
+      // Does not matter what is returned, as long as exception is not thrown.
+      $success = TRUE;
     }
-    // Does not matter what is returned, as long as exception is not thrown.
-    $success = TRUE;
+    // Older API used session_key.  Still needed?
+    elseif (isset($session['session_key'])) {
+      $is_user = $fb->api(array(
+                            'method' => 'users.isAppUser',
+                          ));
+      $success = TRUE;
+    }
   }
   catch (Exception $e) {
     if (fb_verbose()) {
@@ -998,6 +998,10 @@ function fb_log_exception($e, $text = '', $fb = NULL) {
  * results in the session, so calls do not always require hitting Facebook's
  * servers.
  *
+ * Update, users.getInfo appears to be growing less reliable.  For example,
+ * does not return names of test accounts.  @TODO - migrate away from this and
+ * towards use of fb->api().
+ * 
  * @param $oids
  * Array of facebook object IDs.  In this case they should each be a user id.
  */
@@ -1011,12 +1015,14 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
     $oids = array();
   
   if ($fb) {
+    $apikey = $fb->getAppId();
     // First try cache
-    if (!$refresh_cache)
+    if (!$refresh_cache && isset($_SESSION['fb'])) {
       foreach ($oids as $oid) {
-        if ($info = $_SESSION['fb'][$fb->api_key]['userinfo'][$oid])
+        if ($info = $_SESSION['fb'][$apikey]['userinfo'][$oid])
           $infos[] = $info;
       }
+    }
     if (count($infos) != count($oids)) {
       // Session cache did not include all users, update the cache.
       try {
@@ -1040,7 +1046,7 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
         // Update cache with recent results.
         if (is_array($infos)) {
           foreach ($infos as $info) {
-            $_SESSION['fb'][$fb->api_key]['userinfo'][$info['uid']] = $info;
+            $_SESSION['fb'][$apikey]['userinfo'][$info['uid']] = $info;
           }
         }
       } catch(FacebookApiException $e) {
