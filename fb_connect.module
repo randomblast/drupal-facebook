@@ -244,7 +244,8 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
       // Login block
       $label = substr($delta, 6); // length of 'login_'
       $fb_app = fb_get_app(array('label' => $label));
-      if ($fb = fb_connect_app_init($fb_app)) {
+      if ($fb_app &&
+          ($fb = fb_connect_app_init($fb_app))) {
         $fbu = $fb->getUser();
 
         _fb_connect_add_js();
