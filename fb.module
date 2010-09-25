@@ -109,12 +109,12 @@ function fb_init() {
   // Globals provided for internal use and convenience to third-parties.
   global $_fb;
   global $_fb_app;
-
+  
   // Perform sanity check, help users who skip the README.
   if (!function_exists('fb_settings')) {
     // Avoid fatal errors caused by settings not included.
     module_load_include('inc', 'fb', 'fb_settings');
-
+    
     if (user_access('access administration pages')) {
       drupal_set_message(t('!drupal_for_facebook has been enabled, but not properly installed.  Please read the !readme.',
                            array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
@@ -178,10 +178,10 @@ function fb_init() {
                                        array('absolute' => TRUE));
     }
   
-    // Allow third-parties to act again.
-    fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
-                                     'fb' => $_fb));
   }
+  // Allow third-parties to act, even if we did not initialize $_fb.
+  fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
+                                   'fb' => $_fb));
   
   $js_settings['controls'] = implode(',',fb_controls());
   
