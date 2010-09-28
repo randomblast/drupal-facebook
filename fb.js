@@ -78,7 +78,7 @@ FB_JS.reload = function(destination) {
     destination = Drupal.settings.fb.reload_url;
   }
   else {
-    detination = window.location.href;
+    destination = window.location.href;
   }
   
   // Split and parse destination
