@@ -695,9 +695,42 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
       }
     }
     
-    if (!$fbu) {
+    if (!$fbu) {  // this tells us that a mapping hasn't been created
       if ($user->uid == $account->uid) {
-        // @TODO - give a user a way to map their facebook account to their local account.
+        // Could not obtain the $fbu from an existing map. 
+        
+        $fbu = fb_facebook_user();
+        
+        if ($fbu) {  // they are connected to facebook; give option to map
+          
+          $form['map'] = array(
+            '#type' => 'checkbox',
+            '#title' => t('Connect account to facebook.com'),
+            '#default_value' => 0,
+            '#return_value' => $fbu,
+            '#description' => '',
+          );
+          $form[$_fb_app->label] = array(
+            '#type' => 'markup',
+            '#value' => t('Check box and save to connect local account !username to facebook.com.',
+                          array('!username' => theme('username', $account),
+                          )),
+            '#prefix' => "\n<p>",
+            '#suffix' => "</p>\n",
+          );
+          
+        }
+        elseif (!$fbu) {
+          // they are not connected to facebook; give option to connect here
+          $fb_button = theme('fb_login_button', t('Connect with Facebook'), array('form_id' => $form_id));
+          $form['fb_user'] = array(
+            '#value' => $fb_button,
+            '#type' => 'markup',
+            '#weight' => -1,
+            '#prefix' => "\n<p>",
+            '#suffix' => "</p>\n",
+          );          
+        }
       }
       else {
         $form[$_fb_app->label] = array(
