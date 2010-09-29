@@ -62,6 +62,16 @@ function fb_devel_init() {
       }
     }
   }
+
+  // fb_user table sanity check
+  if (db_result(db_query("SELECT count(*) FROM {authmap} WHERE module='fb_user'"))) {
+    $message = 'fb_user data has not been migrated from authmap table.  Run update.php.';
+    $args = array();
+    if (user_access('access administration pages')) {
+      drupal_set_message(t($message, $args), 'error');
+    }
+    watchdog('fb_devel', $message, $args, WATCHDOG_ERROR);
+  }
 }
 
 /**
@@ -188,6 +198,7 @@ function fb_devel_fb($op, $data, &$return) {
       }
       watchdog('fb_devel', $message, $args, WATCHDOG_ERROR);
     }
+
   }
   
   elseif ($op == FB_APP_OP_EVENT) {
@@ -587,6 +598,9 @@ function fb_devel_info() {
   return $form;
 }
 
+/**
+ * Implements hook_user().
+ */
 function fb_devel_user($op, &$edit, &$account, $category = NULL) {
   if ($op == 'view') {
     if (user_access('administer users') && user_access('access devel information')) {
@@ -614,7 +628,6 @@ function fb_devel_user($op, &$edit, &$account, $category = NULL) {
             );
           }
           catch (Exception $e) {
-            dpm($fb);
             $account->content['fb_devel'][$fb_app->label]['#description'] = $e->getMessage();
             $account->content['fb_devel'][$fb_app->label]['info'] = array(
               '#type' => 'fieldset',

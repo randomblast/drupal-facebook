@@ -55,6 +55,22 @@ function fb_user_schema() {
     'primary key' => array('apikey', 'fbu'),
   );
   
+  $schema['fb_user'] = array(
+    'fields' => array(
+      'uid' => array(
+        'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,
+      ),
+      'fbu' => array(
+        // http://forum.developers.facebook.net/viewtopic.php?pid=4676
+        'type' => 'int', 'size' => 'big', 'not null' => TRUE,
+      ),
+    ),
+    'primary key' => array('uid'),
+    'unique keys' => array(
+      'fbu' => array('fbu')),
+  );
+  
+  
   return $schema;
 }
 
@@ -146,4 +162,25 @@ function fb_user_update_6006() {
   $ret[] = update_sql("UPDATE {authmap} SET authname=SUBSTRING(authname, 1, LOCATE('@facebook.com', authname)-1) WHERE module='fb_user' AND LOCATE('@facebook.com', authname) > 1");
   return $ret;
 }
+
+/**
+ * Install fb_user table and move entries in authmap table to fb_user.
+ */
+function fb_user_update_6007() {
+  $table_schema = fb_user_schema();
+  $ret = '';
+  
+  db_create_table($ret, 'fb_user', $table_schema['fb_user']);
+
+  // Move everything across
+  $sql = "INSERT INTO {fb_user} SELECT uid, authname FROM {authmap} WHERE module = 'fb_user'";
+  $ret[] = update_sql($sql);
+     
+  // Delete authmap table entries, careful to only delete after above insert.
+  $sql = "DELETE FROM {authmap} WHERE module = 'fb_user' AND uid IN (SELECT uid FROM {fb_user})";
+  $ret[] = update_sql($sql);
+    
+  return $ret;
+}
+
 

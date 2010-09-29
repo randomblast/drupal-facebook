@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Facebook-specific views arguments, filters, etc...
@@ -41,11 +42,8 @@ function fb_views_views_handlers() {
 }
 
 function fb_views_views_data() {
-  // The fb_user_app table allows us to associate a node author's uid to a
-  // facebook id.
-  // Will be present if fb_user.module is used.
-  // This might need to be improved to take the apikey into account (for sites that host more than one app.)
-  $data['fb_user_app'] = array(
+  // fb_user table will only exists when fb_user.module enabled.
+  $data['fb_user'] = array(
     'table' => array(
       'group' => t('Drupal for Facebook'),
       'join' => array(
@@ -77,30 +75,13 @@ function fb_views_views_data() {
       'filter' => array('handler' => 'fb_views_handler_filter_friends'),
       'help' => t('Limit results to friends of the current user.  This filter will succeed when users are logged into Facebook Connect or Canvas pages.'),
     ),
-  );
-
-  // Authmap is the definitive link between a drupal account and facebook user id (fbu)
-  $data['authmap'] = array(
-    'table' => array(
-      'group' => t('Drupal for Facebook'),
-      'join' => array(
-        'node' => array(
-          'left_field' => 'uid',
-          'field' => 'uid',
-        ),
-        'users' => array(
-          'left_field' => 'uid',
-          'field' => 'uid',
-        ),
-      ),
-    ),
     'fb_views_filter_profile_tab' => array(
       'title' => t('Profile Tab Owner'),
       'filter' => array('handler' => 'fb_views_handler_filter_profile_tab'),
       'help' => t('Limit results to profile tab user.  Only works on Facebook Profile Tabs.'),
     ),
   );
-  
+
   return $data;
 }
 
