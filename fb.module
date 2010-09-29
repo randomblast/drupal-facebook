@@ -30,7 +30,7 @@ define('FB_OP_GET_USER_SESSION', 'get_user_sess');
 define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
 define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
 define('FB_OP_POST_EXTERNAL_LOGIN', 'post_external_login'); // user map has changed global user.
-define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has authorized an app.  Triggers creation of user accounts or authmap entries
+define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has authorized an app.  Triggers creation of user accounts or fb_user entries
 
 define('FB_OP_JS', 'fb_op_js');  // A chance to inject javascript onto the page.
 define('FB_OP_AJAX_EVENT', 'fb_op_ajax'); // Notification of an event via ajax.
@@ -520,10 +520,6 @@ function fb_get_profile_id() {
  * Given a local user id, find the facebook id.
  */
 function fb_get_fbu($uid, $fb_app = NULL) {
-  // default to current app (only set if we're in a FB callback)
-  if (!$fb_app)
-    $fb_app = $GLOBALS['_fb_app'];
-  
   // Accept either a user object or uid passed in.
   if (is_object($uid) && ($uid->uid) && 
       isset($uid->fbu) && $uid->fbu)
@@ -533,8 +529,7 @@ function fb_get_fbu($uid, $fb_app = NULL) {
   
   if ($uid) {
     // User management is handled by another module.  Use our hook to ask for mapping.
-    $fbu = fb_invoke(FB_OP_GET_FBU, array('fb_app' => $fb_app,
-                                          'uid' => $uid,
+    $fbu = fb_invoke(FB_OP_GET_FBU, array('uid' => $uid,
                                           'fb' => $GLOBALS['_fb']));
   }
   else {
@@ -560,13 +555,18 @@ function fb_get_object_fbu($object) {
     // Explicitly set.
     $fbu = $object->fbu;
   }
+  elseif (isset($object->init) &&
+          ($pos = strpos($object->init, '@facebook'))) {
+    // Naming convention used by fb_user when creating accounts.
+    // $object->init may be present when object is a user.
+    $fbu = substr($object->init, 0, $pos);
+  }
   elseif ($pos = strpos($object->name, '@facebook')) {
-    // Naming convention.
     $fbu = substr($object->name, 0, $pos);
   }
   elseif ($object->uid > 0) {
-    // Experimental.  This can be expensive on pages with many comments or nodes!
-    //$fbu = fb_get_fbu($object->uid);
+    // This can be expensive on pages with many comments or nodes!
+    $fbu = fb_get_fbu($object->uid);
   }
   
   if (isset($fbu) && is_numeric($fbu)) {
@@ -1019,8 +1019,10 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
     // First try cache
     if (!$refresh_cache && isset($_SESSION['fb'])) {
       foreach ($oids as $oid) {
-        if ($info = $_SESSION['fb'][$apikey]['userinfo'][$oid])
+        if (isset($_SESSION['fb'][$apikey]['userinfo'][$oid])) {
+          $info = $_SESSION['fb'][$apikey]['userinfo'][$oid];
           $infos[] = $info;
+        }
       }
     }
     if (count($infos) != count($oids)) {
