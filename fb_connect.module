@@ -85,18 +85,6 @@ function _fb_connect_set_app($fb_app = NULL) {
 }
 
 /**
- * Which apps are fbConnect enabled?  (As opposed to canvas page only).
- *
- * @TODO - Does not actuall work.
- */
-function fb_connect_enabled_apps() {
-  // We do a bit of work for each enabled app, so really we want to restrict this list to only apps which have been "turned on".
-  // But for now we're lazy and just get the list of all apps.
-  $apps = fb_get_all_apps();
-  return $apps;
-}
-
-/**
  * Implementation of hook_fb().
  */
 function fb_connect_fb($op, $data, &$return) {
@@ -146,20 +134,6 @@ function _fb_connect_add_js() {
 }
 
 
-
-/**
- * Convenience method to get an apps connect URL.
- *
- */
-function fb_connect_get_connect_url($fb_app) {
-  // absolute URL with no rewriting applied
-  global $base_url;
-
-  return $base_url . '/';
-  
-}
-
-
 /**
  * Default markup for our login block.
  */
@@ -185,7 +159,7 @@ function _fb_connect_block_login_defaults() {
 function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
   if ($op == 'list') {
     $items = array();
-    foreach (fb_connect_enabled_apps() as $fb_app) {
+    foreach (fb_get_all_apps() as $fb_app) {
       $d = 'login_' . $fb_app->label;
       $items[$d] = array(
         'info' => t('Facebook Connect Login to !app',
@@ -239,7 +213,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
     $edit['config']['format'] = $edit['format'];
     variable_set('fb_connect_block_' . $delta, $edit['config']);
   }
-  elseif ($op == 'view' && !fb_is_canvas()) {
+  elseif ($op == 'view') {
     if (strpos($delta, 'login_') === 0) {
       // Login block
       $label = substr($delta, 6); // length of 'login_'
@@ -353,8 +327,6 @@ function fb_connect_app_submit($form, &$form_state) {
 }
 
 
-// @TODO
-// Theme functions below are deprecated!  Use the theme functions in fb.theme.inc instead.  They work on both conenct pages and iframe canvas pages.
 
 /**
  * Implementation of hook_theme_registry_alter().

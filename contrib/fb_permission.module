@@ -51,11 +51,13 @@ function fb_permission_map() {
 function fb_permission_fb_required_perms_alter(&$perms) {
   global $_fb, $_fb_app;
   $fb_app_data = fb_get_app_data($_fb_app);
-  $fb_permission_data = $fb_app_data['fb_permission'];
-
-  foreach ($fb_permission_data['prompt'] as $key => $value) {
-    if ($value) {
-      $perms[$key] = $key;
+  if (isset($fb_app_data['fb_permission'])) {
+    $fb_permission_data = $fb_app_data['fb_permission'];
+    
+    foreach ($fb_permission_data['prompt'] as $key => $value) {
+      if ($value) {
+        $perms[$key] = $key;
+      }
     }
   }
 }

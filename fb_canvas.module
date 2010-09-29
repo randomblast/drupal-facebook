@@ -352,9 +352,9 @@ if (!function_exists('custom_url_rewrite_outbound')) {
 
 function fb_canvas_url_outbound_alter(&$path, &$options, $original_path) {
   global $_fb, $_fb_app;
-
-  if ($_fb_app && $_fb_app->canvas) {
-
+  
+  if ($_fb_app && isset($_fb_app->canvas)) {
+    
     if (fb_canvas_is_iframe()) {
       if (!$options['absolute']) {
         // Could append session param to internal links.  But for now we rely on fb_canvas_process.

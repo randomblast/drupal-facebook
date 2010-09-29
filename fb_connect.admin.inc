@@ -20,6 +20,19 @@ function fb_connect_fb_admin($op, $data, &$return) {
 }
 
 /**
+ * Convenience method to get an apps connect URL.
+ *
+ */
+function fb_connect_get_connect_url($fb_app) {
+  // absolute URL with no rewriting applied
+  global $base_url;
+
+  return $base_url . '/';
+  
+}
+
+
+/**
  * Form builder; Configure settings for this site.
  *
  * @ingroup forms

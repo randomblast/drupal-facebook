@@ -315,7 +315,7 @@ function fb_register_user($op, &$edit, &$account, $category = NULL) {
   elseif ($op == 'insert' || $op == 'update') {
     // Re-register on update, as mail address may have changed.
     // Register on insert is optional.
-    if ($edit['mail']) {
+    if (isset($edit['mail'])) {
       $hash = fb_register_email_hash($edit['mail']);
       $register_data = array(
         array(
@@ -373,8 +373,7 @@ function fb_register_fb($op, $data, &$return) {
         if ($d = db_fetch_object($result)) {
           // We found a mapping to a local user.
           $account = user_load(array('uid' => $d->uid));
-          list($module, $authname) = _fb_user_get_authmap($data['fb_app'], $fbu);
-          user_set_authmaps($account, array($module => $authname));
+          _fb_user_set_fb_user($account, $fbu);
           if (fb_verbose()) {
             watchdog('fb_register',
                      'Mapping facebook %fbu to local account !user', array(
