@@ -17,10 +17,53 @@
 
 Drupal.behaviors.fb_connect = function(context) {
 
+  // Logout of facebook when logging out of drupal
+  jQuery("a[href^='" + Drupal.settings.basePath + "logout']", context).click(FB_Connect.logoutHandler);
+
+  // Support markup for dialog boxes.
+  FB_Connect.enablePopups(context);
+  
+};
+
+
+
+FB_Connect = function(){};
+
+// click handler
+FB_Connect.logoutHandler = function(event) {
+  if (typeof(FB) != 'undefined') {
+    FB.logout(function () {
+      //debugger;
+    });
+  }
+};
+
+/**
+ * Move new dialogs to visible part of screen.
+ **/
+FB_Connect.centerPopups = function() {
+  var scrollTop = $(window).scrollTop();
+  $('.fb_dialog:not(.fb_popup_centered)').each(function() {
+    var offset = $(this).offset();
+    if (offset.left == 0) {
+      // This is some facebook cruft that cannot be centered.
+    }
+    else if (offset.top < 0) {
+      // Not yet visible, don't center.
+    }
+    else if (offset.top < scrollTop) {
+      $(this).css('top', offset.top + scrollTop + 'px');
+      $(this).addClass('fb_popup_centered'); // Don't move this dialog again.
+    }
+  });
+};
+
+
+FB_Connect.enablePopups = function(context) {
   // Support for easy fbml popup markup which degrades when javascript not enabled.
   // Markup is subject to change.  Currently...
-  // <div class=fb_connect_fbml_popup_wrap><a title="POPUP TITLE">LINK MARKUP</a><div class=fb_connect_fbml_popup><fb:SOME FBML>...</fb:SOME FBML><div></div>
-  $('.fb_connect_fbml_popup:not(.fb_connect_fbml_popup-processed)', context).addClass('fb_connect_fbml_popup-processed').prev().each(
+  // <div class=fb_fbml_popup_wrap><a title="POPUP TITLE">LINK MARKUP</a><div class=fb_fbml_popup><fb:SOME FBML>...</fb:SOME FBML></div></div>
+  $('.fb_fbml_popup:not(.fb_fbml_popup-processed)', context).addClass('fb_fbml_popup-processed').prev().each(
     function() {
       this.fbml_popup = $(this).next().html();
       this.fbml_popup_width = parseInt($(this).next().attr('width'));
@@ -33,29 +76,38 @@ Drupal.behaviors.fb_connect = function(context) {
           function (e) {
             var popup;
             //console.log('Clicked!  Will show ' + this.fbml_popup); // debug
-            popup = new FB.UI.FBMLPopupDialog($(this).attr('title'), this.fbml_popup, true, true);
-            if (this.fbml_popup_width) {
-              popup.setContentWidth(this.fbml_popup_width);
-            }
-            if (this.fbml_popup_height) {
-              popup.setContentHeight(this.fbml_popup_height);
-            }
-            popup.set_placement(FB.UI.PopupPlacement.topCenter);
-            popup.show();
+	    
+	    // http://forum.developers.facebook.net/viewtopic.php?pid=243983
+	    var size = FB.UIServer.Methods["fbml.dialog"].size;
+	    if (this.fbml_popup_width) {
+	      size.width=this.fbml_popup_width;
+	    }
+	    if (this.fbml_popup_height) {
+	      size.height=this.fbml_popup_height;
+	    }
+	    FB.UIServer.Methods['fbml.dialog'].size = size;
+	    
+	    // http://forum.developers.facebook.net/viewtopic.php?id=74743
+	    var markup = this.fbml_popup;
+	    if ($(this).attr('title')) {
+	      markup = '<fb:header icon="true" decoration="add_border">' + $(this).attr('title') + '</fb:header>' + this.fbml_popup;
+	    }
+	    var dialog = {
+	      method: 'fbml.dialog', // triple-secret undocumented feature.
+	      display: 'dialog',
+	      fbml: markup,
+	      width: this.fbml_popup_width,
+	      height: this.fbml_popup_height
+	    };
+	    var popup = FB.ui(dialog, function (response) {
+	      console.log(response);
+	    });
+	    
+	    // Start a timer to keep popups centered.
+	    // @TODO - avoid starting timer more than once.
+	    window.setInterval(FB_Connect.centerPopups, 500);
+	    
             e.preventDefault();      
           })
     .parent().show();
-  
-  // Respect fb_connect classes on new content.
-  // These classes are deprecated.  Use .fb_show and .fb_hide instead.  See fb.js.
-  $('.fb_connect_show', context).show();
-  $('.fb_connect_hide', context).hide();
-  
 };
-
-
-// The following functions help us keep track of when a user is logged into Facebook Connect.
-FB_Connect = function(){};
-
-
-  
