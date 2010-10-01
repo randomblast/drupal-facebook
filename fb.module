@@ -302,11 +302,16 @@ function fb_call_method($fb, $method, $params = array()) {
   $params['access_token'] = fb_access_token($fb);
   $params['api_key'] = $fb->getAppId();
   $params['format'] = 'json-strings';
+
+  // Here's how to create a url that conforms to standards:
   $url = url("https://api.facebook.com/method/{$method}", array(
                'query' => $params,
              ));
+  // If facebook gives errors like "Invalid OAuth 2.0 Access Token 190/Unable to get application prop" it might be necessary to uncomment the urldecode below.
+  // http://forum.developers.facebook.net/viewtopic.php?id=76228
+  // $url = rawurldecode($url);
+  
   $http = drupal_http_request($url);
-  //dpm($http, $url); // debug
 
   if ($http->data) {
     $data = json_decode($http->data, TRUE);
@@ -1087,7 +1092,7 @@ function fb_username_alter(&$name, $account) {
   // dpm(func_get_args(), "fb_username_alter($name)");
   if ($fbu = fb_get_fbu($account)) { // @TODO - is fb_get_fbu() a performance hit here?
     $info = fb_users_getInfo(array($fbu));
-    if (is_array($info) && is_array($info[0])) {
+    if (is_array($info) && isset($info[0])) {
       if ($info[0]['name']) {
         $name = $info[0]['name'];
       }

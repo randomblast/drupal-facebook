@@ -35,6 +35,7 @@ function theme_fb_username($fbu, $object, $orig) {
 
   $wrap_pre = "<span class=fb_hide>$orig</span><span class=fb_show style='display:none'>";
   $wrap_post = "</span>\n";
+  $ifcantsee = '';
   if ($object->uid && user_access('access user profiles')) {
     // Provide link if local account.
     $wrap_pre = $wrap_pre . '<a href="' . url('user/' . $object->uid) . '">';
