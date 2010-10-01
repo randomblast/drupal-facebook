@@ -1,4 +1,9 @@
-
+// $Id$
+/**
+ * @file
+ *
+ * Javascript specific to canvas pages.
+ */
 FB_Canvas = function(){};
 
 /**

@@ -1,5 +1,5 @@
-name = Canvas Pages
-description = For hosting <a href=http://developers.facebook.com/docs/guides/canvas/ target=_blank>apps on facebook.com</a> using iframe canvas pages.
+name = Canvas Pages (fb_canvas.module)
+description = Host <a href=http://developers.facebook.com/docs/guides/canvas/ target=_blank>apps on facebook.com</a> using iframe canvas pages.
 package = Drupal for Facebook
 dependencies[] = fb
 dependencies[] = fb_app

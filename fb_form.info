@@ -1,5 +1,5 @@
-name = Drupal for Facebook Forms
-description = Build FBML form constructs via Drupal Form API.
-package = Drupal for Facebook - optional
+name = Forms (fb_form.module)
+description = Build FBML form constructs such as <a href=http://developers.facebook.com/docs/guides/canvas/#requests target=_blank>requests</a> using Drupal's Form API.
+package = Drupal for Facebook
 dependencies[] = fb
 core = 6.x
