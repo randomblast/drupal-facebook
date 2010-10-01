@@ -1,5 +1,6 @@
 <?php
 // $Id$
+
 /**
  * @file
  * Admin pages and forms for user settings.
@@ -23,13 +24,20 @@ function fb_user_admin_settings() {
     return array('help' => array('#value' => $message));
   }
 
-  $form[FB_USER_VAR_STATS] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Record Statistics'),
-    '#description' => t('Maintain data about the most recent visit of each user who has authorized an app.  Enable if you want this sort of record kept.  Enable also if you want to run cron actions for each user of an app.  Disable for better performance.'),
-    '#default_value' => variable_get(FB_USER_VAR_STATS, TRUE),
+  // Name options for automatically created user accounts.
+  $default = variable_get(FB_USER_VAR_USERNAME_STYLE, FB_USER_OPTION_USERNAME_FBU);
+  
+  $form[FB_USER_VAR_USERNAME_STYLE] = array(
+    '#type' => 'radios',
+    '#title' => t('Username Style for Automatically Created Accounts'),
+    '#description' => t('Machine-friendly names include Facebook user ids to ensure uniqueness.  Thanks to Drupal\'s theme layer, visitors to your site will <em>usually</em> see a proper name.<br/>Human-friendly names are like "John Smith".  Because Drupal requires unique names, you may see "John Smith_2", "John Smith_3" and so on.'),
+    '#options' => array(
+      FB_USER_OPTION_USERNAME_FBU => t('Machine-friendly, i.e. "1234565789@facebook"'),
+      FB_USER_OPTION_USERNAME_FULL => t('Human-friendly, i.e. "John Smith"'),
+    ),
+    '#default_value' => $default,
   );
-
+  
   $form['fb_user_alter'] = array(
     '#type' => 'fieldset',
     '#title' => t('Form alters'),
@@ -46,20 +54,6 @@ function fb_user_admin_settings() {
     '#default_value' => variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE),
   );
 
-  // Name options for automatically created user accounts.
-  $default = variable_get(FB_USER_VAR_USERNAME_STYLE, FB_USER_OPTION_USERNAME_FBU);
-  
-  $form[FB_USER_VAR_USERNAME_STYLE] = array(
-    '#type' => 'radios',
-    '#title' => t('Username Style for Automatically Created Accounts'),
-    '#description' => t('Machine-friendly names include Facebook user ids to ensure uniqueness.  Thanks to Drupal\'s theme layer, visitors to your site will usually see a proper name.<br/>Human-friendly names are like "John Smith".  Because Drupal requires unique names, you may see "John Smith_2", "John Smith_3" and so on.'),
-    '#options' => array(
-      FB_USER_OPTION_USERNAME_FBU => t('Machine-friendly, i.e. "1234565789@facebook"'),
-      FB_USER_OPTION_USERNAME_FULL => t('Human-friendly, i.e. "John Smith"'),
-    ),
-    '#default_value' => $default,
-  );
-  
   return system_settings_form($form);
 }
 
@@ -83,7 +77,7 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
     $form['fb_app_data']['fb_user']['create_account'] = array(
       '#type' => 'radios',
       '#title' => t('Create Local Account'),
-      '#description' => t('This option will create a local account and an entry in the authmap table when a user authorizes a canvas page or connects using Facebook Connect.  If not, Drupal\'s built in user registration will still work.'),
+      '#description' => t('This option will create a local account and an entry in the fb_user table when a user authorizes a canvas page or connects using Facebook Connect.  If not, Drupal\'s built in user registration will still work.'),
       '#options' => array(
         FB_USER_OPTION_CREATE_NEVER => t('Do not create accounts automatically'),
         FB_USER_OPTION_CREATE_LOGIN => t('If user has authorized the app'),
@@ -99,7 +93,7 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
     $form['fb_app_data']['fb_user']['map_account'] = array(
       '#type' => 'checkboxes',
       '#title' => t('Map Accounts'),
-      '#description' => t('Mapping an account means creating an entry in the authmap table.  This allows Drupal to know which Facebook id corresponds to which local uid. <br/>Matching based on email works when the email extended permission is requested and only if the user is not already mapped to another account.'),
+      '#description' => t('Mapping an account means creating an entry in the fb_user table.  This allows Drupal to know which Facebook id corresponds to which local uid. <br/>Matching based on email works when the email extended permission is requested and only if the user is not already mapped to another account.'),
       '#options' => array(
         //FB_USER_OPTION_MAP_NEVER => t('Never map accounts'),
         FB_USER_OPTION_MAP_ALWAYS => t('Map account when both local uid and Facebook id are known'),

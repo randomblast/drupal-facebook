@@ -9,52 +9,62 @@
 /**
  * Implementation of hook_install().
  */
-function fb_user_install() {
+function fb_user_app_install() {
   // Create tables.
-  drupal_install_schema('fb_user');
+  drupal_install_schema('fb_user_app');
 }
 
 /**
  * Implementation of hook_uninstall().
  */
-function fb_user_uninstall() {
+function fb_user_app_uninstall() {
   // Remove tables.
-  drupal_uninstall_schema('fb_user');
+  drupal_uninstall_schema('fb_user_app');
 }
 
-
-function fb_user_schema() {
-  // Note fb_user_app table has been moved to fb_user_app.module.
-  
-  $schema['fb_user'] = array(
+function fb_user_app_schema() {
+  $schema['fb_user_app'] = array(
     'fields' => array(
+      'apikey' => array(
+        'type' => 'varchar', 'length' => 128, 'not null' => TRUE,
+      ),
+      'fbu' => array('type' => 'int', 'size' => 'big', 'not null' => TRUE, ),
       'uid' => array(
+        'type' => 'int', 'size' => 'normal', 'not null' => TRUE,
+      ),
+      'added' => array(
         'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,
       ),
-      'fbu' => array(
-        // http://forum.developers.facebook.net/viewtopic.php?pid=4676
-        'type' => 'int', 'size' => 'big', 'not null' => TRUE,
+      'proxied_email' => array(
+        'type' => 'varchar', 'length' => 255, 'not null' => TRUE,
+      ),
+      'time_cron' => array(
+        'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,
+      ),
+      'time_access' => array(
+        'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,
+      ),
+      'session_key' => array(
+        'type' => 'varchar', 'length' => 255, 'not null' => FALSE,
+      ),
+      'session_key_expires' => array(
+        'type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE,
       ),
     ),
-    'primary key' => array('uid'),
-    'unique keys' => array(
-      'fbu' => array('fbu')),
+    'primary key' => array('apikey', 'fbu'),
   );
-  
-  
+    
   return $schema;
 }
 
-//// Note that update functions referring to fb_user_app table are old (through 6005), but not safe to delete from this file.
-
-function fb_user_update_1() {
+function fb_user_app_update_1() {
   fb_user_install();
   // Changed name of table to fb_user_app
   $ret[] = update_sql("DROP TABLE IF EXISTS {fb_app_user}");
   return $ret;
 }
 
-function fb_user_update_2() {
+function fb_user_app_update_2() {
   $ret = array();
   // Add local uid to fb_user_app table.
   $ret[] = update_sql("ALTER TABLE {fb_user_app} ADD COLUMN uid int(11) DEFAULT NULL");
@@ -63,20 +73,20 @@ function fb_user_update_2() {
   return $ret;
 }
 
-function fb_user_update_3() {
+function fb_user_app_update_3() {
   // populate the uid column we created in update 2
   $ret[] = update_sql("UPDATE {fb_user_app},{authmap} SET {fb_user_app}.uid={authmap}.uid WHERE substring_index(authname, '@', 1)=fbu");
   return $ret;
 }
 
-function fb_user_update_6000() {
+function fb_user_app_update_6000() {
   $ret = array();
   // We used to alter users.mail column here, to make it long enough for proxied emails.  But we no longer do this, instead we store proxied email in the fb_user_app table.
   // See update 6001.
   return $ret;
 }
 
-function fb_user_update_6001() {
+function fb_user_app_update_6001() {
   $ret = array();
   // Add column for proxied email.
   // http://wiki.developers.facebook.com/index.php/Proxied_Email
@@ -85,7 +95,7 @@ function fb_user_update_6001() {
   return $ret;
 }
 
-function fb_user_update_6002() {
+function fb_user_app_update_6002() {
   $ret = array();
   // Allow session_key to be null, and 255 chars
   $ret[] = update_sql("ALTER TABLE {fb_user_app} CHANGE session_key session_key varchar(255)");
@@ -94,7 +104,7 @@ function fb_user_update_6002() {
   return $ret;
 }
 
-function fb_user_update_6004() {
+function fb_user_app_update_6004() {
   $ret = array();
 
   // Increase FBU to 64 bit as per announcement at http://developers.facebook.com/news.php?blog=1&story=226
@@ -111,7 +121,7 @@ function fb_user_update_6004() {
   return $ret;
 }
 
-function fb_user_update_6005() {
+function fb_user_app_update_6005() {
   $ret = array();
   
   // Making uid unique was a bad idea.  It can be 0.
@@ -124,36 +134,5 @@ function fb_user_update_6005() {
   return $ret;
 }
 
-/**
- * Originally, we wrote authmap entries like 'NNNNN@facebook.com'.  This was
- * necessary in D5.  In D6 we can make queries more efficient using just the
- * fbu ('NNNNN') as the authname, and 'fb_user' as the module.
- */
-function fb_user_update_6006() {
-  $ret = array();
-  // Update authmap entries.  We no longer use '@facebook...'.
-  $ret[] = update_sql("UPDATE {authmap} SET authname=SUBSTRING(authname, 1, LOCATE('@facebook.com', authname)-1) WHERE module='fb_user' AND LOCATE('@facebook.com', authname) > 1");
-  return $ret;
-}
-
-/**
- * Install fb_user table and move entries in authmap table to fb_user.
- */
-function fb_user_update_6007() {
-  $table_schema = fb_user_schema();
-  $ret = '';
-  
-  db_create_table($ret, 'fb_user', $table_schema['fb_user']);
-
-  // Move everything across
-  $sql = "INSERT INTO {fb_user} SELECT uid, authname FROM {authmap} WHERE module = 'fb_user'";
-  $ret[] = update_sql($sql);
-     
-  // Delete authmap table entries, careful to only delete after above insert.
-  $sql = "DELETE FROM {authmap} WHERE module = 'fb_user' AND uid IN (SELECT uid FROM {fb_user})";
-  $ret[] = update_sql($sql);
-    
-  return $ret;
-}
 
 

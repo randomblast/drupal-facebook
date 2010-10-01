@@ -1,0 +1,6 @@
+name= App User Data (fb_user_app.module)
+description = Keep records of users most recent visits to your apps.  Note that this adds some overhead to each app visit.
+package = Drupal for Facebook - contrib
+dependencies[] = fb
+dependencies[] = fb_app
+core = 6.x
