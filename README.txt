@@ -92,7 +92,7 @@ to the very end of your settings.php, and modify the paths accordingly
 (i.e. where I use "sites/all/modules/fb", you might use
 "profiles/custom/modules/fb").
 
-<?php
+//// Code to add to settings.php:
 
 /**
  * Drupal for Facebook settings.
@@ -114,4 +114,3 @@ include "sites/all/modules/fb/fb_url_rewrite.inc";
 include "sites/all/modules/fb/fb_settings.inc"; // REQUIRED.
 
 // end of settings.php
-?>
