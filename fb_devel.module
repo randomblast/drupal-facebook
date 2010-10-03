@@ -44,6 +44,19 @@ function fb_devel_menu() {
 
 
 function fb_devel_init() {
+  // fb_settings.inc sanity check.
+  if (isset($GLOBALS['fb_init_no_settings'])) {
+    if (user_access('access administration pages') && module_exists('fb_canvas')) {
+      drupal_set_message(t('!drupal_for_facebook has been enabled, but fb_settings.inc is not included in settings.php.  Please read the !readme.',
+                           array('!drupal_for_facebook' => l(t('Drupal for Facebook'), 'http://drupal.org/project/fb'),
+                                 // This link should work with clean URLs
+                                 // disabled.
+                                 '!readme' => '<a href='. base_path() . drupal_get_path('module', 'fb') .'/README.txt>README.txt</a>')), 'error');
+    }
+  }
+
+
+  
   // $conf['fb_apikey'] sanity check
   if ($apikey = variable_get('fb_apikey', NULL)) {
     if ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
