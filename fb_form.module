@@ -228,6 +228,9 @@ function fb_form_group_member_options($fbg, $fbu) {
 function fb_form_elements() {
   $items = array();
 
+  $items['fb_form_serverfbml'] = array(
+    '#input' => FALSE,
+  );
   $items['fb_form_requestform'] = array(
     '#input' => FALSE,
   );
