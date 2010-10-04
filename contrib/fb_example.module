@@ -46,7 +46,6 @@ function fb_example_link($type, $object, $teaser = FALSE) {
  * link which pops up the invite form.
  */
 function fb_example_fb_friend_invite_page_wrap_alter(&$elem) {
-
   // Replace serverfbml with popup
   if ($elem['#type'] == 'fb_form_serverfbml') {
     $elem['#type'] = 'fb_fbml_popup';
@@ -54,7 +53,6 @@ function fb_example_fb_friend_invite_page_wrap_alter(&$elem) {
     $elem['#link_text'] = t('Invite friends to view this page');
     $elem['#attributes'] = array('width' => 760);
   }
-
 }
 
 /**
@@ -191,6 +189,17 @@ function fb_example_comment(&$a1, $op) {
                                ));
     }
   }
- 
 }
 
+
+/**
+ * Implements hook_fb_required_perms_alter().
+ *
+ * Builds a list of extended permissions required when authorizing the current facebook app. 
+ * @see http://developers.facebook.com/docs/authentication/permissions
+ */
+function fb_example_fb_required_perms_alter(&$perms) {
+  if (variable_get('fb_example_require_email', TRUE)) {
+    $perms[] = 'email';
+  }
+}
