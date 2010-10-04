@@ -228,9 +228,9 @@ function fb_api_init($fb_app) {
                          'secret' => $fb_app->secret,
                          'cookie' => TRUE,
                        ));
-    // At one point facebook did not have valid certs.  Appears to be fixed.
-    //Facebook::$CURL_OPTS[CURLOPT_SSL_VERIFYPEER] = FALSE;
-    //Facebook::$CURL_OPTS[CURLOPT_SSL_VERIFYHOST] = FALSE;
+    // Facebook certs are not valid.
+    Facebook::$CURL_OPTS[CURLOPT_SSL_VERIFYPEER] = FALSE;
+    Facebook::$CURL_OPTS[CURLOPT_SSL_VERIFYHOST] = FALSE;
     
     // Cache the result, in case we're called again.
     $cache[$fb_app->apikey] = $fb;
@@ -907,8 +907,17 @@ function fb_invoke($op, $data = NULL, $return = NULL, $hook = FB_HOOK) {
 
 /**
  * This method will clean up URLs.  When serving canvas pages, extra
- * information is included in URLs (see fb_url_rewrite.inc).  This will remove
- * the extra information.
+ * information is included in URLs. This will remove the extra
+ * information. Useful when linking back to the website from a canvas page or
+ * wall post.
+ *
+ * For example in the following code, $url2 will link out to the server's domain:
+ *
+ * $url = url('node/42', array('absolute' => TRUE)); // i.e. http://apps.facebook.com/example/node/42
+ * $url2 = fb_scrub_urls($url); // i.e. http://example.com/node/42
+ *
+ * 
+ * @see fb_url_rewrite.inc
  */
 function fb_scrub_urls($content) {
   if (function_exists('_fb_settings_url_rewrite_prefixes')) {
