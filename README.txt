@@ -8,12 +8,12 @@ Primary author and maintainer: Dave Cohen (http://www.dave-cohen.com/contact)
 
 Branch: HEAD (version 3.x for Drupal 6.x)
 
-Detailed documentation is available online
-http://drupal.org/node/195035.  This file is probably more recent than
-the online documentation!
+This file is more current than online documentation.  When in doubt, trust this file.
+Online documentation: http://drupal.org/node/195035, has more detail.
 
-If upgrading from a previous dev build or version, read the upgrade instructions:
-http://drupal.org/node/761886
+To upgrade:
+
+- Read the upgrade instructions: http://drupal.org/node/761886
 
 To install:
    
@@ -21,33 +21,53 @@ To install:
   Download from http://github.com/facebook/php-sdk.
   Extract the files, and place them in sites/all/libraries/facebook-php-sdk.
 
-- To find the php-sdk in any other directory, edit your settings.php to include a line similar to this:
+  Or, To find the php-sdk in any other directory, edit your
+  settings.php to include a line similar to this (add to section where
+  $conf variable is defined, or very end of settings.php. And
+  customize the path as needed.):
 
   $conf['fb_api_file'] = 'sites/all/libraries/facebook-php-sdk/src/facebook.php';
-  (Customize the path above as needed for your installation.)
 
-- If using Facebook Connect, your theme needs the following attribute
-  in it's <html> tag: xmlns:fb="http://www.facebook.com/2008/fbml" See
-  http://www.drupalforfacebook.org/node/1106.  This also applies to
-  themes used for iframe canvas pages.
+- Your theme needs the following attribute at the end of the <html> tag:
+  
+  xmlns:fb="http://www.facebook.com/2008/fbml" 
 
-- If you want to support canvas pages, url rewriting is
-  recommended.  Enable this by adding this line to settings.php:
+  Typically, this means editing your theme's page.tpl.php file.  See
+  http://www.drupalforfacebook.org/node/1106.  Note this applies to
+  themes used for Facebook Connect, iframe Canvas Pages, and Social
+  Plugins (i.e. like buttons).  Without this attribute, IE will fail.
+
+- To support canvas pages, url rewriting and other settings must be
+  initialized before modules are loaded, so you must add this code to
+  your settings.php.  This is easily done by adding these two lines to
+  the end of sites/_____/settings.php (usually
+  sites/default/settings.php).
 
   include "sites/all/modules/fb/fb_url_rewrite.inc";
-
-
-- Edit your settings.php file (sites/default/settings.php, depending
-  on your install) to include fb_settings.inc (in this directory).
-  For example, add this at the very end of your settings.php:
-
   include "sites/all/modules/fb/fb_settings.inc";
 
+  (Remember to change the path if modules/fb is not in sites/all.)
 
 - Go to Administer >> Site Building >> Modules and enable the Facebook
-  modules.  Most of the modules under "Drupal for Facebook" should be
-  enabled.  During development, the "Drupal for Facebook Devel" module
-  is a must.
+  modules.
+
+  Enable fb.module for Social Plugins.
+
+  Enable fb_devel.module and keep it enabled until you have everything
+  set up.  You should disable this on your live server once you are
+  certain facebook features are working.  (Note this requires
+  http://drupal.org/project/devel, which is well worth installing
+  anyway.)
+
+  Enable fb_app.module and fb_user.module if you plan to create
+  facebook applications.
+
+  Enable fb_connect.module for Facebook Connect and/or
+  fb_canvas.module for Canvas Page apps.
+
+
+To support Facebook Connect and/or Canvas Pages, read on...  
+
 
 - You must enable clean URLs.  If you don't, some links that drupal
   creates will not work properly on canvas pages.
@@ -64,20 +84,15 @@ To install:
   changes, Drupal for Facebook will automatically set the callback URL
   and some other properties which help it work properly.
 
+
+
 Troubleshooting:
 ---------------
 
 Reread this file and follow instructions carefully.
 
-Enable the devel module, http://drupal.org/project/devel.
-
-Enable the "Drupal for Facebook Devel" module and add the block it
-provides to the footer of your Facebook theme.
-
-If you see "The page you requested was not found."  Make sure the
-canvas page you specified agrees exactly with the canvas page assigned
-by facebook.  Note also that facebook will make all letters lower case
-even if you typed them upper.
+Enable the fb_devel.module and add the block it provides (called
+"Facebook Devel Page info") to the footer of your Facebook theme.
 
 Bug reports and feature requests may be submitted.  
 Here's an idea: check the issue queue before you submit
@@ -87,12 +102,16 @@ If you do submit an issue, start the description with "I read the
 README.txt from start to finish," and you will get a faster, more
 thoughtful response.  Seriously, prove that you read this far.
 
-Here is one way to set up your settings.php.  Add the PHP shown below
+Below are more options for your settings.php.  Add the PHP shown below
 to the very end of your settings.php, and modify the paths accordingly
-(i.e. where I use "sites/all/modules/fb", you might use
+(i.e. where I use "sites/all/modules/fb", you might need
 "profiles/custom/modules/fb").
 
+
+
+
 //// Code to add to settings.php:
+/////////////////////////////////
 
 /**
  * Drupal for Facebook settings.
@@ -106,11 +125,10 @@ $conf['fb_verbose'] = TRUE; // debug output
 
 // More efficient connect session discovery.
 // Required if supporting one connect app and different canvas apps.
-$conf['fb_apikey'] = '123.....XYZ'; // Your connect app's apikey goes here.
+//$conf['fb_apikey'] = '123.....XYZ'; // Your connect app's apikey goes here.
 
 // Enable URL rewriting (for canvas page apps).
 include "sites/all/modules/fb/fb_url_rewrite.inc";
-	
-include "sites/all/modules/fb/fb_settings.inc"; // REQUIRED.
+include "sites/all/modules/fb/fb_settings.inc";
 
 // end of settings.php
