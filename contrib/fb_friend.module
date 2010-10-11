@@ -18,7 +18,6 @@
 define('FB_FRIEND_DELTA_AUTHORIZED', 'fb_friend_authorized');
 define('FB_FRIEND_DELTA_INVITE_PAGE', 'fb_friend_invite_page');
 define('FB_FRIEND_DELTA_INVITE_APP', 'fb_friend_invite_app');
-define('FB_FRIEND_PATH_AJAX_REQUEST_FORM', 'fb_friend/ajax/request-form');
 
 /**
  * Implementation of hook_block().
@@ -155,7 +154,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
 function fb_friend_invite_page_fbml($alter_hook = NULL) {
   $page_url = url($_GET['q'], array('absolute' => TRUE));
   // Build the alterable data structure.
-  // http://wiki.developers.facebook.com/index.php/Fb:request-form
+  // http://developers.facebook.com/docs/reference/fbml/request-form
   $fbml = fb_form_requestform(
     array(
       'type' => variable_get('site_name', t('page view')),
