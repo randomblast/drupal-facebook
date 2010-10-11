@@ -8,7 +8,7 @@
  */
 
 
-function theme_fb_login_button($text, $options = array()) {
+function theme_fb_login_button($text = '', $options = array()) {
   // Merge in defaults
   $options += array(
     'attributes' => array(),
