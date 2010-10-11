@@ -82,26 +82,34 @@ if (!function_exists('custom_url_rewrite_inbound')) {
  */
 if (!function_exists('custom_url_rewrite_outbound')) {
   function custom_url_rewrite_outbound(&$path, &$options, $original_path) {
-    if (function_exists('fb_canvas_url_outbound_alter'))
-      fb_canvas_url_outbound_alter($path, $options, $original_path);
-    fb_url_outbound_alter($path, $options, $original_path);
+    if (!isset($options['fb_url_alter']) || $options['fb_url_alter']) {
+      if (function_exists('fb_canvas_url_outbound_alter')) {
+        fb_canvas_url_outbound_alter($path, $options, $original_path);
+      }
+      fb_url_outbound_alter($path, $options, $original_path);
+    }
   }
 }
 
 /**
- * Implementation of hook_url_outbound_alter().
+ * Implements hook_url_outbound_alter().
+ *
+ * @param $options
+ *   If $options['fb_url_alter'] == FALSE, this function will not alter the
+ *   URL.  If used with $options['absolute'] == TRUE, this will generate a
+ *   link from a canvas page out to the server's URL.
  */
 function fb_url_outbound_alter(&$path, &$options, $original_path) {
-  //dpm(func_get_args(), 'fb_settings_url_rewrite_outbound'); // debug
-  $pre = '';
-  
-  // Prefix each known value to the URL
-  foreach (_fb_settings_url_rewrite_prefixes() as $prefix) {
-    if ($value = fb_settings($prefix))
-      $pre .= $prefix . '/'. $value . '/';
+  if (!isset($options['fb_url_alter']) || $options['fb_url_alter']) {
+    $pre = '';
+    
+    // Prefix each known value to the URL
+    foreach (_fb_settings_url_rewrite_prefixes() as $prefix) {
+      if ($value = fb_settings($prefix))
+        $pre .= $prefix . '/'. $value . '/';
+    }
+    $path  = $pre . $path;
   }
-  $path  = $pre . $path;
-  
   return $path;
 }
 
