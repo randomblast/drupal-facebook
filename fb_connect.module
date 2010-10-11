@@ -100,7 +100,7 @@ function fb_connect_fb($op, $data, &$return) {
     }
   }
   elseif ($op == FB_OP_POST_INIT) {
-    if (!fb_is_canvas() && !fb_is_tab()) {
+    if (!fb_is_tab()) {
       // Init Facebook javascript for primary app
       _fb_connect_add_js();
     }
