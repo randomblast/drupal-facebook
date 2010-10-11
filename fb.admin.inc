@@ -248,7 +248,7 @@ function fb_admin_set_properties_form_submit($form, &$form_state) {
         // Success.
         $form_state['redirect'] = FB_PATH_ADMIN_APPS . '/' . $fb_app->label;
         
-        drupal_set_message(t('Note that it may take several minutes for property changes to propigate to all facebook servers.'));
+        drupal_set_message(t('Note that it may take several minutes for property changes to propagate to all facebook servers.'));
         if (fb_verbose()) {
           drupal_set_message(t('Set the following properties for %label application:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))));
           watchdog('fb_app', 'Set facebook app properties for %label.',

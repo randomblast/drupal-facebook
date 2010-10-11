@@ -319,7 +319,7 @@ function fb_app_set_app_properties($fb_app) {
           $result = fb_call_method($fb, 'admin.setAppProperties', array(
                                      'properties' => json_encode($props),
                                    ));
-          drupal_set_message(t('Note that it may take several minutes for property changes to propigate to all facebook servers.'));
+          drupal_set_message(t('Note that it may take several minutes for property changes to propagate to all facebook servers.'));
           if (fb_verbose()) {
             drupal_set_message(t('Set the following properties for %label application:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))));
             watchdog('fb_app', 'Set facebook app properties for %label.',
