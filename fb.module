@@ -33,6 +33,7 @@ define('FB_OP_POST_INIT', 'post init'); //
 
 define('FB_OP_EXIT', 'exit'); // End an FB callback
 define('FB_OP_GET_FBU', 'get_fbu'); // Query the local user's FB account
+define('FB_OP_GET_UID', 'get_uid'); // Query the facebook user's local account
 define('FB_OP_GET_USER_SESSION', 'get_user_sess');
 
 define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
@@ -522,6 +523,19 @@ function fb_get_profile_idXXX() { // @TODO - delete if no longer needed.
   if (isset($_REQUEST['fb_sig_profile_id']))
     return $_REQUEST['fb_sig_profile_id'];
 }
+
+/**
+ * Given a facebook user id, learn the local uid, if any.
+ *
+ */ 
+function fb_get_uid($fbu, $fb_app = NULL) {
+  $uid = NULL;
+  if ($fbu) {
+    $uid = fb_invoke(FB_OP_GET_UID, array('fbu' => $fbu, 'fb_app' => $fb_app));
+  }
+  return $uid;
+}
+
 
 /**
  * Given a local user id, find the facebook id.

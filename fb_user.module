@@ -131,6 +131,10 @@ function fb_user_fb($op, $data, &$return) {
     // This is a request to learn the user's FB id.
     $return = _fb_user_get_fbu($data['uid']);
   }
+  elseif ($op == FB_OP_GET_UID) {
+    // This is a request to learn the facebook user's local id.
+    $return = fb_user_get_local_user($data['fbu'], $data['fb_app']);
+  }
   elseif ($op == FB_OP_AJAX_EVENT) {
     // fb.js has notified us of an event via AJAX.  Not the same as facebook event callback above.
     if ($data['event_type'] == 'session_change' && isset($data['event_data']['fbu'])) {
@@ -763,13 +767,16 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
  * Historically, this method took the app details into account when mapping user ids.  Presently, this parameter is not used.
  */
 function fb_user_get_local_user($fbu, $fb_app = NULL) {
-  
+  if ($uid = _fb_user_get_uid($fbu, $fb_app)) {
+    return user_load($uid);
+  }
+}
+
+function _fb_user_get_uid($fbu, $fb_app = NULL) {
   $result = db_result(db_query("SELECT uid FROM {fb_user} WHERE fbu=%d", array(
                                  $fbu,
                                )));
-  if ($result) {
-    return user_load($result);
-  }
+  return $result;
 }
 
 /**
