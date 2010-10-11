@@ -46,7 +46,7 @@ FB_JS.getUrlVars = function(href)
   {
     hash = hashes[i].split('=');
     vars[hash[0]] = hash[1];
-    if (hash[0] != 'fb_js_fbu')
+    if (hash[0] != '_fb_js_fbu')
       vars.push(hashes[i]); // i.e. "foo=bar"
   }
   return vars;
@@ -65,8 +65,10 @@ FB_JS.reload = function(destination) {
     fbu = 0;
 
   // Avoid infinite reloads
+  ///@TODO - does not work on iframe because facebook does not pass url args to canvas frame when cookies not accepted.  http://forum.developers.facebook.net/viewtopic.php?id=77236
   var vars = FB_JS.getUrlVars(window.location.href);
-  if (vars.fb_js_fbu === fbu) {
+  alert("vars._fb_js_fbu is " + vars._fb_js_fbu);
+  if (vars._fb_js_fbu === fbu) {
     return; // Do not reload (again)
   }
 
@@ -92,9 +94,9 @@ FB_JS.reload = function(destination) {
     path = destination.substr(0, destination.indexOf('?'));
   }
   
-  // Add fb_js_fbu to params before reload.
+  // Add _fb_js_fbu to params before reload.
   if (fbu) {
-    vars.push('fb_js_fbu=' + fbu);
+    vars.push('_fb_js_fbu=' + fbu);
   }
 
   // Use window.top for iframe canvas pages.
