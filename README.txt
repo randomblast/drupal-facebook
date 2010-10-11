@@ -94,6 +94,9 @@ Reread this file and follow instructions carefully.
 Enable the fb_devel.module and add the block it provides (called
 "Facebook Devel Page info") to the footer of your Facebook theme.
 
+Disable Global Redirect, if you have that module installed.  Users
+have reported problems with it and Drupal for Facebook.
+
 Bug reports and feature requests may be submitted.  
 Here's an idea: check the issue queue before you submit
 http://drupal.org/project/issues/fb
