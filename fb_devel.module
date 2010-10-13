@@ -168,9 +168,14 @@ function fb_devel_fb($op, $data, &$return) {
     
     // server URL sanity check
     // This is an expensive test, because it invokes api_client.
-    if ('fixme' == 'XXX')
     try {
-      $props = $fb->api_client->admin_getAppProperties(array('connect_url', 'callback_url'));
+      $props = $fb->api(array(
+                          'method' => 'admin.getAppProperties',
+                          'access_token' => fb_access_token($fb),
+                          'properties' => array('connect_url', 'callback_url'),
+                        ));
+      $props = json_decode($props);
+
       if (is_array($props)) {
         foreach ($props as $prop => $url) {
           if ($url && (strpos($url, $GLOBALS['base_url']) === FALSE)) {
@@ -190,7 +195,8 @@ function fb_devel_fb($op, $data, &$return) {
         }
       }
     } 
-    catch (FacebookRestClientException $e) {
+    catch (Exception $e) {
+      dpm($e, __FUNCTION__);
       if ($e->getCode() == 102) {
         // Session key invalid or no longer valid 102, which we can ignore.
       }
@@ -256,7 +262,6 @@ function fb_devel_fb($op, $data, &$return) {
       $return[] = "console.log('fb_facebook_user() during FB_OP_AJAX_EVENT is $fbu, data[event_data][fbu] is {$data[event_data][fbu]}');";
       $return[] = "console.log('_COOKIE[fbu_{$fb_app->apikey}] is " . $_COOKIE['fbu_' . $fb_app->apikey] . "');";
       $return[] = "FB_JS.reload();";
-      $_SESSION['fb_devel']['FB_AJAX_EVENT'] = 'XXX';
     }
   }
 }
@@ -271,7 +276,7 @@ function fb_devel_page() {
   global $user;
 
   if (isset($_REQUEST['require_login']) && $_REQUEST['require_login'])
-    $_fb->require_login();
+    $_fb->require_login();  // @TODO - find a way to do this with new api.
   
   if ($_fb) {
     // TODO: determine whether connect page or canvas.
@@ -444,37 +449,6 @@ function fb_devel_js() {
 
   print drupal_json(array('status' => TRUE, 'data' => $data));
   exit();
-}
-
-function fb_devel_form_alter(&$form, $form_state, $form_id) {
-  static $count;
-  $count++;
-  
-  if (fb_verbose() === 'extreme' && FALSE) { // Disabled, somehow this breaks comment submission.
-    $form['fb_devel'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('Drupal for Facebook Devel'),
-      '#description' => t('For debugging ahah problems......'),
-      '#collapsible' => TRUE,
-      '#collapsed' => FALSE,
-    );
-    $form['fb_devel']['submit'] = array(
-      '#type' => 'submit',
-      '#value' => t('fb_devel'),
-      '#ahah' => array(
-        'event' => 'click',
-        'path' => 'fb/devel/js',
-        'wrapper' => "fb_devel_wrapper$count",
-        'method' => 'replace',
-        'effect' => 'fade',
-        'progress' => array('type' => 'bar', 'message' => 'XXX'),
-      ),
-    );
-    $form['fb_devel']['wrap'] = array(
-      '#type' => 'markup',
-      '#value' => "<div id=fb_devel_wrapper$count>This is the wrapper.</div>",
-    );
-  }
 }
 
 function fb_devel_block($op = 'list', $delta = 0, $edit = array()) {

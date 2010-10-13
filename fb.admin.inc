@@ -98,13 +98,12 @@ function fb_admin_app_page($fb_app = NULL) {
   fb_admin_get_app_properties($fb_app);
   $fb = fb_api_init($fb_app);
 
-  // placeholder until theming done... XXX
+  // @TODO use an actual theme function and make render more appealing.
   // Hide a couple things...
   unset($fb_app->secret); 
   unset($fb_app->data); 
 
   // Warn user if values have changed since last edit.
-  if (FALSE) // @TODO: XXX re-enable this with facebook supports get app properties!
   foreach (array('canvas_name' => 'canvas', 'application_name' => 'title') as $prop => $key) {
     if (isset($fb_app->$prop) && $fb_app->$prop != $fb_app->$key) {
       drupal_set_message(t("The property %prop has been changed to %value on facebook.  Go to the Edit tab, confirm values are correct and hit Save button to syncronize the local values.",
