@@ -67,7 +67,6 @@ FB_JS.reload = function(destination) {
   // Avoid infinite reloads
   ///@TODO - does not work on iframe because facebook does not pass url args to canvas frame when cookies not accepted.  http://forum.developers.facebook.net/viewtopic.php?id=77236
   var vars = FB_JS.getUrlVars(window.location.href);
-  alert("vars._fb_js_fbu is " + vars._fb_js_fbu);
   if (vars._fb_js_fbu === fbu) {
     return; // Do not reload (again)
   }
