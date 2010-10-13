@@ -348,32 +348,6 @@ function fb_fql_query($fb, $query, $params = array()) {
   return $result;
 }
 
-/**
- * This function emulates the convert_simplexml_to_array() function which was
- * part of facebook's older PHP client libraries.
- */
-function fb_convert_simplexml_to_arrayXXX($sxml) { // @TODO - delete if no longer needed.
-  $arr = array();
-  if ($sxml) {
-    foreach ($sxml as $k => $v) {
-      if ($sxml['list']) {
-        if (isset($v['key'])) {
-          $arr[(string)$v['key']] = fb_convert_simplexml_to_array($v);
-        } else {
-          $arr[] = fb_convert_simplexml_to_array($v);
-        }
-      } else {
-        $arr[$k] = fb_convert_simplexml_to_array($v);
-      }
-    }
-  }
-  if (sizeof($arr) > 0) {
-    return $arr;
-  } else {
-    return (string)$sxml;
-  }
-}
-
 
 /**
  * Implements hook_footer().
@@ -510,18 +484,6 @@ function fb_is_fb_admin_page() {
 
     return TRUE;
   }
-}
-
-/**
- * Determine whether we are rendering a profile tab.
- */
-function fb_is_profile_tabXXX() { // use fb_is_tab instead
-  if (isset($_REQUEST['fb_sig_in_profile_tab']))
-    return $_REQUEST['fb_sig_in_profile_tab'];
-}
-function fb_get_profile_idXXX() { // @TODO - delete if no longer needed.
-  if (isset($_REQUEST['fb_sig_profile_id']))
-    return $_REQUEST['fb_sig_profile_id'];
 }
 
 /**
@@ -749,44 +711,6 @@ function fb_get_groups_data($fbu, $fb_app = NULL) {
 }
 
 
-// deprecated since creation of fb_user module, but cron hook still uses this.
-function fb_user_loadXXX($fbu = NULL) { // @ TODO - delete if no longer needed.
-  global $user;
-  if (!$fbu)
-    // default to current logged in user
-    $fbu = fb_facebook_user();
-  if ($fbu && $user->fbu == $fbu) {
-    return $user;
-  }
-  if ($fbu) {
-    $account = user_external_load("$fbu-$fb_app->apikey@facebook.com");
-    if (!$account)
-      $account = user_external_load("$fbu@facebook.com");
-    if (!$account)
-      $account = user_load(array('uid' => variable_get('fb_facebook_user', 2)));
-    if (!$account)
-      watchdog('fb', 'Failed to load user from facebook fbu=%fbu',
-               array('%fbu' => $fbu), WATCHDOG_ERROR);
-    $account->fbu = $fbu;
-    return $account;
-  }
-}
-
-
-function fb_form_alterXXX(&$form, &$form_state, $form_id) { // @TODO - delete if no longer needed.
-  // Because facebook users don't have email, it can't be required on user form
-  if ($form_id == 'user_register') {
-    if (user_access('administer users')) {
-      $form['mail']['#required'] = FALSE;
-    }
-  }
-  if ($form_id == 'user_edit') {
-    if (user_access('administer users')) {
-      $form['account']['mail']['#required'] = FALSE;
-    }
-  }
-}
-
 //// Menu structure.
 /**
  * Implementation of hook_menu().
@@ -911,9 +835,20 @@ function fb_invoke($op, $data = NULL, $return = NULL, $hook = FB_HOOK) {
       $function($op, $data, $return);
     }
     catch (Exception $e) {
-      fb_log_exception($e, t('Exception calling %function(%op)', array(
-            '%function' => $function,
-            '%op' => $op)));
+      if (isset($data['fb_app'])) {
+        fb_log_exception($e, t('Exception calling %function(%op) (!app)', array(
+                                 '%function' => $function,
+                                 '%op' => $op,
+                                 '%label' => $data['fb_app']->label,
+                                 '%apikey' => $data['fb_app']->apikey,
+                                 '!app' => l($data['fb_app']->label, FB_PATH_ADMIN_APPS . '/' . $data['fb_app']->label),
+                               )));
+      }
+      else {
+        fb_log_exception($e, t('Exception calling %function(%op)', array(
+                                 '%function' => $function,
+                                 '%op' => $op)));
+      }
     }
   }
   return $return;
@@ -1152,22 +1087,34 @@ function fb_js_cb() {
  */
 function fb_ajax_event($event_type) {
   global $_fb, $_fb_app;
-  $_fb_app = fb_get_app(array('apikey' => $_REQUEST['apikey']));
-  $_fb = fb_api_init($_fb_app);
-  // Data to pass to hook_fb.
-  $data = array(
-    'fb_app' => $_fb_app,
-    'fb' => $_fb,
-    'event_type' => $event_type,
-    'event_data' => $_POST, // POSTed via ajax.
-  );
+  $js_array = array();
   
-  $js_array = fb_invoke(FB_OP_AJAX_EVENT, $data, array());
-  
-  if ($event_type == 'session_change' && !count($js_array)) {
-    // Refresh page on session change, if no module has provided alternate actions.
-    //$js_array[] = 'debugger;'; // debug
-    $js_array[] = 'FB_JS.reload();';
+  if (isset($_REQUEST['apikey'])) {
+    $_fb_app = fb_get_app(array('apikey' => $_REQUEST['apikey']));
+    if ($_fb_app) {
+      $_fb = fb_api_init($_fb_app);
+      // Data to pass to hook_fb.
+      $data = array(
+        'fb_app' => $_fb_app,
+        'fb' => $_fb,
+        'event_type' => $event_type,
+        'event_data' => $_POST, // POSTed via ajax.
+      );
+      
+      $js_array = fb_invoke(FB_OP_AJAX_EVENT, $data, array());
+      
+      if ($event_type == 'session_change' && !count($js_array)) {
+        // Refresh page on session change, if no module has provided alternate actions.
+        //$js_array[] = 'debugger;'; // debug
+        $js_array[] = 'FB_JS.reload();';
+      }
+    }
+  }
+  else {
+    if (fb_verbose()) {
+      $js_array[] = 'debugger;';
+    }
+    watchdog('fb', 'fb_ajax_event called badly.  Not passed apikey.', array(), WATCHDOG_ERROR);
   }
   drupal_json($js_array);
   exit();

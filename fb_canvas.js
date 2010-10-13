@@ -22,4 +22,6 @@ Drupal.behaviors.fb_canvas = function(context) {
     $(this).addClass('fb_canvas-processed');
     jQuery(document).bind('fb_init', FB_Canvas.setAutoResize);
   });
+
+  // @TODO change 'user/login' links to popup fb connect dialog.
 };
