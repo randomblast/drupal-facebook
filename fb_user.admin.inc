@@ -53,6 +53,11 @@ function fb_user_admin_settings() {
     '#title' => t('Login form'),
     '#default_value' => variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE),
   );
+  $form['fb_user_alter'][FB_USER_VAR_ALTER_CONTACT] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Contact form'),
+    '#default_value' => variable_get(FB_USER_VAR_ALTER_CONTACT, TRUE),
+  );
 
   return system_settings_form($form);
 }

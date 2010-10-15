@@ -30,6 +30,7 @@ define('FB_USER_OPTION_USERNAME_FBU', 2); // Use unique name
 
 define('FB_USER_VAR_ALTER_REGISTER', 'fb_user_alter_register');
 define('FB_USER_VAR_ALTER_LOGIN', 'fb_user_alter_login');
+define('FB_USER_VAR_ALTER_CONTACT', 'fb_user_alter_contact');
 
 // Controls - see fb_controls().
 define('FB_USER_CONTROL_NO_CREATE_ACCOUNT', 'fb_user_no_account');
@@ -373,6 +374,17 @@ function _fb_user_process_authorized_user() {
 }
     
 
+function _fb_user_facebook_data($fb) {
+  $fbu = fb_facebook_user($fb);
+  try {
+    $data = $fb->api('/' . $fbu); // Facebook Graph lookup.
+    return $data;
+  }
+  catch (FacebookApiException $e) {
+    fb_log_exception($e, t('Failed lookup of %fbu.', array('%fbu' => $fbu)));
+  }
+}
+
 /**
  * Implements hook_form_alter().
  */
@@ -397,11 +409,15 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
       } 
     }
   }
-  elseif (($form_id == 'user_register' && variable_get(FB_USER_VAR_ALTER_REGISTER, TRUE)) ||
-          ($form_id == 'user_login' && variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE))) {
-    if ($fb = $GLOBALS['_fb']) {
+
+  // Add name and email to some forms.
+  if ($fb = $GLOBALS['_fb']) {
+    
+    if (($form_id == 'user_register' && variable_get(FB_USER_VAR_ALTER_REGISTER, TRUE)) ||
+        ($form_id == 'user_login' && variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE))) {
       if ($fbu = fb_facebook_user()) {
         // Facebook user has authorized app.
+        
         
         // Show user name and picture.
         $form['fb_user'] = array(
@@ -419,12 +435,12 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
           ),
           '#weight' => -1,
         );
+        
         if ($form_id == 'user_register') {
           // Provide defaults for name and email.
-          try {
-            $data = $fb->api('/' . $fbu); // Facebook Graph lookup.
+          if ($data = _fb_user_facebook_data($fb)) {
             $form['fb_user']['#fb_user'] = $data;
-
+            
             if (isset($form['name']) && !$form['name']['#default_value']) {
               // @TODO - ensure name is unique to Drupal.
               $form['name']['#default_value'] = $data['name'];
@@ -442,12 +458,9 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
               $form['account']['mail']['#default_value'] = $data['email'];
             }
           }
-          catch (FacebookApiException $e) {
-            fb_log_exception($e, t('Failed lookup of %fbu.', array('%fbu' => $fbu)));
-          }
         }
-        
       }
+      
       else {
         // facebook user has not authorized app.
         $fb_button = theme('fb_login_button', t('Connect with Facebook'), array('form_id' => $form_id));
@@ -458,7 +471,18 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
         );
       }
     }
+    elseif ($form_id == 'contact_mail_page' && variable_get(FB_USER_VAR_ALTER_CONTACT, TRUE)) {
+      if ($data = _fb_user_facebook_data($fb)) {
+        if (!$form['name']['#default_value'] || strpos($form['name']['#default_value'], '@facebook')) {
+          $form['name']['#default_value'] = $data['name'];
+        }
+        if (!$form['mail']['#default_value']) {
+          $form['mail']['#default_value'] = $data['email'];
+        }
+      }
+    }
   }
+  
 }
 
 /**
