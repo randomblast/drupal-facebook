@@ -31,10 +31,11 @@ function fb_app_fb($op, $data, &$return) {
     // Load app data, using the criteria passed in.
     $args = array();
     $where = array();
-        
+    
     // We also support these ways to query an app.  Columns in fb_app table.
     foreach (array(
-               'fba_id' => '%d', 
+               'fba_id' => '%d',
+               'id' => '%d',
                'apikey' => "'%s'",
                'label' => "'%s'",
              ) as $key => $type) {
@@ -73,17 +74,16 @@ function fb_app_fb($op, $data, &$return) {
     }
   }
   elseif ($op == FB_OP_CURRENT_APP) {
-    // Normally the current app is determined by fb_canvas or fb_connect, unless it is our event callback.
-    if (arg(0) == 'fb_app' && !$return) {
-      if (function_exists('fb_settings')) {
-        if ((fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) &&
-            ($apikey = fb_settings(FB_SETTINGS_APIKEY))) {
-          $return = fb_get_app(array('apikey' => $apikey));
-        }
-      }
+    // Try to determine the current application from fb_settings.
+    // If we fail, fb_canvas or fb_connect module will hopefully succeed.
+
+    if (!$return && ($id = fb_settings(FB_SETTINGS_ID))) {
+      $return = fb_get_app(array('id' => $id));
+    }
+    elseif (!$return && ($apikey = fb_settings(FB_SETTINGS_APIKEY))) {
+      $return = fb_get_app(array('apikey' => $apikey));
     }
   }
-  
 }
 
 
@@ -147,6 +147,10 @@ function fb_app_event_cb($event_type) {
   // Events are passed 'fb_sig' params, so globals should be set.
   global $_fb, $_fb_app;
   if (!$_fb_app) {
+    if (fb_verbose() == 'extreme') {
+      // This should never happen.
+      watchdog('fb_app', 'No $_fb_app in fb_app_event_cb! <pre>' . print_r($_REQUEST, 1) . '</pre>');
+    }
     drupal_not_found();
     return;
   }

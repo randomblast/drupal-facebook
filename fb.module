@@ -395,14 +395,12 @@ function fb_is_canvas() {
  */
 function fb_is_tab() {
   global $_fb;
-  // Old way, no migrations enabled.
-  if (isset($_REQUEST['fb_sig_in_profile_tab']) &&
-      $_REQUEST['fb_sig_in_profile_tab']) {
+  if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) {
     return TRUE;
   }
-  // signed request migration enabled.
-  elseif ($_fb && ($sr = $_fb->getSignedRequest()) &&
-          isset($sr['profile_id'])) {
+  elseif (isset($_REQUEST['fb_sig_in_profile_tab']) &&
+          $_REQUEST['fb_sig_in_profile_tab']) {
+    // Old way, no migrations enabled.
     return TRUE;
   }
   return FALSE;

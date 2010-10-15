@@ -25,23 +25,30 @@ define('FB_SETTINGS_SESSION_KEY', 'session_key');  // no longer used.
 define('FB_SETTINGS_APIKEY', 'apikey');
 define('FB_SETTINGS_ID', 'app_id');
 define('FB_SETTINGS_FBU', 'fbu');
+define('FB_SETTINGS_PROFILE_ID', 'profile_id');
 define('FB_SETTINGS_TYPE', 'type'); // page type not same as cb type
 define('FB_SETTINGS_COOKIE_DOMAIN', 'cookie_domain');
 
 // Possible values for settings.
 define('FB_SETTINGS_TYPE_CANVAS', 'canvas');
 define('FB_SETTINGS_TYPE_CONNECT', 'connect');
+define('FB_SETTINGS_TYPE_PROFILE', 'profile');
 
 
 /**
  * Helper function to remember values as we learn them.
  */
-function fb_settings($key, $value = NULL) {
+function fb_settings($key = NULL, $value = NULL) {
   static $cache = array();
   if (isset($value)) {
     $cache[$key] = $value;
   }
-  return isset($cache[$key]) ? $cache[$key] : NULL;
+  if (isset($key)) {
+    return isset($cache[$key]) ? $cache[$key] : NULL;
+  }
+  else {
+    return $cache;
+  }
 }
 
 
@@ -70,8 +77,33 @@ function _fb_settings_parse_signed_request($signed_request) {
   // decode the data
   $sig = _fb_settings_base64_url_decode($encoded_sig);
   $data = json_decode(_fb_settings_base64_url_decode($payload), true);
-
+  
   return $data;
+}
+
+/**
+ * Get the fb_settings from a parsed signed request.
+ * http://developers.facebook.com/docs/authentication/canvas
+ */
+function _fb_settings_honor_signed_request($sr) {
+  if (isset($sr['profile_id'])) {
+    // Only on tabs.
+    fb_settings(FB_SETTINGS_PROFILE_ID, $sr['profile_id']);
+    fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_PROFILE);
+    if ($sr['user_id'] != $sr['profile_id']) {
+      fb_settings(FB_SETTINGS_FBU, $sr['user_id']);
+    }
+  }
+  else {
+    // Probably a canvas page.
+    fb_settings(FB_SETTINGS_FBU, $sr['user_id']);
+  }
+  if (isset($sr['oauth_token'])) {
+    $tokens = explode('|', $sr['oauth_token']);
+    if ($app_id = $tokens[0]) {
+      fb_settings(FB_SETTINGS_ID, $app_id);
+    }
+  }
 }
 
 /**
@@ -111,31 +143,39 @@ function fb_settings_get_facebook_cookie($app_id, $application_secret = NULL) {
  * By changing the $cookie_domain, we force drupal to use a different session
  * when a user is logged into a facebook application.  We base the
  * $cookie_domain on the apikey of the application, if we can learn it.
+ *
+ * Facebook provides a number of "migrations" and historically has offered
+ * different data to applications.  So the code below tries a variety of ways
+ * to learn the settings.
  */
 
 if (function_exists('_fb_settings_parse') &&
     ($apikey = _fb_settings_parse(FB_SETTINGS_CB))) {
-  // Using url_rewrite.  Indicates a canvas page.  apikey tells us which cookie to use.
+  // Learned apikey from url rewrite.
+  // Either canvas page or profile tab.
   fb_settings(FB_SETTINGS_APIKEY, $apikey);
   fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
-  $data = fb_settings_get_facebook_cookie($apikey);
-  if (isset($data)) {
-    if (isset($data['uid'])) {
-      fb_settings(FB_SETTINGS_FBU, $data['uid']);
+  if (isset($_REQUEST['signed_request']) &&
+      ($sr = _fb_settings_parse_signed_request($_REQUEST['signed_request']))) {
+    // Prefer signed request data to cookie data.
+    _fb_settings_honor_signed_request($sr);
+  }
+  else {
+    $data = fb_settings_get_facebook_cookie($apikey);
+    if (isset($data)) {
+      if (isset($data['uid'])) {
+        fb_settings(FB_SETTINGS_FBU, $data['uid']);
+      }
     }
   }
 }
 elseif (isset($_REQUEST['signed_request']) &&
-        ($sr = _fb_settings_parse_signed_request($_REQUEST['signed_request'])) &&
-        isset($sr['oauth_token'])) {
+        ($sr = _fb_settings_parse_signed_request($_REQUEST['signed_request']))) {
+  // Reach this clause on canvas page when admin has not enabled url_rewrite.
   // http://developers.facebook.com/docs/authentication/canvas
   // We get useful info from signed_request only when user is logged in and therefore oauth_token is set.
   fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
-  fb_settings(FB_SETTINGS_FBU, $sr['user_id']);
-  $tokens = explode('|', $sr['oauth_token']);
-  if ($app_id = $tokens[0]) {
-    fb_settings(FB_SETTINGS_ID, $app_id);
-  }
+  _fb_settings_honor_signed_request($sr);
 }
 elseif (isset($_REQUEST['session'])) {
   // New SDK's use session param for canvas pages.
@@ -149,7 +189,6 @@ elseif (isset($_REQUEST['session'])) {
     fb_settings(FB_SETTINGS_ID, $app_id);
   }
 }
-
 else {
   // We're not in a canvas page.
   // We might be in a facebook connect page.  We have to inspect cookies to make sure.
