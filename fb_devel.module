@@ -175,7 +175,9 @@ function fb_devel_fb($op, $data, &$return) {
                           'properties' => array('connect_url', 'callback_url'),
                         ));
       $props = json_decode($props);
-
+      if (count($props) != 2)
+        dpm($props, __FUNCTION__); // debugging.
+      
       if (is_array($props)) {
         foreach ($props as $prop => $url) {
           if ($url && (strpos($url, $GLOBALS['base_url']) === FALSE)) {
@@ -335,25 +337,28 @@ function fb_devel_tab() {
 
   //$info['fb_app'] = $_fb_app;
   //$info['fb'] = $_fb;
-  $info['fb->getSignedRequest()'] = $_fb->getSignedRequest();
+  $info['fb_settings'] = fb_settings();
   $info['REQUEST'] = $_REQUEST;
   $info['SESSION'] = $_SESSION;
   $info['COOKIE'] = $_COOKIE;
 
-  $fbu = fb_facebook_user();
-  try {
-    $info["fb->api(/$fbu)"] = $_fb->api('/' . $fbu);
-  }
-  catch (Exception $e) {
-    $info["fb->api(/$fbu)"] = $e->getMessage();
-  }
-  
-  if ($app_id = $_REQUEST['fb_sig_app_id']) {
+  if (isset($_fb)) {
+    $info['fb->getSignedRequest()'] = $_fb->getSignedRequest();
+    $fbu = fb_facebook_user();
     try {
-      $info['fb->api(fb_sig_app_id)'] = $_fb->api($_REQUEST['fb_sig_app_id']);
+      $info["fb->api(/$fbu)"] = $_fb->api('/' . $fbu);
     }
     catch (Exception $e) {
-      $info['fb->api(fb_sig_app_id)'] = $e->getMessage();
+      $info["fb->api(/$fbu)"] = $e->getMessage();
+    }
+    
+    if ($app_id = $_REQUEST['fb_sig_app_id']) {
+      try {
+        $info['fb->api(fb_sig_app_id)'] = $_fb->api($_REQUEST['fb_sig_app_id']);
+      }
+      catch (Exception $e) {
+        $info['fb->api(fb_sig_app_id)'] = $e->getMessage();
+      }
     }
   }
   
@@ -549,7 +554,9 @@ function fb_devel_info() {
     $info["fb->getSignedRequest()"] = $_fb->getSignedRequest();
     if ($fbu) {
       try {
-        $info["fb->api($fbu)"] = $_fb->api($fbu);
+        $info["fb->api($fbu)"] = $_fb->api($fbu, array(
+                                             'access_token' => fb_access_token($_fb),
+                                           ));
       }
       catch (FacebookApiException $e) {
         fb_log_exception($e, "failed to look up _fb->api($fbu)");
