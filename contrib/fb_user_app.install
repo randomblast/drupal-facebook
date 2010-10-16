@@ -18,8 +18,15 @@ function fb_user_app_install() {
  * Implementation of hook_uninstall().
  */
 function fb_user_app_uninstall() {
+  
   // Remove tables.
   drupal_uninstall_schema('fb_user_app');
+  
+  // Remove variables.
+  variable_del(FB_USER_APP_VAR_TRACK_EVERY_PAGE);
+  variable_del(FB_USER_APP_VAR_USERS_THAT_GRANT_OFFLINE);
+  variable_del(FB_USER_APP_VAR_TRACK_USERS);
+  variable_del(FB_USER_APP_VAR_TRACK_PAGES);
 }
 
 function fb_user_app_schema() {
@@ -29,8 +36,8 @@ function fb_user_app_schema() {
         'type' => 'varchar', 'length' => 128, 'not null' => TRUE,
       ),
       'fbu' => array('type' => 'int', 'size' => 'big', 'not null' => TRUE, ),
-      'uid' => array(
-        'type' => 'int', 'size' => 'normal', 'not null' => TRUE,
+      'user_type' => array(
+        'type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => '',
       ),
       'added' => array(
         'type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE,
@@ -134,5 +141,16 @@ function fb_user_app_update_6005() {
   return $ret;
 }
 
+function fb_user_app_update_6006() {
+  $ret = array();
 
+  $schema = fb_user_app_schema();
+  db_add_field($ret, 'fb_user_app', 'user_type', $schema['fb_user_app']['fields']['user_type']);
+  return $ret;
+}
 
+function fb_user_app_update_6007() {
+  $ret = array();
+  db_drop_field($ret, 'fb_user_app', 'uid');  
+  return $ret;
+}
