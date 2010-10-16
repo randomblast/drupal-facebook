@@ -175,3 +175,9 @@ function fb_app_update_6206() {
                   array('type' => 'int', 'not null' => TRUE, 'default' => 0));
   return $ret;
 }
+
+function fb_app_update_6300() {
+  $ret = array();
+  fb_install_property_message($ret, st('Event callbacks have changed.'));
+  return $ret;
+}

@@ -93,11 +93,12 @@ function fb_app_fb($op, $data, &$return) {
 function fb_app_menu() {
   $items = array();
   // Allow facebook to notify on various events, like adding or removing an app.
-  $items[FB_APP_PATH_EVENT . '/%'] = array(
+  $items[FB_APP_PATH_EVENT . '/%/%'] = array(
     'access callback' => TRUE,
     'page callback' => 'fb_app_event_cb',
     'page arguments' => array(
-      FB_APP_PATH_EVENT_ARGS, // event type
+      FB_APP_PATH_EVENT_ARGS, // label
+      FB_APP_PATH_EVENT_ARGS+1, // event type
     ),
     'type' => MENU_CALLBACK,                     
   );
@@ -143,28 +144,16 @@ function fb_app_menu() {
  * We don't act on the events directly.  We pass the information along via
  * hook_fb.  Other modules are thus notified of the event and can take action.
  */
-function fb_app_event_cb($event_type) {
-  // Events are passed 'fb_sig' params, so globals should be set.
-  global $_fb, $_fb_app;
-  if (!$_fb_app) {
-    if (fb_verbose() == 'extreme') {
-      // This should never happen.
-      watchdog('fb_app', 'No $_fb_app in fb_app_event_cb! <pre>' . print_r($_REQUEST, 1) . '</pre>');
-    }
-    drupal_not_found();
-    return;
-  }
-
-  watchdog('fb_app_event_cb', print_r($_REQUEST, 1)); // debug
-  watchdog('fb_app_event_cb', 'session id is ' . session_id());
+function fb_app_event_cb($label, $event_type) {
+  $fb_app = fb_get_app(array('label' => $label));
+  if ($fb_app)
+    $fb = fb_api_init($fb_app);
   
-  fb_invoke(FB_APP_OP_EVENT,
-            array(
-              'event_type' => $event_type,
-              'fb_app' => $_fb_app,
-              'fb' => $_fb),
-            NULL
-  );
+  fb_invoke(FB_APP_OP_EVENT, array(
+      'fb_app' => $fb_app,
+      'fb' => $fb,
+      'event_type' => $event_type,
+    ), NULL);
   
   // This page is called by facebook, not a user's browser.  User's should never see this.
   print('Thanks Facebook, for your fancy API!');
