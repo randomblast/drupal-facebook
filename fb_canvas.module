@@ -71,8 +71,9 @@ function fb_canvas_fb($op, $data, &$return) {
         }
       }
     }
-    if ($fb_app)
+    if ($fb_app) {
       $return = $fb_app;
+    }
   }
   elseif ($op == FB_OP_INITIALIZE) {
     // Get our configuration settings.

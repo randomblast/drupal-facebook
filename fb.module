@@ -134,11 +134,12 @@ function fb_init() {
     'js_sdk_url' => variable_get('fb_js_sdk', 'http://connect.facebook.net/en_US/all.js'),
   );
   
-  // Ask other modules for app details.
+  // Figure out which app the current request is for.
   $_fb_app = fb_invoke(FB_OP_CURRENT_APP);
 
   if ($_fb_app) {
     // An App is configured.
+
     // Initialize javascript.
     $js_settings['apikey'] = $_fb_app->apikey;
     $js_settings['label'] = $_fb_app->label;
@@ -395,7 +396,7 @@ function fb_is_canvas() {
  */
 function fb_is_tab() {
   global $_fb;
-  if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) {
+  if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_PROFILE) {
     return TRUE;
   }
   elseif (isset($_REQUEST['fb_sig_in_profile_tab']) &&
