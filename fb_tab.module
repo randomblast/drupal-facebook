@@ -3,13 +3,41 @@
 /**
  * @file
  * 
- * This module provides support for "Profile Tabs" which can be added to both
- * user profiles and facebook pages.
+ * This module provides support for "Profile Tabs" that can be added to
+ * facebook pages (no longer allowed for user profiles).
  *
  * http://developers.facebook.com/docs/guides/canvas/#tabs
  *
  */
+// hook_fb
+define('FB_TAB_HOOK', 'fb_tab');
 
+//// Hook_fb_tab operations
+define('FB_TAB_OP_VIEW', 'fb_tab_view');
+
+define('FB_TAB_PATH_VIEW', 'fb_tab/view');
+
+define('FB_TAB_VAR_PROCESS', 'fb_tab_process_page');
+
+function fb_tab_menu() {
+  $items = array();
+
+  $items[FB_TAB_PATH_VIEW] = array(
+    'page callback' => 'fb_tab_view',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implementation of hook_fb
+ * 
+ * @param $op
+ * @param $data -- data payload
+ * @param $return
+ */
 function fb_tab_fb($op, $data, &$return) {
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
@@ -30,6 +58,35 @@ function fb_tab_fb($op, $data, &$return) {
       $config = _fb_tab_get_config($fb_app);
       if (!isset($GLOBALS['custom_theme'])) {
         $GLOBALS['custom_theme'] = $config['custom_theme'];
+      }
+      $use_ob = variable_get(FB_TAB_VAR_PROCESS, TRUE);
+      
+      // Hack to init the theme before _drupal_maintenance_theme initializes the wrong one.
+      if (variable_get('site_offline', FALSE)) {
+        $dummy = theme('dummy');
+      }
+
+      // Store entire page in output buffer.  Will post-process on exit.
+      if ($use_ob) {
+        ob_start();
+        $GLOBALS['fb_tab_post_process'] = TRUE;
+      }
+
+      
+    }
+  }
+  elseif ($op == FB_OP_EXIT && fb_is_tab()) {
+    if (isset($GLOBALS['fb_tab_post_process']) && $GLOBALS['fb_tab_post_process']) {
+      $output = ob_get_contents();
+      ob_end_clean();
+      //print '<pre>' . htmlentities($output) . '</pre>'; flush();
+      $output = fb_canvas_process($output, array(
+                  'add_target' => FALSE,
+                  'absolute_links' => TRUE,
+                ));
+      
+      if (isset($output)) {
+        print($output);
       }
     }
   }
@@ -57,8 +114,62 @@ function _fb_tab_get_config($fb_app) {
   // Merge in defaults
   $config += array(
     'custom_theme' => NULL,
-    'tab_default_name' => NULL,
-    'profile_tab_url' => NULL,
+    'tab_default_name' => isset($fb_app->title) ? $fb_app->title : NULL,
+    'profile_tab_url' => FB_TAB_PATH_VIEW,
   );
   return $config;
+}
+
+/**
+ * Another module provides the contents of the tab depending
+ * on the context that we give it (who is calling it, etc.)
+ */
+function fb_tab_view() {
+  $fb_app = $GLOBALS['_fb_app'];
+  $fb = $GLOBALS['_fb'];
+  
+  $profile_id = fb_settings(FB_SETTINGS_PROFILE_ID);
+  
+  $config = fb_tab_fetch_config($fb_app, $profile_id);
+  
+  $data = array(
+    'fb_app' => $fb_app,
+    'fb' => $fb,
+    'profile_id' => $profile_id,
+    'config' => isset($config['data']) ? $config['data'] : NULL,
+  );
+                                
+  $content = fb_invoke(FB_TAB_OP_VIEW, $data, array(), FB_TAB_HOOK);
+
+  //print('<pre>' . print_r($data, 1) . '</pre>'); flush();
+  //print(print_r($content, 1)); flush();
+
+  return drupal_render($content);
+}
+
+/*
+ * Store configuration data for a tab by application
+ */
+function fb_tab_write_config(&$row, $update = array()) {
+  if (!isset($row['created']))
+    $row['created'] = time();
+  $row['data'] = serialize($row['data']);
+  return drupal_write_record('fb_tab', $row, $update);
+}
+
+/*
+ * Return configuration of a tab by application (access via 'label') and page ID.
+ * Page ID exists because an app can present different views on different pages.
+ */
+function fb_tab_fetch_config($fb_app, $profile_id) {
+  $result = db_query("SELECT * FROM {fb_tab} WHERE label = '%s' AND profile_id = %d" , $fb_app->label, $profile_id);
+  
+  $row = db_fetch_array($result);
+  if ($row) {
+    $row['data'] = unserialize($row['data']);
+    return $row;
+  }
+  else {
+    return array();
+  }
 }

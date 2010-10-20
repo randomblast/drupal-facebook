@@ -213,7 +213,8 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
     $edit['config']['format'] = $edit['format'];
     variable_set('fb_connect_block_' . $delta, $edit['config']);
   }
-  elseif ($op == 'view') {
+  elseif ($op == 'view' && !fb_is_tab()) {
+    // Hide block on tabs, where the $fbu is actually the page, not the user.
     if (strpos($delta, 'login_') === 0) {
       // Login block
       $label = substr($delta, 6); // length of 'login_'
