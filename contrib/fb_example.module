@@ -33,7 +33,7 @@ function fb_example_link($type, $object, $teaser = FALSE) {
 
 
 /**
- * Implementation of hook_fb_friend_invite_page_wrap_alter().
+ * Implements hook_fb_friend_invite_page_wrap_alter().
  *
  * @see modules/fb/contrib/fb_friend.module
  *
@@ -67,7 +67,7 @@ function fb_example_form_alter(&$form, $form_state, $form_id) {
   if (isset($GLOBALS['_fb']) && fb_facebook_user()) {
     if ($form['#id'] == 'node-form') {
       // Add checkbox to control feed publish.
-      $form['dff_custom']['stream_publish'] = array(
+      $form['fb_example']['stream_publish'] = array(
         '#type' => 'checkbox',
         '#title' => 'Share on Facebook',
         '#default_value' => TRUE,
@@ -75,7 +75,7 @@ function fb_example_form_alter(&$form, $form_state, $form_id) {
     }
     else if ($form['form_id']['#value'] == 'comment_form') {
       // Add checkbox to control feed publish.
-      $form['dff_custom']['stream_publish'] = array(
+      $form['fb_example']['stream_publish'] = array(
         '#type' => 'checkbox',
         '#title' => 'Share on Facebook',
         '#default_value' => TRUE,
@@ -156,7 +156,7 @@ function fb_example_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
 function fb_example_comment(&$a1, $op) {
   if ($op == 'insert' || $op == 'update') {
     if ($a1['stream_publish']) {
-      //dpm($a1, "dff_custom_comment, publishing to stream");
+      //dpm($a1, "fb_example_comment, publishing to stream");
       $node = node_load($a1['nid']);
       
       // http://wiki.developers.facebook.com/index.php/Attachment_(Streams)

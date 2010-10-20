@@ -57,11 +57,13 @@ function fb_tab_admin_form_alter(&$form, &$form_state, $form_id) {
       '#type' => 'textfield',
       '#title' => 'Tab name',
       '#default_value' => $config['tab_default_name'],
+      '#description' => t('A very short title.'),
     );
     $form['fb_app_data']['fb_tab']['profile_tab_url'] = array(
       '#type' => 'textfield',
       '#title' => 'Path',
       '#default_value' => $config['profile_tab_url'],
+      '#description' => t('Recommended value is %tab_path.  You may choose another if you have defined a custom menu item or view.', array('%tab_path' => FB_TAB_PATH_VIEW)),
     );
   }
 }

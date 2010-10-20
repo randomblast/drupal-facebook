@@ -17,7 +17,7 @@
 
 Drupal.behaviors.fb_connect = function(context) {
 
-  // Logout of facebook when logging out of drupal
+  // Logout of facebook when logging out of drupal.
   jQuery("a[href^='" + Drupal.settings.basePath + "logout']", context).click(FB_Connect.logoutHandler);
 
   // Support markup for dialog boxes.
