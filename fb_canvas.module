@@ -95,22 +95,6 @@ function fb_canvas_fb($op, $data, &$return) {
       global $conf;
       $conf['admin_theme'] = $custom_theme;
 
-      // @TODO - new libs provide no require_login equivalent.
-      if ($fb_canvas_data['require_login'] == FB_CANVAS_OPTION_REQUIRE_LOGIN && FALSE) {
-        // The application is configured to require login on all canvas pages.
-        // However, there are exceptions.
-        if (fb_is_profile_tab()) {
-          // Redirects are not allowed for the profile tab.
-        }
-        else {
-          // There may be other exceptions, for example some ajax callbacks.  Potential todo item.
-          $fb->require_login();
-        }
-      }
-      
-      // Remember the user id.  If fb_user.module changes it, we'll need to refresh the page.  See FB_OP_POST_INIT.
-      $original_uid = $user->uid;
-      
       // Hack to init the theme before _drupal_maintenance_theme initializes the wrong one.
       if (variable_get('site_offline', FALSE)) {
         $dummy = theme('dummy');
@@ -138,23 +122,6 @@ function fb_canvas_fb($op, $data, &$return) {
     }
   }
   elseif ($op == FB_OP_POST_INIT) {
-    //dpm($_REQUEST, "request post init");
-    if (FALSE && isset($original_uid) && // Is this still needed?
-        $original_uid != $user->uid) {
-      // The user has changed, presumably fb_user.module recognized the facebookuser.  We need to refresh canvas pages.
-      if (!(arg(0) == 'fb_app' && arg(1) == 'event')) {
-        // In order to ensure that drupal handles
-        // permissions properly, the user must make the request all over
-        // again.  Skip this for the profile tab, as facebook does not allow
-        // redirects (or persistent session) there.
-        if ((fb_canvas_is_iframe()) &&
-            !fb_is_profile_tab()) {
-          
-          fb_canvas_goto(fb_scrub_urls($_REQUEST['q']));
-        }
-      }
-    }
-
     if (fb_canvas_is_iframe()) {
       // The ?destination=... url param means something to drupal but something
       // else to facebook.  If ?fb_canvas_destination=... is set, we honor that.
@@ -428,37 +395,34 @@ function fb_canvas_process($output, $options = array()) {
       // If no url_alter, use normal base_path.
       $base = $base_path;
     }
-    
-    if (fb_canvas_is_iframe()) {
-      // Add target=_top so that entire pages do not appear within an iframe.
-      // TODO: make these pattern replacements more sophisticated, detect whether target is already set.
-      if (isset($options['add_target']) && $options['add_target']) {
-        // Add target=_top to all links
-        $patterns[] = "|<a ([^>]*)href=\"|";
-        $replacements[] = "<a $1 target=\"_top\" href=\"";
-        // Do not change local forms, but do change external ones
-        $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
-        $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
-        
-        // Make relative links point to canvas pages.
-        $patterns[] = "|<a([^>]*)href=\"{$base}|";
-        $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$_fb_app->canvas}/";
 
-      }
-      else {
-        // Add target=_top to only external links
-        $patterns[] = "|<a([^>]*)href=\"([^:\"]*):|";
-        $replacements[] = "<a target=\"_top\" $1 href=\"$2:";
-        $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
-        $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
-      }
+    // Make relative links point to canvas pages.
+    $patterns[] = "|<a([^>]*)href=\"{$base}|";
+    $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$_fb_app->canvas}/";
 
-      if (isset($options['absolute_links']) && $options['absolute_links']) {
-        // Make absolute links point to canvas pages.
-        $absolute_base = url('<front>', array('absolute' => TRUE));
-        $patterns[] = "|<a([^>]*)href=\"{$absolute_base}|";
-        $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$_fb_app->canvas}/";
-      }
+    // Add target=_top so that entire pages do not appear within an iframe.
+    // TODO: make these pattern replacements more sophisticated, detect whether target is already set.
+    if (isset($options['add_target']) && $options['add_target']) {
+      // Add target=_top to all links
+      $patterns[] = "|<a ([^>]*)href=\"|";
+      $replacements[] = "<a $1 target=\"_top\" href=\"";
+      // Do not change local forms, but do change external ones
+      $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
+      $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
+    }
+    elseif (!isset($options['add_target'])) {
+      // Add target=_top to only external links
+      $patterns[] = "|<a([^>]*)href=\"([^:\"]*):|";
+      $replacements[] = "<a target=\"_top\" $1 href=\"$2:";
+      $patterns[] = "|<form([^>]*)action=\"([^:\"]*):|";
+      $replacements[] = "<form target=\"_top\" $1 action=\"$2:";
+    }
+
+    if (isset($options['absolute_links']) && $options['absolute_links']) {
+      // Make absolute links point to canvas pages.
+      $absolute_base = url('<front>', array('absolute' => TRUE));
+      $patterns[] = "|<a([^>]*)href=\"{$absolute_base}|";
+      $replacements[] = "<a $1 href=\"http://apps.facebook.com/{$_fb_app->canvas}/";
     }
   }
   if (count($patterns)) {
