@@ -157,9 +157,10 @@ function fb_user_fb($op, $data, &$return) {
 
 function fb_user_footer() {
   if (($fbu = fb_facebook_user()) &&
-      $fbu != fb_get_fbu($GLOBALS['user']) &&
-      $_GET['q'] !== variable_get('site_403', FALSE) &&
-      $_GET['q'] !== variable_get('site_404', FALSE)) {
+    !fb_is_tab() && // $fbu is page id, not visitor id, on tabs.
+    $fbu != fb_get_fbu($GLOBALS['user']) &&
+    $_GET['q'] !== variable_get('site_403', FALSE) &&
+    $_GET['q'] !== variable_get('site_404', FALSE)) {
     $uid = $GLOBALS['user']->uid; // Remember original uid.
     _fb_user_process_authorized_user();
     if ($uid != $GLOBALS['user']->uid) {
@@ -645,6 +646,31 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
   }
   elseif ($op == 'delete') {
     db_query('DELETE FROM {fb_user} WHERE uid=%d', $account->uid);
+  }
+  elseif ($op == 'logout') {
+    if (fb_facebook_user()) {
+      // Log out of facebook, as well as Drupal.  Not that code in
+      // fb_connect.js attempts to call FB.logout, which accomplishes the same
+      // task more simply.  However, that code is not reached if the user
+      // types "/logout" directly into the browser URL.  Also, a
+      // sometimes-occuring bug in firefox prevents FB.logout from always
+      // succeeding.
+
+      // Figure out where to send the user.
+      if (isset($_REQUEST['destination'])) {
+        $next_url = url($_REQUEST['destination'], array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
+        // Unset desination so drupal_goto() below does what we need it to do.
+        unset($_REQUEST['destination']);
+      }
+      else {
+        $next_url = url('<front>', array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
+      }
+      $logout_url = $GLOBALS['_fb']->getLogoutUrl(array(
+                      'next' => $next_url,
+                      'cancel_url' => $next_url,
+                    ));
+      drupal_goto($logout_url);
+    }
   }
 }
 
