@@ -289,12 +289,16 @@ function fb_access_token($fb = NULL) {
   if (!isset($cache[$apikey])) {
     $path = "https://graph.facebook.com/oauth/access_token?client_id=" . $fb->getAppId() . "&client_secret=" . $fb->getApiSecret() . "&type=client_cred";
     $http = drupal_http_request($path);
-    $data = explode('=', $http->data);
-    $token = $data[1];
-    if ($token)
-      $cache[$apikey] = $token;
+    if (isset($http->data)) {
+      $data = explode('=', $http->data);
+      $token = $data[1];
+      if ($token)
+        $cache[$apikey] = $token;
+    }
   }
-  return $cache[$apikey];
+  if (isset($cache[$apikey])) {
+    return $cache[$apikey];
+  }
 }
 
 
@@ -423,7 +427,7 @@ function fb_api_check_session($fb) {
     if (isset($session['access_token'])) {
       $is_user = $fb->api(array(
                             'method' => 'users.isAppUser',
-                          ));      
+                          ));
       // Does not matter what is returned, as long as exception is not thrown.
       $success = TRUE;
     }
@@ -458,15 +462,15 @@ function fb_facebook_user($fb = NULL) {
   
   if (!$fb)
     return;
-
+  
   try {
     $fbu = $fb->getUser();
     return $fbu;
   }
   catch (FacebookApiException $e) {
     fb_log_exception($e,
-                     t('Failed to get Facebook user id.  detail: !detail',
-                       array('!detail' => print_r($e, 1))));
+      t('Failed to get Facebook user id.  detail: !detail',
+        array('!detail' => print_r($e, 1))));
   }
 }
 

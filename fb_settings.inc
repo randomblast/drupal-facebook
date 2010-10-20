@@ -94,10 +94,11 @@ function _fb_settings_honor_signed_request($sr) {
       fb_settings(FB_SETTINGS_FBU, $sr['user_id']);
     }
   }
-  else {
+  elseif (isset($sr['user_id'])) {
     // Probably a canvas page.
     fb_settings(FB_SETTINGS_FBU, $sr['user_id']);
   }
+
   if (isset($sr['oauth_token'])) {
     $tokens = explode('|', $sr['oauth_token']);
     if ($app_id = $tokens[0]) {
