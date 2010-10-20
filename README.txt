@@ -91,6 +91,9 @@ Troubleshooting:
 
 Reread this file and follow instructions carefully.
 
+Read http://drupal.org/node/933994, and all the module documentation
+on drupal.org.
+
 Enable the fb_devel.module and add the block it provides (called
 "Facebook Devel Page info") to the footer of your Facebook theme.
 
