@@ -32,7 +32,6 @@ function fb_permission_map() {
       'status_update' => 'Allow %application to set your status.', 
       'photo_upload' => 'Allow %application to upload photos.',
       'user_photos' => 'Allow %application to view photos.',
-      'create_listing' => 'Allow %application to create marketplace listings on your behalf.',
       'create_event' => 'Allow %application to create events on your behalf.',
       'rsvp_event' => 'Allow %application to RSVP to events on your behalf',
       'sms' => 'Allow %application to send you SMS text messages.',
