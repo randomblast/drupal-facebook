@@ -134,6 +134,7 @@ function fb_canvas_fb($op, $data, &$return) {
                       'fb_canvas' => array(
                         'fbu' => fb_facebook_user(),
                         'uid' => $GLOBALS['user']->uid,
+                        'canvas' => $fb_app->canvas,
                       ),
                     ), 'setting');
       drupal_add_js(drupal_get_path('module', 'fb_canvas') . '/fb_canvas.js');
