@@ -36,6 +36,7 @@ define('FB_USER_VAR_ALTER_CONTACT', 'fb_user_alter_contact');
 define('FB_USER_CONTROL_NO_CREATE_ACCOUNT', 'fb_user_no_account');
 define('FB_USER_CONTROL_NO_CREATE_MAP', 'fb_user_no_map_create');
 define('FB_USER_CONTROL_NO_HONOR_MAP', 'fb_user_no_map');
+define('FB_USER_CONTROL_NO_REDIRECT', 'fb_user_no_redirect');
 
 /**
  * Implements hook_perm().
@@ -79,6 +80,7 @@ function _fb_user_get_config($fb_app) {
       FB_USER_OPTION_MAP_EMAIL => FB_USER_OPTION_MAP_EMAIL,
     ),
     'new_user_rid' => NULL,
+    'connected_user_rid' => NULL,
   );
   return $fb_user_data;
 }
@@ -112,12 +114,16 @@ function fb_user_fb($op, $data, &$return) {
   if ($fb_app) {
     $fb_user_data = _fb_user_get_config($fb_app);
   }
+  
   if ($op == FB_OP_POST_INIT) {
+    $fbu = fb_facebook_user();
     if (isset($_SESSION['fb_user_fbu']) &&
-        $_SESSION['fb_user_fbu'] != fb_facebook_user()) {
+        $_SESSION['fb_user_fbu'] != $fbu) {
       // User has logged out of facebook, and drupal is only now learning about it.
       _fb_user_logout();
-      drupal_goto($_GET['q']); // @TODO - need request params here?
+      if (!fb_controls(FB_USER_CONTROL_NO_REDIRECT)) {
+        drupal_goto($_GET['q']); // @TODO - need request params here?
+      }
     }
 
     if (_fb_user_special_page() ||
@@ -126,6 +132,27 @@ function fb_user_fb($op, $data, &$return) {
       fb_controls(FB_USER_CONTROL_NO_HONOR_MAP, TRUE);
       fb_controls(FB_USER_CONTROL_NO_CREATE_MAP, TRUE);
       fb_controls(FB_USER_CONTROL_NO_CREATE_ACCOUNT, TRUE);
+    }
+
+    if ($rid = $fb_user_data['connected_user_rid']) {
+      if ($fbu) {
+        // User is connected to facebook.
+        if (!isset($user->roles[$rid])) {
+          $user->roles[$rid] = $rid; // Should be role name, but that requires db query.
+          // Reload user permissions.
+          user_access(NULL, $user, TRUE);
+        }
+      }
+      else {
+        // User is not connected to facebook.
+        // Out of paranoia, unset role.  This should not be reached.
+        if (isset($user->roles[$rid])) {
+          //dpm("unsetting user->roles[$rid]", __FUNCTION__); // debug
+          unset($user->roles[$rid]);
+          // Reload user permissions.
+          user_access(NULL, $user, TRUE);
+        }
+      }
     }
   }
   elseif ($op == FB_OP_GET_FBU) {
@@ -165,7 +192,9 @@ function fb_user_footer() {
     _fb_user_process_authorized_user();
     if ($uid != $GLOBALS['user']->uid) {
       // during user processing, we started a new session.
-      drupal_goto($_GET['q']); // @TODO - need request params here?
+      if (!fb_controls(FB_USER_CONTROL_NO_REDIRECT)) {
+        drupal_goto($_GET['q']); // @TODO - need request params here?
+      }
     }
   }
 }
@@ -412,14 +441,13 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
   }
 
   // Add name and email to some forms.
-  if ($fb = $GLOBALS['_fb']) {
-    
+  if (isset($GLOBALS['_fb'])) {
+    $fb = $GLOBALS['_fb'];
     if (($form_id == 'user_register' && variable_get(FB_USER_VAR_ALTER_REGISTER, TRUE)) ||
         ($form_id == 'user_login' && variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE))) {
       if ($fbu = fb_facebook_user()) {
         // Facebook user has authorized app.
-        
-        
+
         // Show user name and picture.
         $form['fb_user'] = array(
           'name' => array(
@@ -648,13 +676,13 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
     db_query('DELETE FROM {fb_user} WHERE uid=%d', $account->uid);
   }
   elseif ($op == 'logout') {
-    if (fb_facebook_user()) {
-      // Log out of facebook, as well as Drupal.  Not that code in
-      // fb_connect.js attempts to call FB.logout, which accomplishes the same
-      // task more simply.  However, that code is not reached if the user
-      // types "/logout" directly into the browser URL.  Also, a
-      // sometimes-occuring bug in firefox prevents FB.logout from always
-      // succeeding.
+    if (fb_facebook_user() &&
+        fb_api_check_session($GLOBALS['_fb'])) {
+      // Log out of facebook, as well as Drupal.  Note that code in
+      // fb_connect.js and fb_canvas.js attempts to call FB.logout.  However,
+      // that code is not reached if the user types "/logout" directly into
+      // the browser URL.  Also, a sometimes-occuring bug in firefox prevents
+      // FB.logout from always succeeding.
 
       // Figure out where to send the user.
       if (isset($_REQUEST['destination'])) {

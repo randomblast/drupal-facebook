@@ -106,14 +106,24 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
       ),
       '#default_value' => $default,
     );
-    
+
+    $options = array(0 => t('<none>')) + user_roles(1);
     // Choose a role to be granted to anyone who authorizes the app.
     $form['fb_app_data']['fb_user']['new_user_rid'] = array(
       '#type' => 'select',
-      '#title' => t('App user role'),
-      '#options' => user_roles(1),
-      '#description' => t('When a local user has authorized the app, the user will be granted this role.'),
+      '#title' => t('Permanent role'),
+      '#options' => $options,
+      '#description' => t('When a local user has authorized the app, the user will be <em>permanently</em> granted this role, in addition to the default <em>authenticated user</em>.'),
       '#default_value' => $fb_user_data['new_user_rid'],
+    );
+
+    // Choose a role to be granted only while connected.
+    $form['fb_app_data']['fb_user']['connected_user_rid'] = array(
+      '#type' => 'select',
+      '#title' => t('Temporary role, only when connected'),
+      '#options' => $options,
+      '#description' => t('Role granted <em>temporarily</em> while any user (even <em>Anonymous</em>) is connected to facebook.'),
+      '#default_value' => $fb_user_data['connected_user_rid'],
     );
   }
 
