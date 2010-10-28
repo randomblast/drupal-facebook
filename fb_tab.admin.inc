@@ -41,7 +41,9 @@ function fb_tab_admin_form_alter(&$form, &$form_state, $form_id) {
     ksort($themes);
     $theme_options[0] = t('System default');
     foreach ($themes as $theme) {
-      $theme_options[$theme->name] = $theme->name;
+      if ($theme->status) { // Only enabled themes.
+        $theme_options[$theme->name] = $theme->name;
+      }
     }
     $form['fb_app_data']['fb_tab']['custom_theme'] = array(
       '#type' => 'select',
