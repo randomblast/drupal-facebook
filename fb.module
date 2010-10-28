@@ -174,14 +174,20 @@ function fb_init() {
     else
       watchdog('fb', "URL indicates a facebook app, but could not initialize Facebook", array(), WATCHDOG_ERROR);
 
-    if (fb_is_canvas()) {
-      $js_settings['reload_url'] = 'http://apps.facebook.com/' . $_fb_app->canvas . '/' . fb_scrub_urls($_REQUEST['q']);
+    if (isset($_REQUEST['destination'])) {
+      $destination = $_REQUEST['destination'];
+    }
+    elseif (isset($_REQUEST['q'])) {
+      $destination = $_REQUEST['q'];
     }
     else {
-      $js_settings['reload_url'] = url(isset($_GET['q']) ? $_GET['q'] : '<front>',
-                                       array('absolute' => TRUE));
+      $destination = '<front>';
     }
-  
+    if (fb_is_canvas()) {
+      $destination = fb_scrub_urls($destination); // Needed?
+    }
+
+    $js_settings['reload_url'] = url($destination, array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
   }
   // Allow third-parties to act, even if we did not initialize $_fb.
   fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
@@ -191,6 +197,7 @@ function fb_init() {
   
   // Add javascript to all pages.
   drupal_add_js(drupal_get_path('module', 'fb') . '/fb.js');
+
   // @TODO - move this to fb_preprocess_page().  See og_preprocess_page for example.
   drupal_add_js(array('fb' => $js_settings), 'setting');
 }
