@@ -283,7 +283,8 @@ function fb_devel_page() {
     drupal_set_message(t("session name: " . session_name()));
     drupal_set_message(t("cookie domain: " . fb_settings(FB_SETTINGS_COOKIE_DOMAIN)));
     drupal_set_message(t("session id: " . session_id()));
-    drupal_set_message(t("fbs_" . $_fb_app->apikey . ": " . $_COOKIE["fbs_" . $_fb_app->apikey]));
+    if (isset($_COOKIE['fbs_' . $_fb_app->apikey]))
+      drupal_set_message(t("fbs_" . $_fb_app->apikey . ": " . $_COOKIE["fbs_" . $_fb_app->apikey]));
     drupal_set_message(t("<a href=\"!url\">processed link</a>, <a href=!url>unprocessed</a>", array('!url' => url('fb/devel'))));
     drupal_set_message(t("getUser() returns " . $_fb->getUser()));
     
@@ -673,3 +674,15 @@ function fb_devel_cron() {
   }
 }
 
+
+function fb_devel_fb_tab($op, $data, &$return) {
+  // debug.
+  if (fb_verbose() == 'extreme') {
+    $return['fb_devel'] = array(
+      '#type' => 'markup',
+      '#value' => __FUNCTION__ . ':' . print_r($data, 1),
+      '#prefix' => '<pre>',
+      '#suffix' => '</pre>',
+    );
+  }
+}
