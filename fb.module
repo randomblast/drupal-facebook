@@ -336,7 +336,7 @@ function fb_call_method($fb, $method, $params = array()) {
     }
     if (is_array($data)) {
       if (isset($data['error_code'])) {
-        throw new FacebookApiException($data);      
+        throw new FacebookApiException($data);
       }
     }
     else {
@@ -356,7 +356,7 @@ function fb_fql_query($fb, $query, $params = array()) {
   //$result = fb_call_method($fb, 'fql.query', $params);
   $params['method'] = 'fql.query';
   $result = $fb->api($params);
-                       
+
   return $result;
 }
 
@@ -931,28 +931,31 @@ function fb_log_exception($e, $text = '', $fb = NULL) {
 }
 
 /**
- * Helper function for facebook's users_getInfo API.
+ * Returns information about one or more facebook users.
  *
- * This function makes calls to users_getInfo more efficient, by caching
- * results in the session, so calls do not always require hitting Facebook's
- * servers.
+ * Historically, this helper function used facebook's users_getInfo API, hence
+ * the name.  Now it uses fql.query, but accomplishes the same thing.
  *
- * Update, users.getInfo appears to be growing less reliable.  For example,
- * does not return names of test accounts.  @TODO - migrate away from this and
- * towards use of fb->api().
- * 
  * @param $oids
  * Array of facebook object IDs.  In this case they should each be a user id.
+ *
+ * @param $fb
+ * Rarely needed.  For cases when global $_fb is not set, or more than one
+ * facebook api has been initialized.
+ *
+ * @param $refresh_cache
+ * If true, force a call to facebook instead of relying on temporarily stored
+ * data.
  */
 function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
   if (!$fb) {
     $fb = $GLOBALS['_fb'];
   }
   $infos = array();
-  
+
   if (!is_array($oids))
     $oids = array();
-  
+
   if ($fb) {
     $apikey = $fb->getAppId();
     // First try cache
@@ -966,24 +969,22 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
     }
     if (count($infos) != count($oids)) {
       // Session cache did not include all users, update the cache.
+      $fields = array(
+        'about_me',
+        'affiliations',
+        'name',
+        'is_app_user',
+        'pic',
+        'pic_big',
+        'pic_square',
+        'profile_update_time',
+        'proxied_email',
+        'status',
+        'email_hashes',
+        'email',
+      );
       try {
-        // For historical reasons, use users.getInfo.  New code should migrate to graph api.
-        $infos = fb_call_method($fb, 'users.getInfo', array(
-                                  'uids' => $oids,
-                                  'fields' => array(
-                                    'about_me',
-                                    'affiliations',
-                                    'name',
-                                    'is_app_user',
-                                    'pic',
-                                    'pic_big',
-                                    'pic_square',
-                                    'profile_update_time',
-                                    'proxied_email',
-                                    'status',
-                                    'email_hashes',
-                                    'email',
-                                  )));
+        $infos = fb_fql_query($fb, 'SELECT '.implode(', ', $fields).' FROM user WHERE uid in('.implode(', ', $oids).')');
         // Update cache with recent results.
         if (is_array($infos)) {
           foreach ($infos as $info) {
@@ -991,10 +992,10 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
           }
         }
       } catch (FacebookApiException $e) {
-        fb_log_exception($e, t('Failed call to users.getInfo'), $fb);
+        fb_log_exception($e, t('Failed to query facebook user info'), $fb);
       }
     }
-    
+
     return $infos;
   }
 }
