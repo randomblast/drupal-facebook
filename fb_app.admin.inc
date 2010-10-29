@@ -137,9 +137,9 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
   $data = fb_get_app_data($fb_app);
   $form['fb_app_data']['fb_app']['set_app_props'] = array(
     '#type' => 'checkbox',
-    '#title' => t('Set Application Properties Automatically'),
+    '#title' => t('Set application properties automatically'),
     '#default_value' => isset($data['fb_app']) ? $data['fb_app']['set_app_props'] : NULL,
-    '#description' => t('Automatically update Facebook settings for this application.  Disable this if you have customized your callback URL, for example.  Also disable if another Drupal instance hosts the same application (i.e. with shared subdomain).'),
+    '#description' => t('Update Facebook settings for this application when you save this form.  Disable this if you have customized your callback URL, or other settings on facebook.com.  Also disable if another Drupal instance hosts the same application (i.e. with shared subdomain).'),
   );
 
   $form['buttons'] = array();

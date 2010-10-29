@@ -288,7 +288,7 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
     
     $form['fb_app_data']['fb_connect'] = array(
       '#type' => 'fieldset',
-      '#title' => 'Facebook Connect',
+      '#title' => 'Facebook connect',
       '#tree' => TRUE,
       '#collapsible' => TRUE,
       '#collapsed' => $fb_app->label ? TRUE : FALSE,

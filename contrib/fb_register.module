@@ -19,7 +19,7 @@
 function fb_register_menu() {
   // Register Users config page.
   $items[FB_PATH_ADMIN_APPS . '/%fb/fb_register'] = array(
-    'title' => 'Register Users',
+    'title' => 'Register users',
     'page callback' => 'fb_register_detail_page',
     'page arguments' => array(FB_PATH_ADMIN_APPS_ARGS),
     'access arguments' => array(FB_PERM_ADMINISTER),
@@ -28,7 +28,7 @@ function fb_register_menu() {
   
   // Callback to register users, right now instead of waiting for cron.
   $items[FB_PATH_ADMIN_APPS . '/%fb/fb_register/doit/%'] = array(
-    'title' => 'Register Users',
+    'title' => 'Register users',
     'page callback' => 'fb_register_all_users',
     'page arguments' => array(FB_PATH_ADMIN_APPS_ARGS,
                               FB_PATH_ADMIN_APPS_ARGS + 3),
@@ -262,14 +262,14 @@ function fb_register_form_alter(&$form, &$form_state, $form_id) {
     
     $form['fb_app_data']['fb_register'] = array(
       '#type' => 'fieldset',
-      '#title' => t('Register Users'),
+      '#title' => t('Register users'),
       '#tree' => TRUE,
       '#collapsible' => TRUE,
       '#collapsed' => isset($fb_app->label),
     );
     $form['fb_app_data']['fb_register']['register_users'] = array(
       '#type' => 'checkbox',
-      '#title' => t('Register Local Users on Facebook'),
+      '#title' => t('Register local users on Facebook'),
       '#description' => t('Use <a target=_blank href=http://wiki.developers.facebook.com/index.php/Connect.registerUsers>Connect.registerUsers</a> to help map local accounts to Facebook accounts.  This will share information about your users with Facebook.'),
       '#default_value' => $fb_register_data['register_users'],
     );

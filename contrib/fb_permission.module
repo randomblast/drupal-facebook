@@ -178,7 +178,7 @@ function fb_permission_form_alter(&$form, $state, $id) {
     $fb_permission_data = isset($fb_app_data['fb_permission']) ? $fb_app_data['fb_permission'] : NULL;
     $form['fb_app_data']['fb_permission'] = array(
       '#type' => 'fieldset',
-      '#title' => t('Facebook Extended Permissions'),
+      '#title' => t('Facebook extended permissions'),
       '#tree' => TRUE,
       '#collapsible' => TRUE,
       '#collapsed' => TRUE,
@@ -195,7 +195,7 @@ function fb_permission_form_alter(&$form, $state, $id) {
 
     $form['fb_app_data']['fb_permission']['map'] = array(
       '#type' => 'checkboxes',
-      '#title' => t('Extended Permissions'),
+      '#title' => t('Extended permissions'),
       '#options' => $options,
       '#default_value' => $fb_permission_data['map'],
       '#description' => t('Which extended permissions does this application use?  Users will be able to grant these permissions on their user edit pages.'),
@@ -206,7 +206,7 @@ function fb_permission_form_alter(&$form, $state, $id) {
     }
     $form['fb_app_data']['fb_permission']['prompt'] = array(
       '#type' => 'checkboxes',
-      '#title' => t('Prompt New Users for Permission'),
+      '#title' => t('Prompt new users for permission'),
       '#options' => $options,
       '#default_value' => $fb_permission_data['prompt'],
       '#description' => t('Prompt users when they first authorize the application.  Select only the most important features.'),

@@ -1,5 +1,5 @@
 name = Tabs (fb_tab.module)
-description = Enable <a href=http://developers.facebook.com/docs/guides/canvas/#tabs target=_blank>tabs on profiles and pages</a> where your applications are installed.
+description = Enable <a href=http://developers.facebook.com/docs/guides/canvas/#tabs target=_blank>tabs on pages</a> where your applications are installed.
 package = Drupal for Facebook
 dependencies[] = fb
 dependencies[] = fb_app
