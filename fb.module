@@ -982,6 +982,7 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
         'status',
         'email_hashes',
         'email',
+        'uid',
       );
       try {
         $infos = fb_fql_query($fb, 'SELECT '.implode(', ', $fields).' FROM user WHERE uid in('.implode(', ', $oids).')');
