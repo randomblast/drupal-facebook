@@ -30,6 +30,7 @@ define('FB_USER_OPTION_USERNAME_FBU', 2); // Use unique name
 
 define('FB_USER_VAR_ALTER_REGISTER', 'fb_user_alter_register');
 define('FB_USER_VAR_ALTER_LOGIN', 'fb_user_alter_login');
+define('FB_USER_VAR_ALTER_LOGIN_BLOCK', 'fb_user_alter_login_block');
 define('FB_USER_VAR_ALTER_CONTACT', 'fb_user_alter_contact');
 
 // Controls - see fb_controls().
@@ -416,6 +417,23 @@ function _fb_user_facebook_data($fb) {
 }
 
 /**
+ * Helper function to retrieve button text.
+ */
+function _fb_user_button_text($form_id) {
+  static $button_text;
+
+  if (!isset($button_text)) {
+    $button_text = array(
+      'user_register'     => variable_get('fb_button_text_register', NULL),
+      'user_login'        => variable_get('fb_button_text_login', NULL),
+      'user_login_block'  => variable_get('fb_button_text_login_block', NULL),
+    );
+  }
+
+  return isset($button_text[$form_id]) ? $button_text[$form_id] : '';
+}
+
+/**
  * Implements hook_form_alter().
  */
 function fb_user_form_alter(&$form, &$form_state, $form_id) {
@@ -444,7 +462,8 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
   if (isset($GLOBALS['_fb'])) {
     $fb = $GLOBALS['_fb'];
     if (($form_id == 'user_register' && variable_get(FB_USER_VAR_ALTER_REGISTER, TRUE)) ||
-        ($form_id == 'user_login' && variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE))) {
+        ($form_id == 'user_login' && variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE)) ||
+        ($form_id == 'user_login_block' && variable_get(FB_USER_VAR_ALTER_LOGIN_BLOCK, TRUE))) {
       if ($fbu = fb_facebook_user()) {
         // Facebook user has authorized app.
 
@@ -492,11 +511,13 @@ function fb_user_form_alter(&$form, &$form_state, $form_id) {
       
       else {
         // facebook user has not authorized app.
-        $fb_button = theme('fb_login_button', t('Connect with Facebook'), array('form_id' => $form_id));
+        $fb_button = theme('fb_login_button', t(_fb_user_button_text($form_id)), array('form_id' => $form_id));
         $form['fb_user'] = array(
           '#value' => $fb_button,
           '#type' => 'markup',
-          '#weight' => -1,
+          '#weight' => -1,  // Ideally, we'd put ourself next to openid login, but doesn't look right when next to form buttons.
+          '#prefix' => '<div class="fb-login-button">',
+          '#suffix' => '</div>',
         );
       }
     }

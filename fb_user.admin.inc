@@ -41,22 +41,59 @@ function fb_user_admin_settings() {
   $form['fb_user_alter'] = array(
     '#type' => 'fieldset',
     '#title' => t('Form alters'),
-    '#description' => t('Add connect button to user forms.  If user has connected, show the user\'s name and profile picture.'),
+    '#description' => t('Add connect button to forms.  If user has connected, show the user\'s name and profile picture.'),
   );
-  $form['fb_user_alter'][FB_USER_VAR_ALTER_REGISTER] = array(
+  $form['fb_user_alter']['registration'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Registration page'),
+  );
+  $form['fb_user_alter']['registration'][FB_USER_VAR_ALTER_REGISTER] = array(
     '#type' => 'checkbox',
-    '#title' => t('Registration form'),
+    '#title' => t('Do alter registration form'),
     '#default_value' => variable_get(FB_USER_VAR_ALTER_REGISTER, TRUE),
   );
-  $form['fb_user_alter'][FB_USER_VAR_ALTER_LOGIN] = array(
+  $form['fb_user_alter']['registration']['fb_button_text_register'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Registration form button text'),
+    '#size' => 60,
+    '#default_value' => _fb_user_button_text('user_register'),
+    '#description' => t('Leave blank for facebook\'s default, currently "Login".'),
+  );
+  $form['fb_user_alter']['login'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Login page'),
+  );
+  $form['fb_user_alter']['login'][FB_USER_VAR_ALTER_LOGIN] = array(
     '#type' => 'checkbox',
-    '#title' => t('Login form'),
+    '#title' => t('Do alter login form'),
     '#default_value' => variable_get(FB_USER_VAR_ALTER_LOGIN, TRUE),
+  );
+  $form['fb_user_alter']['login']['fb_button_text_login'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Login form button text'),
+    '#size' => 60,
+    '#default_value' => _fb_user_button_text('user_login'),
+  );
+  $form['fb_user_alter']['login_block'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Login block'),
+  );
+  $form['fb_user_alter']['login_block'][FB_USER_VAR_ALTER_LOGIN_BLOCK] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Do alter login block'),
+    '#default_value' => variable_get(FB_USER_VAR_ALTER_LOGIN_BLOCK, TRUE),
+  );
+  $form['fb_user_alter']['login_block']['fb_button_text_login_block'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Login block button text'),
+    '#size' => 60,
+    '#default_value' => _fb_user_button_text('user_login_block'),
   );
   $form['fb_user_alter'][FB_USER_VAR_ALTER_CONTACT] = array(
     '#type' => 'checkbox',
-    '#title' => t('Contact form'),
+    '#title' => t('Do alter contact form'),
     '#default_value' => variable_get(FB_USER_VAR_ALTER_CONTACT, TRUE),
+    '#description' => t('Sets name and email (if available) from facebook.'),
   );
 
   return system_settings_form($form);
@@ -81,7 +118,7 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
         
     $form['fb_app_data']['fb_user']['create_account'] = array(
       '#type' => 'radios',
-      '#title' => t('Create Local Account'),
+      '#title' => t('Create local account'),
       '#description' => t('This option will create a local account and an entry in the fb_user table when a user authorizes a canvas page or connects using Facebook Connect.  If not, Drupal\'s built in user registration will still work.'),
       '#options' => array(
         FB_USER_OPTION_CREATE_NEVER => t('Do not create accounts automatically'),
@@ -97,7 +134,7 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
     }
     $form['fb_app_data']['fb_user']['map_account'] = array(
       '#type' => 'checkboxes',
-      '#title' => t('Map Accounts'),
+      '#title' => t('Map accounts'),
       '#description' => t('Mapping an account means creating an entry in the fb_user table.  This allows Drupal to know which Facebook id corresponds to which local uid. <br/>Matching based on email works when the email extended permission is requested and only if the user is not already mapped to another account.'),
       '#options' => array(
         //FB_USER_OPTION_MAP_NEVER => t('Never map accounts'),
