@@ -242,4 +242,16 @@ function fb_example_fb($op, $data, &$return) {
   
   // Use devel module to figure out when this hook is called and what it is passed.
   //dpm(func_get_args(), "fb_example_fb($op) called"); // debug
+
+  if ($op == FB_OP_AJAX_EVENT) {
+    // We get FB_OP_AJAX_EVENT when fb.js calls us in reponse to a javascript event.
+    if ($data['event_type'] == 'edge.create' && variable_get('fb_example_like_thanks', FALSE)) {
+      // edge.create is facebook's bizarrely cryptic code-word for Like button has been clicked.
+      drupal_set_message(t('Thanks for clicking Like!'));
+      // reloading allows user to see message.  This example is contrived,
+      // there's no real reason to reload page here, and it prevents users
+      // from adding a comment.  In practice, you could put some other javascript here.
+      $return[] = "FB_JS.reload();";
+    }
+  }
 }

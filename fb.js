@@ -21,6 +21,9 @@ window.fbAsyncInit = function() {
 
     // Use FB.Event to detect Connect login/logout.
     FB.Event.subscribe('auth.sessionChange', FB_JS.sessionChange);
+
+    // Q: what the heck is "edge.create"? A: the like button was clicked.
+    FB.Event.subscribe('edge.create', FB_JS.edgeCreate);
     
     // Other events that may be of interest...
     //FB.Event.subscribe('auth.login', FB_JS.debugHandler);
@@ -133,6 +136,11 @@ FB_JS.sessionChange = function(response) {
   
 };
 
+FB_JS.edgeCreate = function(href, widget) {
+  var status = {'href': href};
+  FB_JS.ajaxEvent('edge.create', status);  
+};
+
 // Helper function for developers.
 FB_JS.debugHandler = function(response) {
   debugger;
@@ -160,9 +168,11 @@ FB_JS.sessionChangeHandler = function(context, status) {
 FB_JS.ajaxEvent = function(event_type, data) {
   if (Drupal.settings.fb.ajax_event_url) {
 
-    // Include session, in the format faceboook's PHP sdk expects it.
-    // @TODO - pass this only if fbs_APIKEY cookie is not set.
-    data.session = JSON.stringify(FB.getSession());
+    // Session data helpful on canvas pages (but tricks fb_settings.inc on connect pages).
+    if (Drupal.settings.fb.page_type != 'connect') {
+      data.session = JSON.stringify(FB.getSession());
+    }
+
     // Other values to always include.
     data.apikey = FB._apiKey;
     data.fb_controls = Drupal.settings.fb.controls;
