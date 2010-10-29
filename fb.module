@@ -82,7 +82,7 @@ function fb_controls($control = NULL, $value = NULL) {
     // Initialize.
     if (isset($_REQUEST['fb_controls'])) {
       // Comma separated list passed to ajax calls.
-      foreach(explode(',', $_REQUEST['fb_controls']) as $key) {
+      foreach (explode(',', $_REQUEST['fb_controls']) as $key) {
         $controls[$key] = TRUE;
       }
     }
@@ -193,7 +193,7 @@ function fb_init() {
   fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
                                    'fb' => $_fb));
   
-  $js_settings['controls'] = implode(',',fb_controls());
+  $js_settings['controls'] = implode(',', fb_controls());
   
   // Add javascript to all pages.
   drupal_add_js(drupal_get_path('module', 'fb') . '/fb.js');
@@ -990,7 +990,7 @@ function fb_users_getInfo($oids, $fb = NULL, $refresh_cache = FALSE) {
             $_SESSION['fb'][$apikey]['userinfo'][$info['uid']] = $info;
           }
         }
-      } catch(FacebookApiException $e) {
+      } catch (FacebookApiException $e) {
         fb_log_exception($e, t('Failed call to users.getInfo'), $fb);
       }
     }

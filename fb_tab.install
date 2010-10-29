@@ -1,4 +1,6 @@
 <?php
+// $Id$
+
 /**
  * @file
  * Installs database tables and settings required by fb_tab module.

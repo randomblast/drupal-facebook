@@ -1,4 +1,10 @@
 <?php
+// $Id$
+
+/**
+ * @file
+ * Drupal administration of fb_tab.module.
+ */
 
 /**
  * Implementation of hook_fb_admin().

@@ -76,7 +76,7 @@ function _fb_settings_parse_signed_request($signed_request) {
   
   // decode the data
   $sig = _fb_settings_base64_url_decode($encoded_sig);
-  $data = json_decode(_fb_settings_base64_url_decode($payload), true);
+  $data = json_decode(_fb_settings_base64_url_decode($payload), TRUE);
   
   return $data;
 }
@@ -126,7 +126,7 @@ function fb_settings_get_facebook_cookie($app_id, $application_secret = NULL) {
       }
     }
     if (md5($payload . $application_secret) != $args['sig']) {
-      return null;
+      return NULL;
     }
   }
   if (!isset($args['session_key'])) {

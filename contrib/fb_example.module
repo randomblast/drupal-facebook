@@ -73,7 +73,7 @@ function fb_example_form_alter(&$form, $form_state, $form_id) {
         '#default_value' => TRUE,
       );
     }
-    else if ($form['form_id']['#value'] == 'comment_form') {
+    elseif ($form['form_id']['#value'] == 'comment_form') {
       // Add checkbox to control feed publish.
       $form['fb_example']['stream_publish'] = array(
         '#type' => 'checkbox',
@@ -127,7 +127,7 @@ function fb_example_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
       $actions = array();
       $actions[] = array(
         'text' => t('Read More'),
-        'href' => url('node/'.$node->nid, array('absolute' => TRUE)),
+        'href' => url('node/' . $node->nid, array('absolute' => TRUE)),
       );
       fb_stream_publish_dialog(array('message' => $user_message,
                                      'attachment' => $attachment,
@@ -181,7 +181,7 @@ function fb_example_comment(&$a1, $op) {
                         array('!site' => variable_get('site_name', t('my Drupal for Facebook powered site'))));
       $actions = array();
       $actions[] = array('text' => t('Read More'),
-                         'href' => url('node/'.$a1['nid'], array('absolute' => TRUE)),
+                         'href' => url('node/' . $a1['nid'], array('absolute' => TRUE)),
       );
       fb_stream_publish_dialog(array('message' => $user_message,
                                      'attachment' => $attachment,

@@ -374,7 +374,7 @@ function fb_friend_request_content($invite_data, $form_data) {
     'target' => '_top', // _top helpful on canvas pages.
     'hook' => NULL,
   );
-  $params = array_merge($defaults,$form_data, $invite_data);
+  $params = array_merge($defaults, $form_data, $invite_data);
   
   $submit_url = url($submit_path, array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
   $accept_url = url($accept_path, array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
@@ -461,7 +461,7 @@ function fb_friend_write_records($data, $targets) {
   }
   
   $rows = array();
-  foreach($targets as $fbu) {
+  foreach ($targets as $fbu) {
     $row = $data;
     $row['fbu_target'] = $fbu;
     $result = fb_friend_write_record($row);

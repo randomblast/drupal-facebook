@@ -1,5 +1,5 @@
 <?php
-
+// $Id$
 /**
  * @file
  * Implementation of theme functions.
