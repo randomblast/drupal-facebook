@@ -31,12 +31,12 @@ function fb_devel_requirements($phase) {
 
 
     // Confirm no accounts without authmap.  The problem caused by old bug, should only occur on sites that have been upgraded.
-    $result = db_query('SELECT count(u.uid) FROm {users} u LEFT JOIN {authmap} a ON u.uid=a.uid WHERE u.name LIKE "%@facebook%" AND a.uid IS NULL');
+    $result = db_query('SELECT count(u.uid) FROM {users} u LEFT JOIN {fb_user} a ON u.uid=a.uid WHERE u.name LIKE "%@facebook%" AND a.uid IS NULL');
     $count = db_result($result);
     if ($count) {
       $status = array(
-        'title' => $t('Accounts Named NNN@facebook Without authmap'),
-        'description' => $t('Drupal for Facebook may have failed to create authmap entry for these accounts.  Please report to the Drupal for Facebook issue queue, we are working on a fix.'),
+        'title' => $t('Accounts named NNN@facebook without fb_user map'),
+        'description' => $t('Drupal for Facebook may have failed to create a map entry for these accounts.  Please report to the Drupal for Facebook issue queue, we are working on a fix.'),
         'value' => $count,
         'severity' => REQUIREMENT_WARNING,
       );
