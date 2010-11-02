@@ -4,7 +4,7 @@
 /**
  * @file
  * Installs database tables and settings required by fb_tab module.
- * 
+ *
  */
 
 /**
@@ -13,7 +13,7 @@
 function fb_tab_install() {
   // Create tables.
   drupal_install_schema('fb_tab');
-  
+
   drupal_set_message(st('Facebook Tab module installed.', array('!perm' => url('admin/user/permissions'), '!create' => url('admin/build/fb') /* FB_PATH_ADMIN */)));
 }
 
@@ -36,13 +36,13 @@ function fb_tab_schema() {
         'not null' => TRUE),
       'label' => array(
         'description' => 'Facebook application label.',
-        'type' => 'varchar', 
-        'length' => 255, 
+        'type' => 'varchar',
+        'length' => 255,
         'not null' => TRUE,
         'default' => ''),
       'profile_id' => array(
         'description' => 'profile id (which tab is calling)',
-        'type' => 'int', 
+        'type' => 'int',
         'size' => 'big',
         'not null' => TRUE),
       'created' => array(
@@ -51,8 +51,8 @@ function fb_tab_schema() {
         'not null' => TRUE,
         'default' => 0),
       'data' => array(
-        'type' => 'text', 
-        'size' => 'big', 
+        'type' => 'text',
+        'size' => 'big',
         'description' => 'Serialized generic data.',
         'default' => NULL,
       ),
@@ -62,8 +62,8 @@ function fb_tab_schema() {
       'fb_tab' => array('label', 'profile_id'),
     ),
   );
-  
-  return $schema;  
+
+  return $schema;
 }
 
 function fb_tab_update_6300() {

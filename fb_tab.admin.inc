@@ -16,11 +16,13 @@ function fb_tab_fb_admin($op, $data, &$return) {
   if ($op == FB_ADMIN_OP_SET_PROPERTIES) {
     $return['tab_default_name'] = $config['tab_default_name'];
     $return['profile_tab_url'] = $config['profile_tab_url'];
+    //$return['edit_url'] = $config['edit_url']; // Apparently not used by facebook.
   }
   elseif ($op == FB_ADMIN_OP_LIST_PROPERTIES) {
     $return[t('Profile Tab Name')] = 'tab_default_name';
     $return[t('Profile Tab URL')] = 'profile_tab_url';
-    $return[t('Installable to')] = 'installable';
+    $return[t('Profile Tab Edit URL')] = 'edit_url';
+    $return[t('Installable')] = 'installable';
   }
 }
 
@@ -31,7 +33,7 @@ function fb_tab_admin_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data']) && is_array($form['fb_app_data'])) {
     $fb_app = $form['#fb_app'];
-    $config = _fb_tab_get_config($fb_app);    
+    $config = _fb_tab_get_config($fb_app);
 
     $form['fb_app_data']['fb_tab'] = array(
       '#type' => 'fieldset',
@@ -41,7 +43,7 @@ function fb_tab_admin_form_alter(&$form, &$form_state, $form_id) {
       '#description' => t('Settings which apply to <a href=!url target=_blank>profile tabs</a>.',
                           array('!url' => 'http://developers.facebook.com/docs/guides/canvas/#tabs')),
     );
-    
+
     // Override themes
     $themes = system_theme_data();
     ksort($themes);
@@ -73,5 +75,15 @@ function fb_tab_admin_form_alter(&$form, &$form_state, $form_id) {
       '#default_value' => $config['profile_tab_url'],
       '#description' => t('Recommended value is %tab_path.  You may choose another if you have defined a custom menu item or view.', array('%tab_path' => FB_TAB_PATH_VIEW)),
     );
+    /* XXX is this used by facebook?
+    $form['fb_app_data']['fb_tab']['edit_url'] = array(
+      '#type' => 'textfield',
+      '#title' => 'Edit URL',
+      '#default_value' => $config['edit_url'],
+      '#description' => t('Recommended value is %edit_url.', array(
+                            '%edit_url' => url(FB_TAB_PATH_FORM, array('absolute'=> TRUE)))),
+    );
+    $form['fb_app_data']['fb_tab']['edit_url']['#description'] .= '<br/>' . t('Note that this field is apparently unused by facebook.');
+    */
   }
 }
