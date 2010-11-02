@@ -55,6 +55,21 @@ function fb_example_fb_friend_invite_page_wrap_alter(&$elem) {
   }
 }
 
+function fb_example_fb_friend_invite_app_alter(&$fbml) {
+  $fbml['selector']['#attributes']['cols'] = 3;
+  $fbml['selector']['#attributes']['email_invite'] = FALSE;
+  $fbml['selector']['#attributes']['import_external_friends'] = FALSE;
+}
+function fb_example_fb_friend_invite_app_wrap_alter(&$elem) {
+  // Replace serverfbml with popup
+  if ($elem['#type'] == 'fb_form_serverfbml') {
+    $elem['#type'] = 'fb_fbml_popup';
+    $elem['#title'] = t('Invite Friends to install this application');
+    $elem['#link_text'] = t('Invite friends to install this application');
+    $elem['#attributes'] = array('width' => 760);
+  }
+}
+
 /**
  * Implements hook_form_alter().
  *

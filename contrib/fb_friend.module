@@ -47,8 +47,6 @@ function fb_friend_menu() {
 }
 
 function fb_friend_request_submit_page() {
-  dpm($_POST, "fb_friend_request_submit_page " . arg(2) . '/'. arg(3) . '/...');
-
   // Parse args
   $params = array();
   $i = FB_FRIEND_PATH_REQUEST_SUBMIT_ARGS;
@@ -81,7 +79,6 @@ function fb_friend_request_submit_page() {
 }
 
 function fb_friend_request_accept_page() {
-  dpm($_POST, "fb_friend_request_accept_page " . arg(2) . '/'. arg(3) . '/...');
   // Parse args
   $params = array();
   $i = FB_FRIEND_PATH_REQUEST_SUBMIT_ARGS;
@@ -105,6 +102,7 @@ function fb_friend_request_accept_page() {
       }
     }
     $result = db_query("SELECT * FROM {fb_friend} AS fbf WHERE " . implode(' AND ', $where), $args);
+    $rows = array();
     while ($row = db_fetch_array($result)) {
       // Update fb_friend.status to indicate accepted.
       $row['status'] = FB_FRIEND_STATUS_REQUEST_ACCEPTED;
@@ -181,15 +179,50 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       global $_fb, $_fb_app;
       
       if ($delta == FB_FRIEND_DELTA_INVITE_PAGE) {
-        if ($xfbml = fb_friend_invite_page_fbml('fb_friend_invite_page')) {
-          $content = drupal_render($xfbml);
-          
-          return array('subject' => t('Invite friends to visit this page'),
-                       'content' => $content,
-          );
-        }
+        $content = fb_friend_request_content(
+          array(
+            'module' => 'fb_friend_invite_page',
+            'delta' => FB_FRIEND_DELTA_INVITE_PAGE,
+          ), array(
+            'hook' => 'fb_friend_invite_page',
+            'invite' => TRUE,
+            'action_path' => fb_scrub_urls($_GET['q']), // Where sender goes on submit or skip.
+            'accept_path' => fb_scrub_urls($_GET['q']), // Where recipient goes on accept.
+          ));
+
+        return array('subject' => t('Invite friends to visit this page'),
+                     'content' => drupal_render($content),
+        );
       }
       elseif ($delta == FB_FRIEND_DELTA_INVITE_APP) {
+        // Exclude users who have already installed.
+        $rs = fb_fql_query($_fb, "SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
+        $exclude_ids = array();
+        //  Build an delimited list of users...
+        if ($rs) {
+          foreach ($rs as $data) {
+            $exclude_ids[] = $data["uid"];
+          }
+        }
+
+        $content = fb_friend_request_content(
+          array(
+            'module' => 'fb_friend_invite_app',
+            'delta' => FB_FRIEND_DELTA_INVITE_APP,
+            'next' => fb_scrub_urls($_GET['q']),
+          ), array(
+            'hook' => 'fb_friend_invite_app',
+            'invite' => TRUE,
+            'title' => variable_get('site_name', $GLOBALS['_fb_app']->title),
+            //'exclude_ids' => $exclude_ids,
+          ));
+        
+        return array('subject' => t('Invite friends to this application'),
+                     'content' => drupal_render($content),
+        );
+      }
+      elseif ($delta == FB_FRIEND_DELTA_INVITE_APP && FALSE) {
+        // Old way...
         $app_url = url('<front>', array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
         $page_url = url($_GET['q'], array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
         $site_name = variable_get('site_name', t('application'));
@@ -282,6 +315,31 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
   }
 }
 
+
+/**
+ * Implements hook_fb_friend().
+ */
+function fb_friend_fb_friend($op, $data, &$return) {
+  if ($data['module'] != 'fb_friend_invite_app') {
+    return;
+  }
+  if ($data['delta'] == FB_FRIEND_DELTA_INVITE_APP) {
+    if ($op == FB_FRIEND_OP_REQUEST_SUBMIT) {
+      // Save the invites to fb_friend table.
+      $data['data'] = serialize(array('delta' => $data['delta']));
+      $results = fb_friend_write_records($data, $data['ids']);
+      $return = $data['next'];
+    }
+    elseif ($op == FB_FRIEND_OP_REQUEST_SKIP) {
+      $return = $data['next'];
+    }
+    elseif ($op == FB_FRIEND_OP_REQUEST_ACCEPT) {
+      // @TODO present a connect button?
+      $return = '<front>';
+    }
+  }
+}
+
 /**
  * @deprecated use fb_friend_request_content instead.
  */
@@ -369,15 +427,19 @@ function fb_friend_request_content($invite_data, $form_data) {
     'accept_text' => 'Accept',
     'exclude_ids' => array(),
     'text' => 'has invited you to <a href="!url">!title</a>.',
+    'title' => drupal_get_title(),
     'type' => variable_get('site_name', t('page view')),
     'invite' => FALSE,
     'target' => '_top', // _top helpful on canvas pages.
     'hook' => NULL,
+    'ref_id' => NULL,
+    'module' => NULL,
+    'style' => NULL,
   );
   $params = array_merge($defaults, $form_data, $invite_data);
   
-  $submit_url = url($submit_path, array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
-  $accept_url = url($accept_path, array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
+  $submit_url = url($params['action_path'], array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
+  $accept_url = url($params['accept_path'], array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
   
   // Learn which users to exclude
   $result = db_query("SELECT fbu_target FROM {fb_friend} WHERE module='%s' AND fbu_actor=%d AND ref_id=%d",
@@ -385,6 +447,11 @@ function fb_friend_request_content($invite_data, $form_data) {
   while ($data = db_fetch_object($result)) {
     $params['exclude_ids'][] = $data->fbu_target;
   }
+
+  if (!$params['title']) {
+    $params['title'] = variable_get('site_name', $GLOBALS['_fb_app']->title);
+  }
+  
   //dpm($params['exclude_ids'], "exclude_ids"); // debug
   // Build the alterable data structure.
   // http://developers.facebook.com/docs/reference/fbml/request-form
@@ -395,7 +462,7 @@ function fb_friend_request_content($invite_data, $form_data) {
       'content' => array(
         'markup' => array('#value' => t($params['text'],
                                         array('!url' => $accept_url,
-                                              '!title' => drupal_get_title()))),
+                                              '!title' => t($params['title'])))),
         'choice' => array('#type' => 'fb_form_req_choice',
                           '#attributes' => array(
                             'url' => $accept_url,
@@ -414,6 +481,13 @@ function fb_friend_request_content($invite_data, $form_data) {
       'target' => $params['target'],
       'exclude_ids' => implode(',', $params['exclude_ids']),
     ));
+
+  // Change some of facebook's bizarre defaults.
+  foreach (array('cols', 'email_invite', 'import_external_friends') as $key) {
+    if (isset($params[$key])) {
+      $fbml['selector']['#attributes'][$key] = $params[$key];
+    }
+  }
   
   // Allow third-party to modify the form
   if ($params['hook']) {
