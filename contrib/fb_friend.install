@@ -3,7 +3,7 @@
 /**
  * @file
  * Installs database tables and settings required by fb_friend module.
- * 
+ *
  */
 
 /**
@@ -12,7 +12,7 @@
 function fb_friend_install() {
   // Create tables.
   drupal_install_schema('fb_friend');
-  
+
   drupal_set_message(st('Facebook Friend module installed.', array('!perm' => url('admin/user/permissions'), '!create' => url('admin/build/fb') /* FB_PATH_ADMIN */)));
 }
 
@@ -34,9 +34,9 @@ function fb_friend_schema() {
         'unsigned' => TRUE,
         'not null' => TRUE),
       'module' => array(
-        'type' => 'varchar', 
-        'length' => 255, 
-        'not null' => TRUE, 
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
         'description' => 'Textual id for type of interaction represented by this row.',
       ),
       'ref_id' => array(
@@ -45,9 +45,9 @@ function fb_friend_schema() {
         'not null' => TRUE,
         'default' => 0),
       'label' => array( /* Would it be better to store apikey? */
-        'type' => 'varchar', 
-        'length' => 255, 
-        'not null' => TRUE, 
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
         'description' => 'Unique textual id for app. See fb_app table.',
       ),
       'fbu_actor' => array(
@@ -76,8 +76,8 @@ function fb_friend_schema() {
         'default' => 0,
       ),
       'data' => array(
-        'type' => 'text', 
-        'size' => 'big', 
+        'type' => 'text',
+        'size' => 'big',
         'description' => 'serialized generic data.',
         'default' => NULL,
       ),
@@ -91,8 +91,8 @@ function fb_friend_schema() {
       'fb_friend_label' => array('label'),
     ),
   );
-  
-  return $schema;  
+
+  return $schema;
 }
 
 function fb_friend_update_6300() {

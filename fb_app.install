@@ -3,7 +3,7 @@
 /**
  * @file
  * Installs database tables and settings required by fb_app module.
- * 
+ *
  */
 
 /**
@@ -12,7 +12,7 @@
 function fb_app_install() {
   // Create tables.
   drupal_install_schema('fb_app');
-  
+
   drupal_set_message(st('Facebook Application module installed. Please grant yourself <a href="!perm">permissions</a> and then browse to <a href="!create">Admin >> Facebook Applications</a> to get started.', array('!perm' => url('admin/user/permissions'), '!create' => url('admin/build/fb') /* FB_PATH_ADMIN */)));
 
 }
@@ -39,49 +39,49 @@ function fb_app_schema() {
         'type' => 'int',
         'not null' => TRUE,
         'default' => 1),
-      
+
       // nid for backward-compatibility only.  DEPRECATED and will be removed!
       'nid' => array('type' => 'int', 'not null' => TRUE, 'default' => 0),
 
       'label' => array(
-        'type' => 'varchar', 
-        'length' => 255, 
-        'not null' => TRUE, 
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
         'description' => 'Unique textual id for app.',
       ),
       'apikey' => array(
-        'type' => 'varchar', 
-        'length' => 255, 
-        'not null' => TRUE, 
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
         'description' => 'Provided by facebook, copy and pasted by user',
       ),
       'id' => array(
-        'type' => 'varchar', 
-        'length' => 255, 
-        'not null' => TRUE, 
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
         'description' => 'Provided by facebook, copy and pasted by user',
       ),
       'secret' => array(
-        'type' => 'varchar', 
-        'length' => 255, 
-        'not null' => TRUE, 
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
         'description' => 'Provided by facebook, copy and pasted by user',
       ),
       'canvas' => array(
-        'type' => 'varchar', 
-        'length' => 255, 
-        'not null' => TRUE, 
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
         'description' => 'We learn this from facebook app properties',
       ),
       'title' => array(
-        'type' => 'varchar', 
-        'length' => 255, 
-        'not null' => TRUE, 
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
         'description' => 'We learn this from facebook app properties',
       ),
       'data' => array(
-        'type' => 'text', 
-        'size' => 'big', 
+        'type' => 'text',
+        'size' => 'big',
         'description' => 'Module-specific additional settings.'),
     ),
     'unique keys' => array(
@@ -90,8 +90,8 @@ function fb_app_schema() {
     ),
     'primary key' => array('fba_id'),
   );
-  
-  return $schema;  
+
+  return $schema;
 }
 
 function fb_app_update_6100() {
@@ -126,12 +126,12 @@ function fb_app_update_6202() {
 function fb_app_update_6203() {
   $ret = array();
   db_drop_primary_key($ret, 'fb_app'); // replace primary key nid with fba_id.
-  db_add_field($ret, 'fb_app', 'fba_id', 
+  db_add_field($ret, 'fb_app', 'fba_id',
                array(
-                 'type' => 'int', 
-                 'type' => 'serial', 
-                 'unsigned' => TRUE, 
-                 'not null' => TRUE, 
+                 'type' => 'int',
+                 'type' => 'serial',
+                 'unsigned' => TRUE,
+                 'not null' => TRUE,
                ),
                array(
                  'unique keys' => array(

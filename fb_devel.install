@@ -3,7 +3,7 @@
 /**
  * @file
  * Install file for fb_devel.module.
- * 
+ *
  */
 
 
@@ -43,7 +43,7 @@ function fb_devel_requirements($phase) {
       $items[] = $status;
     }
   }
-  
+
   // Test if json extensions are loaded.
   if (defined('SERVICES_JSON_SLICE')) { // defined in facebook's json wrapper, which is not compatible with PHP's JSON extensions.
     $items[] = array(
@@ -52,11 +52,11 @@ function fb_devel_requirements($phase) {
       'description' => $t('JSON extension must be present for Drupal for Facebook modules.  You can wait (forever) for facebook to <a href="!url">fix their bug</a>, or install the JSON extension. ', array('!url' => 'http://bugs.developers.facebook.com/show_bug.cgi?id=4351')),
     );
   }
-  
-  
+
+
   // clean url sanity check
   if (!variable_get('clean_url', FALSE) && module_exists('fb_canvas') && $phase == 'runtime') {
-    $message = 
+    $message =
     $items[] = array(
       'title' => $t('Clean URLs'),
       'severity' => REQUIREMENT_ERROR,
@@ -64,7 +64,7 @@ function fb_devel_requirements($phase) {
                           array('!url' => url('admin/settings/clean-urls'))),
     );
   }
-  
+
   if (!count($items) && $phase == 'runtime') {
     $items[] = array(
       'title' => $t('Drupal for Facebook Devel'),

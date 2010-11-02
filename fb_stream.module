@@ -15,7 +15,7 @@
 define('FB_STREAM_DIALOGS', 'fb_stream_dialogs');
 
 /**
- * Publish to a user's stream, or update their status.  
+ * Publish to a user's stream, or update their status.
  *
  * Calling this method will, through javascript, add content to a
  * user's wall or update their status.  The javascript will be written
@@ -46,11 +46,11 @@ function fb_stream_publish_dialog($params, $fb_app = NULL) {
   if (!isset($_SESSION[FB_STREAM_DIALOGS])) {
     $_SESSION[FB_STREAM_DIALOGS] = array();
   }
-  
+
   if (!isset($fb_app)) {
     $fb_app = $GLOBALS['_fb_app'];
   }
-  
+
   if (!isset($_SESSION[FB_STREAM_DIALOGS][$fb_app->apikey])) {
     $_SESSION[FB_STREAM_DIALOGS][$fb_app->apikey] = array();
   }
@@ -81,7 +81,7 @@ function fb_stream_get_stream_dialog_data($fb_app = NULL) {
 /**
  * Implementation of hook_fb().
  *
- * When adding javascript to FBML and Conect pages, we add 
+ * When adding javascript to FBML and Conect pages, we add
  */
 function fb_stream_fb($op, $data, &$return) {
   if ($op == FB_OP_JS) {
@@ -123,7 +123,7 @@ function fb_stream_js($params_array) {
         else {
           $args[] = json_encode($params[$key]);
         }
-        
+
       }
       else {
         // Use default
@@ -131,12 +131,12 @@ function fb_stream_js($params_array) {
       }
     }
     */
-    
+
     $params['method'] = 'stream.publish';
-    
+
     // Add stream dialog javascript to a canvas page.
     $return[] = "FB.ui(" . json_encode($params) . ");\n";
   }
-  
+
   return $return;
 }

@@ -4,12 +4,12 @@
 /**
  * @file
  * This file is to be included from your sites/.../settings.php file.
- * 
+ *
  * In this code we set up special session management and url
  * rewriting.  These things must be done before modules are loaded, so
  * the code is here instead of fb.module. And that is why this
  * must be include from settings.php.
- * 
+ *
  */
 
 
@@ -73,11 +73,11 @@ function _fb_settings_base64_url_decode($input) {
  */
 function _fb_settings_parse_signed_request($signed_request) {
   list($encoded_sig, $payload) = explode('.', $signed_request, 2);
-  
+
   // decode the data
   $sig = _fb_settings_base64_url_decode($encoded_sig);
   $data = json_decode(_fb_settings_base64_url_decode($payload), TRUE);
-  
+
   return $data;
 }
 
@@ -115,7 +115,7 @@ function _fb_settings_honor_signed_request($sr) {
 function fb_settings_get_facebook_cookie($app_id, $application_secret = NULL) {
   if (!isset($_COOKIE['fbs_' . $app_id]))
     return;
-  
+
   $args = array();
   parse_str(trim($_COOKIE['fbs_' . $app_id], '\\"'), $args);
   if ($application_secret) {
@@ -210,7 +210,7 @@ else {
     // Less efficent cookie inspection.
     // Could inspect wrong cookie if more than one application supported!!!!
     $session_key = '';
-    
+
     foreach ($_COOKIE as $key => $value) {
       if (strpos($key, 'fbs_') === 0) {
         $apikey = substr($key, 4);

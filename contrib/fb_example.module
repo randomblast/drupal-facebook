@@ -104,7 +104,7 @@ function fb_example_form_alter(&$form, $form_state, $form_id) {
  *
  * Publish to facebook Walls when users submit nodes.
  *
- * @see http://developers.facebook.com/docs/reference/rest/stream.publish 
+ * @see http://developers.facebook.com/docs/reference/rest/stream.publish
  * @see http://developers.facebook.com/docs/guides/attachments
  */
 function fb_example_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
@@ -135,7 +135,7 @@ function fb_example_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
           'href' => $url,
         );
       }
-      
+
 
       $user_message = t('Check out my latest post on !site...',
                         array('!site' => variable_get('site_name', t('my Drupal for Facebook powered site'))));
@@ -173,7 +173,7 @@ function fb_example_comment(&$a1, $op) {
     if ($a1['stream_publish']) {
       //dpm($a1, "fb_example_comment, publishing to stream");
       $node = node_load($a1['nid']);
-      
+
       // http://wiki.developers.facebook.com/index.php/Attachment_(Streams)
       $attachment = array(
         'name' => $a1['subject'],
@@ -210,7 +210,7 @@ function fb_example_comment(&$a1, $op) {
 /**
  * Implements hook_fb_required_perms_alter().
  *
- * Builds a list of extended permissions required when authorizing the current facebook app. 
+ * Builds a list of extended permissions required when authorizing the current facebook app.
  * @see http://developers.facebook.com/docs/authentication/permissions
  */
 function fb_example_fb_required_perms_alter(&$perms) {
@@ -254,7 +254,7 @@ function fb_example_fb_required_perms_alter(&$perms) {
 function fb_example_fb($op, $data, &$return) {
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
-  
+
   // Use devel module to figure out when this hook is called and what it is passed.
   //dpm(func_get_args(), "fb_example_fb($op) called"); // debug
 

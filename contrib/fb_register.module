@@ -2,8 +2,8 @@
 // $Id$
 /**
  * @file
- * This code aims to prevent duplicate accounts. 
- * 
+ * This code aims to prevent duplicate accounts.
+ *
  * If a user has an account both locally and on facebook, when they
  * first authorize an app, this code attemps to link the two accounts
  * rather than create a new local account for the facebook user.
@@ -25,7 +25,7 @@ function fb_register_menu() {
     'access arguments' => array(FB_PERM_ADMINISTER),
     'type' => MENU_LOCAL_TASK,
   );
-  
+
   // Callback to register users, right now instead of waiting for cron.
   $items[FB_PATH_ADMIN_APPS . '/%fb/fb_register/doit/%'] = array(
     'title' => 'Register users',
@@ -35,30 +35,30 @@ function fb_register_menu() {
     'access arguments' => array(FB_PERM_ADMINISTER),
     'type' => MENU_CALLBACK,
   );
-  
+
   return $items;
 }
 
 // @TODO: clean up and improve this page.
 function fb_register_detail_page($fb_app) {
   $output = '';
-  
+
   if (isset($_REQUEST['how_many'])) {
     $how_many = $_REQUEST['how_many'];
-  } 
+  }
   else {
     $how_many = variable_get('fb_register_limit', 100);
   }
-  
+
   $output .= '<p>' . t('Use this form below to test user registration.  Press the Register button to emulate one cron iteration.') . '</p>';
-  
+
   $output .= drupal_get_form('fb_register_now_form', $fb_app, $how_many);
-  
+
   $output .= '<p>' . t('The registration module is enabled for this application.  Users will be registered during cron jobs and when they change email addresses.  <br/><a href="!url">Click here to register ALL users now</a>.',
              array('!url' => url('fb_register/' . $fb_app->label . '/' . $how_many))) . "</p>\n";
-  
+
   //$output .= '<pre>' . print_r($fb_app, 1) . "</pre>\n"; // debug
-  
+
   return $output;
 }
 
@@ -75,7 +75,7 @@ function fb_register_all_users($fb_app, $how_many) {
   drupal_set_message(t("%count users successfully registered.",
       array('%count' => $success_count)));
   $output = '<p>' . _fb_register_summary($fb_app) . "</p>\n";
-  
+
   if ($success_count > 0) {
     $output .= '<p>' . t('This page will refresh, to register another batch of users...') . '</p>';
     drupal_set_html_head('<meta http-equiv="refresh" content="3" />');
@@ -83,7 +83,7 @@ function fb_register_all_users($fb_app, $how_many) {
   elseif ($success_count < 0) {
     $output .= '<p>' . t('Encountered an error.  Not refreshing page.') . "</p>\n";
   }
-  
+
   return $output;
 }
 
@@ -98,11 +98,11 @@ function _fb_register_summary($fb_app) {
     $cache->data = array($fb_app->apikey => 0);
   }
   $last_uid_registered = $cache->data[$fb_app->apikey];
-  
+
   $registered = db_result(db_query("SELECT count(uid) as count FROM {fb_register} WHERE uid <= %d", $last_uid_registered));
   $local = db_result(db_query("SELECT count(u.uid) FROM {users} u WHERE uid > 0"));
   $registerable = db_result(db_query("SELECT count(u.uid) FROM {users} u WHERE u.uid > 0 ANd u.mail IS NOT NULL AND u.mail <> ''"));
-  
+
   $summary = t("%registered of %registerable accounts have been registered for !app. <br/>(Of %local total users, %registerable have email addresses.)", array(
                '%registered' => $registered,
                '%registerable' => $registerable,
@@ -142,9 +142,9 @@ function fb_register_now_form($form_state, $fb_app, $how_many) {
 function fb_register_now_form_submit($form, &$form_state) {
   $values = $form_state['values'];
   //dpm($values, "fb_register_now_form_submit");
-  
+
   $fb_app = fb_get_app(array('label' => $values['fb_app_label']));
-  
+
   $success_count = _fb_register_register_users($fb_app, $values['how_many']);
   drupal_set_message(t('%count email addresses registered.',
       array('%count' => $success_count)));
@@ -167,12 +167,12 @@ function _fb_register_register_users($fb_app, $how_many) {
 
   // Initialize facebook api for this app.
   $fb = fb_api_init($fb_app);
-  
-  $result = db_query("SELECT u.uid, u.name, u.mail, fbr.email_hash FROM {users} u LEFT JOIN {fb_register} fbr ON fbr.uid=u.uid WHERE (fbr.uid IS NULL OR u.uid > %d) AND u.mail IS NOT NULL AND u.mail <> '' ORDER BY u.uid LIMIT %d, %d", 
+
+  $result = db_query("SELECT u.uid, u.name, u.mail, fbr.email_hash FROM {users} u LEFT JOIN {fb_register} fbr ON fbr.uid=u.uid WHERE (fbr.uid IS NULL OR u.uid > %d) AND u.mail IS NOT NULL AND u.mail <> '' ORDER BY u.uid LIMIT %d, %d",
                      $last_uid_registered,
                      0, $how_many // limits
   );
-  
+
   while ($account = db_fetch_object($result)) {
     $register_data[] = array(
       'email_hash' => fb_register_email_hash($account->mail),
@@ -180,7 +180,7 @@ function _fb_register_register_users($fb_app, $how_many) {
     );
     $user_data[] = $account;
   }
-  
+
   $success_count = 0;
   $error_count = 0;
   if (isset($register_data) && count($register_data)) {
@@ -216,14 +216,14 @@ function _fb_register_register_users($fb_app, $how_many) {
                      ), WATCHDOG_ERROR);
           }
           $error_count++;
-          
+
           // Make certain we try this user again next time.
           db_query("DELETE FROM {fb_register} WHERE uid=%d",
                    $account->uid);
-          
+
         }
       }
-      
+
       // debugging
       //dpm($register_data, "register data");
       //dpm($success_data, "success data");
@@ -235,12 +235,12 @@ function _fb_register_register_users($fb_app, $how_many) {
   else {
     drupal_set_message(t('Found no users to register.'));
   }
-  
+
   // Remember any progress we've made.
   $cache->data[$fb_app->apikey] = $last_uid_registered;
   cache_set('fb_register_cache', $cache->data,
             'cache', CACHE_PERMANENT);
-  
+
   if ($error_count > 0)
     return (-1 * $error_count);
   else
@@ -249,7 +249,7 @@ function _fb_register_register_users($fb_app, $how_many) {
 
 /**
  * Implementation of hook_form_alter().
- * 
+ *
  * Add our settings to each Facebook Application form.
  */
 function fb_register_form_alter(&$form, &$form_state, $form_id) {
@@ -257,9 +257,9 @@ function fb_register_form_alter(&$form, &$form_state, $form_id) {
   if (isset($form['fb_app_data'])) {
     $fb_app = $form['#fb_app'];
     $fb_app_data = fb_get_app_data($fb_app);
-    $fb_register_data = isset($fb_app_data['fb_register']) ? 
+    $fb_register_data = isset($fb_app_data['fb_register']) ?
       $fb_app_data['fb_register'] : array('register_users' => FALSE);
-    
+
     $form['fb_app_data']['fb_register'] = array(
       '#type' => 'fieldset',
       '#title' => t('Register users'),
@@ -274,7 +274,7 @@ function fb_register_form_alter(&$form, &$form_state, $form_id) {
       '#default_value' => $fb_register_data['register_users'],
     );
   }
-  
+
 }
 
 /**
@@ -287,7 +287,7 @@ function fb_register_cron() {
   foreach ($all_apps as $fb_app) {
     $fb_app_data = fb_get_app_data($fb_app);
     $fb_register_data = isset($fb_app_data['fb_register']) ? $fb_app_data['fb_register'] : array('register_users' => FALSE);
-    
+
     if (is_array($fb_register_data) && $fb_register_data['register_users']) {
       // This app has registration enabled.
       $count = _fb_register_register_users($fb_app, variable_get('fb_register_limit', 100));
@@ -304,7 +304,7 @@ function fb_register_cron() {
 
 /**
  * Implementation of hook_user().
- * 
+ *
  * Register users whenever an email address may have changed.
  */
 function fb_register_user($op, &$edit, &$account, $category = NULL) {
@@ -331,8 +331,8 @@ function fb_register_user($op, &$edit, &$account, $category = NULL) {
       foreach ($apps as $app) {
         $fb_app_data = fb_get_app_data($app);
         $fb_register_data = isset($fb_app_data['fb_register']) ? $fb_app_data['fb_register'] : array();
-        if (is_array($fb_register_data) && 
-            isset($fb_register_data['register_users']) && 
+        if (is_array($fb_register_data) &&
+            isset($fb_register_data['register_users']) &&
             $fb_register_data['register_users']) {
           $fb = fb_api_init($app);
           //$success_data = $fb->api_client->connect_registerUsers(json_encode($register_data));

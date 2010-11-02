@@ -2,7 +2,7 @@
 /**
  * @file
  * Support for Facebook Connect features
- * 
+ *
  * Note that Facebook connect will work properly only with themes that are
  * Facebook Connect aware.
  */
@@ -32,7 +32,7 @@ function fb_connect_menu() {
     'file' => 'fb_connect.admin.inc',
     'type' => MENU_LOCAL_TASK,
   );
-    
+
 
   return $items;
 }
@@ -48,7 +48,7 @@ function fb_connect_app_init($fb_app) {
     // If we're in an iframe, only support connect for the iframe app.
     return;
   }
-  
+
   if ($fb = fb_api_init($fb_app)) {
     $fbu = $fb->getUser();
     if ($fbu &&
@@ -59,17 +59,17 @@ function fb_connect_app_init($fb_app) {
                   'fb_app' => $fb_app,
                   'fb' => $fb));
     }
-    
+
     // Remember which app we've initialized.
     _fb_connect_set_app($fb_app);
-    
+
   }
   return $fb;
 }
 
 /**
  * Helper function for other modules to know page is connected.
- * 
+ *
  * Note that this may return data on connect pages and in iframe apps
  * (depending on how iframe is configured).
  */
@@ -104,7 +104,7 @@ function fb_connect_fb($op, $data, &$return) {
       // Init Facebook javascript for primary app
       _fb_connect_add_js();
     }
-    
+
     // Include our admin hooks.
     if (fb_is_fb_admin_page()) {
       module_load_include('inc', 'fb_connect', 'fb_connect.admin');
@@ -224,20 +224,20 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
         $fbu = $fb->getUser();
 
         _fb_connect_add_js();
-        
+
         $base = drupal_get_path('module', 'fb_connect');
-        
+
         $defaults = variable_get('fb_connect_block_' . $delta, _fb_connect_block_login_defaults());
         if ($fbu) {
           $subject = $defaults['connected']['title'];
           $content = $defaults['connected']['body'];
           // substitute %fbu
           $content = str_replace('!fbu', $fbu, $content);
-        } 
+        }
         elseif ($GLOBALS['user']->uid >= 1) {
           $subject = $defaults['user_not_connected']['title'];
           $content = $defaults['user_not_connected']['body'];
-        } 
+        }
         else {
           $subject = $defaults['anon_not_connected']['title'];
           $content = $defaults['anon_not_connected']['body'];
@@ -247,13 +247,13 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
         $perms = array();
         drupal_alter('fb_required_perms', $perms);
         $content = str_replace('!perms', implode(',', $perms), $content);
-        
+
         // If user has changed defaults, run filter
         if (isset($defaults['format'])) {
           $subject = check_plain($subject);
           $content = check_markup($content, $defaults['format'], FALSE);
         }
-        
+
         $block = array(
           'subject' => $subject,
           'content' => $content,
@@ -270,7 +270,7 @@ function fb_connect_block($op = 'list', $delta = 0, $edit = array()) {
 function _fb_connect_get_config($fb_app) {
   $fb_app_data = fb_get_app_data($fb_app);
   $config = isset($fb_app_data['fb_connect']) ? $fb_app_data['fb_connect'] : array();
-  
+
   // Merge in defaults
   $config += array(
 
@@ -285,7 +285,7 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
   // Add our settings to the fb_app edit form.
   if (isset($form['fb_app_data'])) {
     $fb_app = $form['#fb_app'];
-    
+
     $form['fb_app_data']['fb_connect'] = array(
       '#type' => 'fieldset',
       '#title' => 'Facebook connect',
@@ -293,7 +293,7 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
       '#collapsible' => TRUE,
       '#collapsed' => $fb_app->label ? TRUE : FALSE,
     );
-    
+
     // "Primary" will be initialized on every non-canvas page.
     $primary_label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL);
     $form['fb_app_data']['fb_connect']['primary'] = array(
@@ -303,11 +303,11 @@ function fb_connect_form_alter(&$form, &$form_state, $form_id) {
       '#default_value' => isset($fb_app->label) && ($primary_label == $fb_app->label),
     );
     if (($primary_label) && ($primary_label != $fb_app->label)) {
-      $form['fb_app_data']['fb_connect']['primary']['#description'] .= '<br/>' . 
+      $form['fb_app_data']['fb_connect']['primary']['#description'] .= '<br/>' .
         t('Note that checking this will replace %app as the primary Facebook Connect app.', array('%app' => $primary_label));
     }
     $form['#submit'][] = 'fb_connect_app_submit';
-  }  
+  }
 }
 
 /**
@@ -323,7 +323,7 @@ function fb_connect_app_submit($form, &$form_state) {
   }
   elseif ($label == variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
     // This app was the primary one, but the user has unchecked it.
-    variable_set(FB_CONNECT_VAR_PRIMARY, NULL);    
+    variable_set(FB_CONNECT_VAR_PRIMARY, NULL);
   }
 }
 

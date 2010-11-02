@@ -26,12 +26,12 @@ define('FB_APP_OP_EVENT', 'fb_app_event');
 function fb_app_fb($op, $data, &$return) {
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
-  
+
   if ($op == FB_OP_GET_APP) {
     // Load app data, using the criteria passed in.
     $args = array();
     $where = array();
-    
+
     // We also support these ways to query an app.  Columns in fb_app table.
     foreach (array(
                'fba_id' => '%d',
@@ -52,7 +52,7 @@ function fb_app_fb($op, $data, &$return) {
     else {
       $where[] = "status > 0";
     }
-    
+
     if (count($args)) {
       $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fba WHERE " . implode(' AND ', $where), $args));
     }
@@ -100,9 +100,9 @@ function fb_app_menu() {
       FB_APP_PATH_EVENT_ARGS, // label
       FB_APP_PATH_EVENT_ARGS+1, // event type
     ),
-    'type' => MENU_CALLBACK,                     
+    'type' => MENU_CALLBACK,
   );
-  
+
   // Administration.
   $items[FB_PATH_ADMIN . '/fb_app_create'] = array(
     'title' => 'Add Application',
@@ -133,14 +133,14 @@ function fb_app_menu() {
     'file' => 'fb_app.admin.inc',
     'type' => MENU_CALLBACK,
   );
-  
+
   return $items;
 }
 
 
 /**
  * Callback for FB_APP_PATH_EVENT.
- * 
+ *
  * We don't act on the events directly.  We pass the information along via
  * hook_fb.  Other modules are thus notified of the event and can take action.
  */
@@ -148,13 +148,13 @@ function fb_app_event_cb($label, $event_type) {
   $fb_app = fb_get_app(array('label' => $label));
   if ($fb_app)
     $fb = fb_api_init($fb_app);
-  
+
   fb_invoke(FB_APP_OP_EVENT, array(
       'fb_app' => $fb_app,
       'fb' => $fb,
       'event_type' => $event_type,
     ), NULL);
-  
+
   // This page is called by facebook, not a user's browser.  User's should never see this.
   print('Thanks Facebook, for your fancy API!');
 
@@ -167,7 +167,7 @@ function fb_app_event_cb($label, $event_type) {
 
 function fb_app_get_about_url($fb_app) {
   if ($fb_app->id)
-    return url("http://www.facebook.com/apps/application.php", 
+    return url("http://www.facebook.com/apps/application.php",
                array('query' => array('id' => $fb_app->id)));
 }
 
@@ -223,7 +223,7 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
         }
         if (isset($info) && count($info)) {
           $output = theme('fb_app_user_info', $fb_app, $info[0]);
-          
+
           $items[$fb_app->label] = array(
             '#title' => $fb_app->title,
             '#type' => 'fieldset',
@@ -242,22 +242,22 @@ function theme_fb_app_user_info($fb_app, $info) {
   $output = '';
   if (isset($info['pic_big']))
     $output .= '<p><img src="'. $info['pic_big'] .'" /></p>';
-  
+
   $fb_link = l($info['name'], 'http://www.facebook.com/profile.php', array(
                  'query' => 'id=' . $info['uid']));
   if ($info['is_app_user'])
-    $output .= '<p>' . 
+    $output .= '<p>' .
       t('!fb_link uses %title', array(
           '!fb_link' => $fb_link,
-          '%title' => $fb_app->title)) . 
+          '%title' => $fb_app->title)) .
       '</p>';
   else
-    $output .= '<p>'. 
+    $output .= '<p>'.
       t('!fb_link does not use %title', array(
           '!fb_link' => $fb_link,
-          '%title' => $fb_app->title)) . 
+          '%title' => $fb_app->title)) .
       '</p>';
-  
+
   return $output;
 }
 
@@ -282,7 +282,7 @@ function fb_app_token_values($type = 'all', $object = NULL) {
 function fb_app_theme() {
   return array(
     'fb_app_user_info' => array(
-      'arguments' => array( 
+      'arguments' => array(
         'fb_app' => NULL,
         'info' => NULL,
       ),

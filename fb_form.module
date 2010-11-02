@@ -2,10 +2,10 @@
 // $Id$
 /**
  * @file
- * 
+ *
  * This module defines facebook-specific form elements for use with Drupal's
  * form API.
- * 
+ *
  * It also defines commonly used forms, for example a form to invite friends
  * to install an application.
  */
@@ -41,12 +41,12 @@ function fb_form_form_alter(&$form, &$form_state, $form_id) {
     $form['#type'] = $type;
     unset($form['#fb_form_type_hack']);
   }
-  
+
 }
 
 /**
  * Create a page to invite friends to add an app.
- * 
+ *
  * This page will succeed only if:
  * - shown on a canvas page
  * - it is an FBML canvas page, not an iframe
@@ -60,29 +60,29 @@ function fb_form_invite_page() {
     drupal_not_found();
     exit();
   }
-  
+
   if ($_fb_app) {
     drupal_set_title(t('Invite friends to use %application',
                        array('%application' => $_fb_app->label)));
   }
-  
+
   $output = drupal_get_form('fb_form_multi_add_invite_form');
-  
+
   return $output;
 }
 
 
 /**
  * Create a form allowing the user to invite friends to add the app.
- * 
+ *
  * Facebook provides a very specific way to build this form using FBML.  This will only display properly on FBML canvas pages.
  * The FBML for this form requires the <fb:request-form> tag where the <form> tag would normally be.  Also the form provides its own buttons.  These two things make it difficult to use Drupal's Form API to build the form.  Still, we use FAPI, because we want modules to be able to alter the form (i.e. to add descriptive text).  Alteration that rely on #submit or even additional input fields will probably not work properly, however.
  */
 function fb_form_multi_add_invite_form() {
   global $_fb, $_fb_app;
-  
+
   // TODO: confirm that we're displaying an FBML canvas page.
-  
+
   if ($fbu = fb_facebook_user($_fb)) {
     // Exclude friends who have already installed app.
     // http://wiki.developers.facebook.com/index.php/Fb:request-form
@@ -92,22 +92,22 @@ function fb_form_multi_add_invite_form() {
     if ($rs) {
       $arFriends .= $rs[0]["uid"];
       for ( $i = 1; $i < count($rs); $i++ ) {
-        if ( $arFriends != "" )      
+        if ( $arFriends != "" )
           $arFriends .= ",";
         $arFriends .= $rs[$i]["uid"];
       }
     }
   }
-  
+
   // Use node body in invite message.
   $node = node_load($_fb_app->nid);
   $node = node_prepare($node);
   $content = $node->teaser;
-  
+
   // Do we need to append &next=[someURL] to the url here?
   $content .= "<fb:req-choice url=\"http://www.facebook.com/add.php?api_key={$_fb_app->apikey}\" label=\"" . t('Add !title application.',
                                                                                                               array('!title' => $_fb_app->label)) . "\" />";
-  
+
   // form type fb:request-form
   $form = array('#fb_form_type_hack' => 'fb_form_request', /* becomes #type during form_alter */
                 '#attributes' => array('type' => $_fb_app->label,
@@ -116,13 +116,13 @@ function fb_form_multi_add_invite_form() {
                 ),
                 '#action' => 'http://apps.facebook.com/' . $_fb_app->canvas,
   );
-  
+
   $form['friends'] =
     array('#type' => 'fb_form_request_selector',
           '#title' => t('Select the friends to invite.'),
           '#attributes' => array('exclude_ids' => $arFriends),
     );
-  
+
   return $form;
 }
 
@@ -136,7 +136,7 @@ function fb_form_multi_add_invite_form() {
  */
 function fb_form_request_form($config = array()) {
   global $_fb, $_fb_app; // only works on canvas pages.
-  
+
   // Default config
   $config = array_merge(array('type' => $_fb_app->label,
                               'content' => 'INVITE CONTENT XXX',
@@ -144,7 +144,7 @@ function fb_form_request_form($config = array()) {
                               'invite' => 'true',
                               'method' => 'POST',
                         ), $config);
-  
+
   // form type fb:request-form
   $form = array('#fb_form_type_hack' => 'fb_form_request', /* becomes #type during form_alter */
                 '#attributes' => array('type' => $config['type'],
@@ -169,7 +169,7 @@ function theme_fb_form_request($element) {
   // Anonymous div to satisfy XHTML compliance.
   $action = $element['#action'] ? 'action="' . check_url($element['#action']) . '" ' : '';
   $output = '<fb:request-form '. $action .' method="'. $element['#method'] .'" '. 'id="'. $element['#id'] .'"'. drupal_attributes($element['#attributes']) .">\n<div>". $element['#children'] ."\n</div></fb:request-form>\n";
-  
+
   return $output;
 }
 
@@ -194,11 +194,11 @@ function fb_form_group_options($fbu) {
 function fb_form_friend_options($fbu) {
   global $_fb;
   $items = array();
-  
+
   if ($_fb) {
     $query = "SELECT last_name, first_name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=$fbu)"; // FQL not SQL, no {curly_brackets}!
     $result = fb_fql_query($_fb, $query);
-    
+
     // TODO: sort results by name
     foreach ($result as $data) {
       $items[$data['uid']] = $data['first_name'] . ' ' . $data['last_name'];
@@ -245,7 +245,7 @@ function fb_form_elements() {
   $items['fb_fbml_popup'] = array(
     '#input' => FALSE,
   );
-  
+
   $items['fb_form_request_selector'] = array(
     '#input' => TRUE,
     '#tree' => TRUE, /* not sure what this does */
@@ -253,19 +253,19 @@ function fb_form_elements() {
     // The submit callback does not work properly in <fb:request-form>
     '#executes_submit_callback' => TRUE,
   );
-  
+
   $items['fb_form_friend_selector'] = array(
     '#input' => TRUE,
     '#tree' => TRUE,
     '#process' => array('fb_form_friend_selector_process' => array()),
   );
-  
+
   return $items;
 }
 
 /**
  * Build a friend selector for use in <fb:request-form>.
- * 
+ *
  * Use this to select friends when sending an invite or request.
  */
 function fb_form_process_request_selector($orig) {
@@ -280,16 +280,16 @@ function fb_form_process_request_selector($orig) {
   // Use title for actiontext
   if (!$orig['#attributes']['actiontext'])
     $orig['#attributes']['actiontext'] = $orig['#title'];
-  
+
   $element['#value'] .= drupal_attributes($orig['#attributes']);
-  
+
   // Some settings for FAPI.
   foreach (array('#parents', '#weight', '#name', '#id', '#input', '#required') as $key)
     if (isset($orig[$key]))
       $element[$key] = $orig[$key];
-  
+
   $element['#value'] .= ' />'; /* close tag */
-  
+
   return $element;
 }
 
@@ -307,12 +307,12 @@ function fb_form_friend_selector_process($orig) {
   if (!$fb)
     // TODO: Generate an error.
     return;
-  
+
   static $options = NULL;
   if (!$options) {
     $query = "SELECT name, uid, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=" . fb_facebook_user() . ")"; // FQL not SQL, no {curly_brackets}
     $result = fb_fql_query($fb, $query);
-    
+
     // Store list of friends in SESSION, so our autocomplete function will not
     // have to query it every time.
     $_SESSION['fb_form_friend_selector_result'] = $result;
@@ -343,7 +343,7 @@ function fb_form_friend_selector_autocomplete($string) {
   $typed_names = $preg_matches[1];
   $last_string = trim(array_pop($typed_names));
   $prefix = count($typed_names) ? implode(', ', $typed_names) .', ' : '';
-  
+
   // Get list of friends from session
   $result = $_SESSION['fb_form_friend_selector_result'];
 
@@ -361,7 +361,7 @@ function fb_form_friend_selector_autocomplete($string) {
 
   if (count($matches))
     print drupal_to_js($matches);
-   
+
   exit();
 }
 
@@ -395,7 +395,7 @@ function fb_form_friend_selector_validate($element, $set_errors = TRUE) {
         if ($found) {
           // TODO: handle name collisions more gracefully!
           if ($set_errors)
-            form_set_error(implode('][', $element['#parents']), 
+            form_set_error(implode('][', $element['#parents']),
                            t('\'%name\' matched more than one friend.', array('%name' => $name)));
           $found = -1;
         }
@@ -409,7 +409,7 @@ function fb_form_friend_selector_validate($element, $set_errors = TRUE) {
     }
     elseif ($found == 0)
       if ($set_errors)
-        form_set_error(implode('][', $element['#parents']), 
+        form_set_error(implode('][', $element['#parents']),
                        t('Could not find a friend named \'%name\'.', array('%name' => $name)));
   }
   // Make the submitted value a list of ids, not a comma-seperated list of names.
@@ -435,8 +435,8 @@ function fb_form_theme() {
 }
 
 function theme_fb_form_multi_friend_selector($elements) {
-  $output = "<fb:multi-friend-selector " . drupal_attributes($elements['#attributes']) . ">" . 
-    (isset($elements['#children']) ? $elements['#children'] : '') . 
+  $output = "<fb:multi-friend-selector " . drupal_attributes($elements['#attributes']) . ">" .
+    (isset($elements['#children']) ? $elements['#children'] : '') .
     "</fb:multi-friend-selector>\n";
   return $output;
 }
@@ -446,8 +446,8 @@ function theme_fb_form_requestform($elements) {
   if (is_array($elements['#attributes']['content'])) {
     $elements['#attributes']['content'] = drupal_render($elements['#attributes']['content']);
   }
-  $output = "<fb:request-form " . drupal_attributes($elements['#attributes']) . ">". 
-    (isset($elements['#children']) ? $elements['#children'] : '') . 
+  $output = "<fb:request-form " . drupal_attributes($elements['#attributes']) . ">".
+    (isset($elements['#children']) ? $elements['#children'] : '') .
     "</fb:request-form>\n";
   return $output;
 }
@@ -459,7 +459,7 @@ function theme_fb_form_req_choice($elements) {
 }
 
 function theme_fb_form_serverfbml($elements) {
-  $output = '<fb:serverfbml ' . (isset($elements['#attributes']) ? drupal_attributes($elements['#attributes']) : '') . '><script type="text/fbml">' .  
+  $output = '<fb:serverfbml ' . (isset($elements['#attributes']) ? drupal_attributes($elements['#attributes']) : '') . '><script type="text/fbml">' .
     $elements['#children'] . "</script></fb:serverfbml>\n";
   return $output;
 }

@@ -42,7 +42,7 @@ function fb_friend_menu() {
     'access callback' => TRUE,
     'type' => MENU_CALLBACK,
   );
-  
+
   return $items;
 }
 
@@ -55,16 +55,16 @@ function fb_friend_request_submit_page() {
     $params[$key] = $value;
     $i += 2;
   }
-  
+
   if (isset($_POST['ids']) && count($_POST['ids'])) {
     $params['ids'] = $_POST['ids'];
-  
+
     // Notify third parties
     $redirect = fb_invoke(FB_FRIEND_OP_REQUEST_SUBMIT, $params, NULL, 'fb_friend');
   }
   else {
     // User pressed skip instead of inviting.
-    $redirect = fb_invoke(FB_FRIEND_OP_REQUEST_SKIP, $params, NULL, 'fb_friend');    
+    $redirect = fb_invoke(FB_FRIEND_OP_REQUEST_SKIP, $params, NULL, 'fb_friend');
   }
 
   if ($redirect) {
@@ -87,7 +87,7 @@ function fb_friend_request_accept_page() {
     $params[$key] = $value;
     $i += 2;
   }
-  
+
   if ($fbu = fb_facebook_user()) {
     // Confirm invitation is in the fb_friend table.
     $where = array('fbf.status > %d', 'fbf.fbu_target = %d');
@@ -112,7 +112,7 @@ function fb_friend_request_accept_page() {
     }
     $params['fb_friend'] = $rows;
   }
-  
+
   // Notify third parties
   $redirect = fb_invoke(FB_FRIEND_OP_REQUEST_ACCEPT, $params, NULL, 'fb_friend');
   if ($redirect) {
@@ -145,7 +145,7 @@ function fb_friend_request_accept_path($params) {
 /**
  * Implementation of hook_block().
  *
- * Blocks include 
+ * Blocks include
  * - Invite friends to install the application.
  * - Invite friends to visit the page currently being browsed.
  * - Show which friends are already users of the current application.
@@ -164,20 +164,20 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
     $items[FB_FRIEND_DELTA_AUTHORIZED] = array(
       'info' => t('Facebook friends who have authorized the current app'),
     );
-    
+
     return $items;
   }
   elseif ($op == 'view') {
     try { // Calls to facebook can fail.
-      
+
       // None of our blocks are shown if user is not logged in.
       $fbu = fb_facebook_user();
       if (!$fbu)
         return;
-      
+
       // Our blocks use current application
       global $_fb, $_fb_app;
-      
+
       if ($delta == FB_FRIEND_DELTA_INVITE_PAGE) {
         $content = fb_friend_request_content(
           array(
@@ -216,7 +216,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
             'title' => variable_get('site_name', $GLOBALS['_fb_app']->title),
             //'exclude_ids' => $exclude_ids,
           ));
-        
+
         return array('subject' => t('Invite friends to this application'),
                      'content' => drupal_render($content),
         );
@@ -244,7 +244,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
             'action' => $page_url,
             'method' => 'POST',
           ));
-      
+
         // Exclude users who have already installed.
         $rs = fb_fql_query($_fb, "SELECT uid FROM user WHERE has_added_app=1 and uid IN (SELECT uid2 FROM friend WHERE uid1 = $fbu)"); // FQL not SQL, no {curly_brackets}
         // @TODO - confirm new API returns same data structure in $rs!
@@ -254,20 +254,20 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
         if ($rs) {
           $exclude_ids .= $rs[0]["uid"];
           for ( $i = 1; $i < count($rs); $i++ ) {
-            if ( $exclude_ids != "" )      
+            if ( $exclude_ids != "" )
               $exclude_ids .= ",";
             $exclude_ids .= $rs[$i]["uid"];
           }
         }
-      
+
         $fbml['selector'] = fb_form_multi_selector(
           array('actiontext' => t('Invite friends'),
                 'exclude_ids' => $exclude_ids,
           ));
-      
+
         // Allow third-party to modify the form
         drupal_alter('fb_friend_invite_app', $fbml);
-      
+
         if ($fbml) {
           // Wrap in serverfbml.
           $xfbml = array('#type' => 'fb_form_serverfbml',
@@ -275,13 +275,13 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
         }
         // Allow third-party to modify wrapper
         drupal_alter('fb_friend_invite_app_wrap', $xfbml);
-        
+
         $content = drupal_render($xfbml);
         return array('subject' => t('Invite friends to use !site',
                                     array('!site' => $site_name)),
                      'content' => $content,
         );
-        
+
       }
       elseif ($delta == FB_FRIEND_DELTA_AUTHORIZED) {
         if ($fbu = fb_facebook_user()) {
@@ -295,10 +295,10 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
               $content .= "<fb:profile-pic uid={$friend_fbu} size=square></fb:profile-pic>";
             }
           }
-        
+
           $subject = t('Friends who use !app', array(
                        '!app' => $GLOBALS['_fb_app']->label));  // TODO - fix title
-          
+
           return array(
             'subject' => $subject,
             'content' => $content);
@@ -306,7 +306,7 @@ function fb_friend_block($op = 'list', $delta = 0, $edit = array()) {
       }
     }
     catch (Exception $e) {
-      // We reach this when Facebook Connect sessions are no longer valid.  
+      // We reach this when Facebook Connect sessions are no longer valid.
       // Javascript should detect this and refresh.  Relatively harmless.
       if (fb_verbose() === 'extreme') {
         fb_log_exception($e, t('Failed to render fb_friend block.'));
@@ -353,7 +353,7 @@ function fb_friend_invite_page_fbml($alter_hook = NULL, $submit_path = NULL, $ac
   }
   $submit_url = url($submit_path, array('absolute' => TRUE));
   $accept_url = url($accept_path, array('absolute' => TRUE));
-  
+
   // Build the alterable data structure.
   // http://developers.facebook.com/docs/reference/fbml/request-form
   $fbml = fb_form_requestform(
@@ -374,18 +374,18 @@ function fb_friend_invite_page_fbml($alter_hook = NULL, $submit_path = NULL, $ac
       'method' => 'POST',
       //'target' => '_top', // for canvas pages
     ));
-  
+
   $fbml['selector'] = fb_form_multi_selector(
     array(
       'actiontext' => t('Invite friends'),
       //'target' => '_top',
     ));
-  
+
   // Allow third-party to modify the form
   if (isset($alter_hook)) {
     drupal_alter($alter_hook, $fbml);
   }
-  
+
   if ($fbml) {
     // Wrap in serverfbml.
     $xfbml = array('#type' => 'fb_form_serverfbml',
@@ -393,7 +393,7 @@ function fb_friend_invite_page_fbml($alter_hook = NULL, $submit_path = NULL, $ac
                    '#prefix' => '<div class="fb-request-form">',
                    '#suffix' => '</div>',
     );
-    
+
     // Allow third-party to modify wrapper
     if (isset($alter_hook)) {
       drupal_alter($alter_hook . '_wrap', $xfbml);
@@ -437,10 +437,10 @@ function fb_friend_request_content($invite_data, $form_data) {
     'style' => NULL,
   );
   $params = array_merge($defaults, $form_data, $invite_data);
-  
+
   $submit_url = url($params['action_path'], array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
   $accept_url = url($params['accept_path'], array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
-  
+
   // Learn which users to exclude
   $result = db_query("SELECT fbu_target FROM {fb_friend} WHERE module='%s' AND fbu_actor=%d AND ref_id=%d",
                      $params['module'], fb_facebook_user(), $params['ref_id']);
@@ -451,7 +451,7 @@ function fb_friend_request_content($invite_data, $form_data) {
   if (!$params['title']) {
     $params['title'] = variable_get('site_name', $GLOBALS['_fb_app']->title);
   }
-  
+
   //dpm($params['exclude_ids'], "exclude_ids"); // debug
   // Build the alterable data structure.
   // http://developers.facebook.com/docs/reference/fbml/request-form
@@ -474,7 +474,7 @@ function fb_friend_request_content($invite_data, $form_data) {
       'target' => $params['target'],
     ));
 
-  
+
   $fbml['selector'] = fb_form_multi_selector(
     array(
       'actiontext' => t($params['action_text']),
@@ -488,12 +488,12 @@ function fb_friend_request_content($invite_data, $form_data) {
       $fbml['selector']['#attributes'][$key] = $params[$key];
     }
   }
-  
+
   // Allow third-party to modify the form
   if ($params['hook']) {
     drupal_alter($params['hook'], $fbml);
   }
-  
+
   if ($fbml) {
     // Wrap in serverfbml.
     $xfbml = array(
@@ -502,7 +502,7 @@ function fb_friend_request_content($invite_data, $form_data) {
       '#prefix' => '<div class="fb-request-form">',
       '#suffix' => '</div>',
     );
-    
+
     // Allow third-party to modify wrapper
     if ($params['hook']) {
       drupal_alter($params['hook'] . '_wrap', $xfbml);
@@ -533,7 +533,7 @@ function fb_friend_write_records($data, $targets) {
   if (!isset($row->label) && isset($GLOBALS['_fb_app'])) {
     $data['label'] = $GLOBALS['_fb_app']->label;
   }
-  
+
   $rows = array();
   foreach ($targets as $fbu) {
     $row = $data;

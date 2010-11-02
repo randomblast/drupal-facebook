@@ -4,13 +4,13 @@
  * @file
  * Makes development with Drupal for Facebook much easier.  Keep this
  * module enabled until you're confident your app works perfectly.
- * 
- * Produces warning messages and log messages 
+ *
+ * Produces warning messages and log messages
  * when it detects something is wrong with
  * your configuration.
- * 
+ *
  * Runs tests for Drupal's status page.
- * 
+ *
  */
 
 function fb_devel_menu() {
@@ -19,7 +19,7 @@ function fb_devel_menu() {
     'type' => MENU_CALLBACK,
     'access callback' => TRUE, /* TODO: restrict access */
   );
-  
+
   $items['fb/devel/fbu'] = array(
     'page callback' => 'fb_devel_fbu_page',
     'type' => MENU_CALLBACK,
@@ -29,9 +29,9 @@ function fb_devel_menu() {
   $items['fb/devel/tab'] = array(
     'page callback' => 'fb_devel_tab',
     'type' => MENU_CALLBACK,
-    'access callback' => TRUE, /* TODO: restrict access */    
+    'access callback' => TRUE, /* TODO: restrict access */
   );
-  
+
   // Return some info for debugging AHAH problems
   $items['fb/devel/js'] = array(
     'page callback' => 'fb_devel_js',
@@ -56,7 +56,7 @@ function fb_devel_init() {
   }
 
 
-  
+
   // $conf['fb_apikey'] sanity check
   if ($apikey = variable_get('fb_apikey', NULL)) {
     if ($label = variable_get(FB_CONNECT_VAR_PRIMARY, NULL)) {
@@ -94,9 +94,9 @@ function fb_devel_fb($op, $data, &$return) {
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
   $errors = 0;
-  
+
   if ($op == FB_OP_INITIALIZE) {
-    
+
     if (fb_settings(FB_SETTINGS_APIKEY) &&
         ($fb_app->apikey != fb_settings(FB_SETTINGS_APIKEY))) {
       $message = t('Drupal for Facebook has detected a problem.  The initialized app has an apikey (%fb_app_apikey), while the settings indicates a different apikey (%fb_settings_apikey).', array(
@@ -105,12 +105,12 @@ function fb_devel_fb($op, $data, &$return) {
                    ));
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
-      $errors++;      
+      $errors++;
     }
 
     // This value comes from url rewriting.  Recommended on canvas pages.
     $apikey = fb_settings(FB_SETTINGS_CB);
-    
+
     // Sanity check.
     if ($apikey && $apikey != $fb_app->apikey) {
       $message = t('fb_app id (%fb_app_id) does not equal fb settings id (%fb_settings_id).  This is usually caused by the wrong callback url on your <a href="!url">facebook application settings form</a>.',
@@ -122,7 +122,7 @@ function fb_devel_fb($op, $data, &$return) {
       watchdog('fb_devel', $message, array(), WATCHDOG_WARNING);
       $errors++;
     }
-    
+
     // Theme sanity check.  Earlier errors cause this to fail.
     global $theme; // for debug message
     if (!$errors && isset($theme) && !variable_get('site_offline', FALSE)) {
@@ -147,7 +147,7 @@ function fb_devel_fb($op, $data, &$return) {
         $errors++;
       }
     }
-    
+
     // path replacement sanity check
     global $base_path;
     if ($base_path == "/{$fb_app->canvas}/") {
@@ -156,7 +156,7 @@ function fb_devel_fb($op, $data, &$return) {
       drupal_set_message($message, 'error');
       watchdog('fb_devel', $message);
     }
-    
+
     // Old API Sanity check.
     if (isset($_REQUEST['fb_sig'])) {
       $message = t('Passed old-style fb_sig parameters.  Go to !url, edit your application.  Under "migrations" enable "new sdks".', array(
@@ -165,7 +165,7 @@ function fb_devel_fb($op, $data, &$return) {
       dpm($message);
       watchdog('fb_devel', $message);
     }
-    
+
     // server URL sanity check
     // This is an expensive test, because it invokes api_client.
     try {
@@ -185,15 +185,15 @@ function fb_devel_fb($op, $data, &$return) {
                          '%url' => $GLOBALS['base_url'],
                          '!applink' => l($fb_app->label, FB_PATH_ADMIN_APPS . '/' . $fb_app->label),
                        ));
-            
+
             if (user_access('access administration pages')) {
               drupal_set_message($message, 'error');
             }
-            watchdog('fb_devel', $message);      
+            watchdog('fb_devel', $message);
           }
         }
       }
-    } 
+    }
     catch (Exception $e) {
       dpm($e, __FUNCTION__);
       if ($e->getCode() == 102) {
@@ -206,7 +206,7 @@ function fb_devel_fb($op, $data, &$return) {
 
     // App data sanity checks.
     $fb_app_data = fb_get_app_data($fb_app);
-    
+
     // Account mapping format has changed!
     if (isset($fb_app_data['fb_user']) && !is_array($fb_app_data['fb_user']['map_account'])) {
       $message = 'The options for mapping facebook account to local accounts has changed.  You must manually <a href=!url>edit your application</a>.  Look for the map accounts options under facebook user settings.';
@@ -218,7 +218,7 @@ function fb_devel_fb($op, $data, &$return) {
     }
 
   }
-  
+
   elseif ($op == FB_APP_OP_EVENT) {
     $type = $data['event_type'];
     // Facebook has notified us of some event.
@@ -234,7 +234,7 @@ function fb_devel_fb($op, $data, &$return) {
     // Start debugger
     //$return[] = "debugger; // added by fb_devel.module";
   }
-  
+
   elseif ($op == FB_OP_POST_INIT) {
     if (isset($_SESSION['fb_devel'])) {
       // Counter helps track how long session has been around.
@@ -243,7 +243,7 @@ function fb_devel_fb($op, $data, &$return) {
     else {
       $_SESSION['fb_devel']['FB_OP_POST_INIT'] = 1;
     }
-    
+
     // Javascript to help us with sanity checks.
     drupal_add_js(array(
                     'fb_devel' => array(
@@ -276,10 +276,10 @@ function fb_devel_page() {
 
   if (isset($_REQUEST['require_login']) && $_REQUEST['require_login'])
     $_fb->require_login();  // @TODO - find a way to do this with new api.
-  
+
   if ($_fb) {
     // TODO: determine whether connect page or canvas.
-    
+
     drupal_set_message(t("session name: " . session_name()));
     drupal_set_message(t("cookie domain: " . fb_settings(FB_SETTINGS_COOKIE_DOMAIN)));
     drupal_set_message(t("session id: " . session_id()));
@@ -287,7 +287,7 @@ function fb_devel_page() {
       drupal_set_message(t("fbs_" . $_fb_app->apikey . ": " . $_COOKIE["fbs_" . $_fb_app->apikey]));
     drupal_set_message(t("<a href=\"!url\">processed link</a>, <a href=!url>unprocessed</a>", array('!url' => url('fb/devel'))));
     drupal_set_message(t("getUser() returns " . $_fb->getUser()));
-    
+
     drupal_set_message(t("base_url: " . $GLOBALS['base_url']));
     drupal_set_message(t("base_path: " . $GLOBALS['base_path']));
     drupal_set_message(t("url() returns: " . url()));
@@ -301,7 +301,7 @@ function fb_devel_page() {
 
   dpm(fb_get_fbu($user), 'Facebook user via fb_get_fbu');
   //dpm($user, "Local user " . theme('username', $user));
-  
+
   if (isset($GLOBALS['fb_connect_apikey'])) {
     drupal_set_message(t("fb_connect_apikey = " . $GLOBALS['fb_connect_apikey']));
   }
@@ -319,7 +319,7 @@ function fb_devel_page() {
 
 /**
  * Provides a profile tab (FBML) with useful debug info.
- * 
+ *
  */
 function fb_devel_tab() {
   global $_fb, $_fb_app;
@@ -350,7 +350,7 @@ function fb_devel_tab() {
     catch (Exception $e) {
       $info["fb->api(/$fbu)"] = $e->getMessage();
     }
-    
+
     if ($app_id = $_REQUEST['fb_sig_app_id']) {
       try {
         $info['fb->api(fb_sig_app_id)'] = $_fb->api($_REQUEST['fb_sig_app_id']);
@@ -360,7 +360,7 @@ function fb_devel_tab() {
       }
     }
   }
-  
+
   print '<p>fb_devel.module tab</p>';
   foreach ($info as $key => $value) {
     print "<p>$key:\n";
@@ -375,7 +375,7 @@ function fb_devel_tab() {
     }
     print "\n</p>\n\n";
   }
-  
+
   exit();
 }
 
@@ -419,7 +419,7 @@ function fb_devel_fbu_page($fbu = NULL) {
       fb_log_exception($e, t('Failed to lookup friends of facebook user %fbu', array('%fbu' => $fbu)));
     }
 
-    
+
     $local_friends = fb_user_get_local_friends($fbu);
 
     $items = array();
@@ -477,7 +477,7 @@ function fb_devel_info() {
   global $base_path;
 
   $info = array();
-  
+
   if ($_fb) {
     if (fb_settings(FB_SETTINGS_TYPE) == FB_SETTINGS_TYPE_CANVAS) {
       $info['Page Status'] = t('Serving canvas page.');
@@ -505,7 +505,7 @@ function fb_devel_info() {
     //$link_test = url(fb_scrub_urls($_REQUEST['q']), array('absolute' => TRUE));
     //$info['link test'] = "<a href=\"$link_test\">link test (processed)</a>";
     //$info['link test 2'] = "<a href='$link_test'>link test (not processed)</a>";
-    
+
     if (!fb_api_check_session($_fb)) {
       $info['fb_api_check_session()'] = t('Returned FALSE');
     }
@@ -532,7 +532,7 @@ function fb_devel_info() {
   $info['session'] = $_SESSION;
   $info['cookies'] = $_COOKIE;
 
-  
+
   if ($_fb) {
     $info['signed_request'] = $_fb->getSignedRequest();
     try {
@@ -544,7 +544,7 @@ function fb_devel_info() {
                            'access_token' => $token,
                          ));
       $info['application properties'] = $props;
-      
+
     }
     catch (FacebookApiException $e) {
       fb_log_exception($e, "failed to get app properties");
@@ -559,10 +559,10 @@ function fb_devel_info() {
       }
       catch (FacebookApiException $e) {
         fb_log_exception($e, "failed to look up _fb->api($fbu)");
-      }    
+      }
     }
   }
-  
+
   $form = array();
   foreach ($info as $key => $val) {
     if (is_string($val) || is_numeric($val) || !$val) {
@@ -570,7 +570,7 @@ function fb_devel_info() {
                       '#weight' => count($form),
                       '#suffix' => '<br/>',
       );
-      
+
     }
     else {
       $form[] = array(
@@ -632,7 +632,7 @@ function fb_devel_user($op, &$edit, &$account, $category = NULL) {
                 '#type' => 'markup',
                 '#value' => dprint_r($e, 1),
               ),
-            );            
+            );
           }
         }
         else {
@@ -656,7 +656,7 @@ function fb_devel_user($op, &$edit, &$account, $category = NULL) {
 function fb_devel_cron() {
   $limit = 10;
   $result = db_query('SELECT * FROM {users} WHERE data LIKE "%\"app_specific\"%" OR data LIKE "%\"is_app_user\"%" OR data LIKE "%\"fbu\"%" LIMIT %d', $limit);
-  
+
   while ($account = db_fetch_object($result)) {
     $data = unserialize($account->data);
     // Clean out the bogus data.

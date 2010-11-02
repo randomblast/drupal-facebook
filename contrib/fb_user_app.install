@@ -3,7 +3,7 @@
 /**
  * @file
  * Install file for fb_user.module.
- * 
+ *
  */
 
 /**
@@ -18,10 +18,10 @@ function fb_user_app_install() {
  * Implementation of hook_uninstall().
  */
 function fb_user_app_uninstall() {
-  
+
   // Remove tables.
   drupal_uninstall_schema('fb_user_app');
-  
+
   // Remove variables.
   variable_del(FB_USER_APP_VAR_TRACK_EVERY_PAGE);
   variable_del(FB_USER_APP_VAR_USERS_THAT_GRANT_OFFLINE);
@@ -60,7 +60,7 @@ function fb_user_app_schema() {
     ),
     'primary key' => array('apikey', 'fbu'),
   );
-    
+
   return $schema;
 }
 
@@ -130,7 +130,7 @@ function fb_user_app_update_6004() {
 
 function fb_user_app_update_6005() {
   $ret = array();
-  
+
   // Making uid unique was a bad idea.  It can be 0.
   // One of the following should work, depending on whether the key was added during install or update.
   // The other will create a warning, unfortunately.
@@ -151,6 +151,6 @@ function fb_user_app_update_6006() {
 
 function fb_user_app_update_6007() {
   $ret = array();
-  db_drop_field($ret, 'fb_user_app', 'uid');  
+  db_drop_field($ret, 'fb_user_app', 'uid');
   return $ret;
 }

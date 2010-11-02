@@ -4,7 +4,7 @@
  * @file
  * Admin pages and forms for fb_user_app module, which tracks
  * various events within Drupal for Facebook.
- * 
+ *
  */
 
 /**
@@ -37,7 +37,7 @@ function fb_user_app_admin_settings() {
     '#default_value' => variable_get(FB_USER_APP_VAR_USERS_THAT_GRANT_OFFLINE, FALSE),
     '#weight' => -1,
   );
-  
+
   return system_settings_form($form);
 }
 

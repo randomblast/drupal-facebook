@@ -4,7 +4,7 @@
 /**
  * @file
  * Admin pages and forms for user settings.
- * 
+ *
  */
 
 // TODO: add pages to view data in the fb_user_app table.
@@ -26,7 +26,7 @@ function fb_user_admin_settings() {
 
   // Name options for automatically created user accounts.
   $default = variable_get(FB_USER_VAR_USERNAME_STYLE, FB_USER_OPTION_USERNAME_FBU);
-  
+
   $form[FB_USER_VAR_USERNAME_STYLE] = array(
     '#type' => 'radios',
     '#title' => t('Username Style for Automatically Created Accounts'),
@@ -37,7 +37,7 @@ function fb_user_admin_settings() {
     ),
     '#default_value' => $default,
   );
-  
+
   $form['fb_user_alter'] = array(
     '#type' => 'fieldset',
     '#title' => t('Form alters'),
@@ -107,7 +107,7 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
   if (isset($form['fb_app_data'])) {
     $fb_app = $form['#fb_app'];
     $fb_user_data = _fb_user_get_config($fb_app);
-    
+
     $form['fb_app_data']['fb_user'] = array(
       '#type' => 'fieldset',
       '#title' => t('Facebook user settings'),
@@ -115,7 +115,7 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
       '#collapsible' => TRUE,
       '#collapsed' => isset($fb_app->label),
     );
-        
+
     $form['fb_app_data']['fb_user']['create_account'] = array(
       '#type' => 'radios',
       '#title' => t('Create local account'),

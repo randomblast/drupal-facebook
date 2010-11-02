@@ -3,7 +3,7 @@
 /**
  * @file
  * Admin pages and forms for facebook applications.
- * 
+ *
  */
 
 include drupal_get_path('module', 'fb') . '/fb.admin.inc';
@@ -14,7 +14,7 @@ include drupal_get_path('module', 'fb') . '/fb.admin.inc';
 function fb_app_fb_admin($op, $data, &$return) {
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
-  
+
   if ($op == FB_ADMIN_OP_SET_PROPERTIES) {
     // URLs for Facebook events we support.
     $return['uninstall_url'] = url(FB_APP_PATH_EVENT . '/' . $fb_app->label . "/" . FB_APP_EVENT_POST_REMOVE . '/',
@@ -50,7 +50,7 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     drupal_not_found();
     exit();
   }
-  
+
   if (!isset($fb_app)) {
     // Defaults for new app.
     $fb_app = (object) array(
@@ -67,11 +67,11 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
   else {
     //drupal_set_title(t('Edit %label', array('%label' => $fb_app->label)));
   }
-  
-  $form['#fb_app'] = $fb_app; // Similar to #node 
-  
+
+  $form['#fb_app'] = $fb_app; // Similar to #node
+
   //$form['#node'] = (object) array('fb_app' => $fb_app);  // deprecated! backward compatibility!
-  
+
   if (!$fb_app->label) {
     // Helpful link
     // http://wiki.developers.facebook.com/index.php/How_To_Write_A_Good_Connect_Plugin
@@ -91,7 +91,7 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
       '#weight' => -10,
     );
   }
-  
+
   $form['label'] = array(
     '#type' => 'textfield',
     '#title' => t('Label'),
@@ -128,10 +128,10 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#default_value' => $fb_app->id,
     '#description' => t('Facebook will generate this value when you create the application.'),
   );
-  
+
   // fb_app_data is a placeholder where other modules can attach settings.
-  $form['fb_app_data'] = array('#tree' => TRUE);  
-  
+  $form['fb_app_data'] = array('#tree' => TRUE);
+
   // Add our own fields to fb_app_data.  Other modules use hook_form_alter to do this.
 
   $data = fb_get_app_data($fb_app);
@@ -148,7 +148,7 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
     '#value' => t('Save'),
     '#weight' => 5,
   );
-  
+
   $form['#submit'] = array('fb_app_admin_form_submit');
   if ($fb_app->fba_id) {
     $form['buttons']['delete'] = array(
@@ -168,7 +168,7 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
 function fb_app_edit_form_validate($form, &$form_state) {
   $fb_app = (object) $form_state['values'];
   $fb_app->data = serialize($fb_app->fb_app_data);
-  
+
   if ($form_state['values']['op'] != t('Delete')) {
     // Labels must be alphanumeric.
     if (preg_match('/[^a-zA-Z0-9_]/', $fb_app->label)) {
@@ -196,14 +196,14 @@ function fb_app_edit_form_validate($form, &$form_state) {
 function fb_app_admin_form_submit($form, &$form_state) {
   $fb_app = (object)$form_state['values'];
   $fb_app->data = serialize($fb_app->fb_app_data);
-  
+
   // Get canvas_name, application_name from facebook.
   fb_admin_get_app_properties($fb_app);
-  
+
   $orig_app = $form['#fb_app'];
   if ($orig_app->fba_id) {
     // Updating.
-    
+
     db_query("UPDATE {fb_app} SET label='%s', status = %d, apikey='%s', secret='%s', id='%s', canvas='%s', title='%s',data='%s' WHERE fba_id = %d",
              $fb_app->label,
              $fb_app->status,
@@ -214,16 +214,16 @@ function fb_app_admin_form_submit($form, &$form_state) {
              $fb_app->application_name, // From facebook, not form.
              $fb_app->data,
              $orig_app->fba_id);
-    
+
     watchdog('fb_app', 'Updated Facebook Application %label.',
              array('%label' => $fb_app->label,
              ),
              WATCHDOG_NOTICE,
              l(t('view apps'), FB_PATH_ADMIN_APPS));
-    
+
     drupal_set_message(t('Saved changes to facebook application %title (%label).',
                          array('%title' => $fb_app->application_name,
-                               '%label' => $fb_app->label))); 
+                               '%label' => $fb_app->label)));
   }
   else {
     // Inserting.
@@ -236,22 +236,22 @@ function fb_app_admin_form_submit($form, &$form_state) {
              $fb_app->canvas_name, // From facebook, not form.
              $fb_app->application_name, // From facebook, not form.
              $fb_app->data);
-    
+
     watchdog('fb_app', 'Created Facebook Application %label.',
              array('%label' => $fb_app->label,
              ),
              WATCHDOG_NOTICE,
              l(t('view apps'), FB_PATH_ADMIN_APPS));
-    
+
     drupal_set_message(t('Created facebook application %title (%label).',
                          array('%label' => $fb_app->label,
                                '%title' => $fb_app->application_name)));
   }
-  
+
   if ($fb_app->status) {
     fb_app_set_app_properties($fb_app); // Set callback URL, etc.
   }
-  
+
   $form_state['redirect'] = FB_PATH_ADMIN;
 }
 
@@ -277,7 +277,7 @@ function fb_app_admin_delete_confirm_form(&$form_state, $fb_app) {
     '#type' => 'value',
     '#value' => $fb_app->fba_id,
   );
-  
+
   return confirm_form($form,
                       t('Are you sure you want to delete %title?', array('%title' => $fb_app->title)),
                       isset($_GET['destination']) ? $_GET['destination'] : FB_PATH_ADMIN_APPS . '/' . $fb_app->label,
@@ -295,7 +295,7 @@ function fb_app_admin_delete_confirm_form_submit($form, &$form_state) {
     $fba_id = $form_state['values']['fba_id'];
 
     // @TODO: invoke hooks so that third-party modules may act.
-    
+
     db_query("DELETE FROM {fb_app} WHERE fba_id = %d",
              $fba_id);
   }
@@ -306,7 +306,7 @@ function fb_app_admin_delete_confirm_form_submit($form, &$form_state) {
 
 
 /**
- * Sets callback URLs and other properties of a facebook app.  Calls the facebook 
+ * Sets callback URLs and other properties of a facebook app.  Calls the facebook
  */
 function fb_app_set_app_properties($fb_app) {
   $data = fb_get_app_data($fb_app);

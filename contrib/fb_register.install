@@ -3,7 +3,7 @@
 /**
  * @file
  * Install file to support fb_register.module.
- * 
+ *
  */
 
 function fb_register_install() {

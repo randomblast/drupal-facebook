@@ -21,7 +21,7 @@ function theme_fb_login_button($text = '', $options = array()) {
       $options['attributes']['perms'] = implode(',', $perms);
     }
   }
-  
+
   $button = '<fb:login-button ' . drupal_attributes($options['attributes']) . '>' .
     ($text ? '<fb:intl>' . check_plain($text) . '</fb:intl>' : '') . '</fb:login-button>';
   return $button;
@@ -42,7 +42,7 @@ function theme_fb_username($fbu, $object, $orig) {
     $wrap_post = '</a>' . $wrap_post;
     $ifcantsee = 'ifcantsee="' . addslashes(check_plain($object->name)) . '"';
   }
-  
+
   $fbml = "<fb:name linked=false useyou=false uid=\"$fbu\" $ifcantsee></fb:name>";  $output =  $wrap_pre . $fbml . $wrap_post;
 
   return $output;
@@ -67,8 +67,8 @@ function theme_fb_user_picture($fbu, $object, $orig) {
 function theme_fb_fbml_popup($elem) {
   // Hide this markup until javascript shows it.
   $t = '<div class="fb_fbml_popup_wrap" style="display:none;" ' . ">\n";
-  
-  $t .= '<a href="#" title="' . check_plain($elem['#title']) . '" ' . 
+
+  $t .= '<a href="#" title="' . check_plain($elem['#title']) . '" ' .
     (isset($elem['#link_attributes']) ? drupal_attributes($elem['#link_attributes']) : '') .
     '>' . check_plain($elem['#link_text']) .'</a>';
   $t .= '<div class="fb_fbml_popup" ' . drupal_attributes($elem['#attributes']) . '>';

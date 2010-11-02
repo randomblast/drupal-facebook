@@ -1,7 +1,7 @@
 Drupal for Facebook
 -------------------
 
-More information: 
+More information:
 http://www.drupalforfacebook.org, http://drupal.org/project/fb
 
 Primary author and maintainer: Dave Cohen (http://www.dave-cohen.com/contact)
@@ -16,8 +16,8 @@ To upgrade:
 - Read the upgrade instructions: http://drupal.org/node/761886
 
 To install:
-   
-- Make sure you have an up-to-date PHP client from facebook.  
+
+- Make sure you have an up-to-date PHP client from facebook.
   Download from http://github.com/facebook/php-sdk.
   Extract the files, and place them in sites/all/libraries/facebook-php-sdk.
 
@@ -29,8 +29,8 @@ To install:
   $conf['fb_api_file'] = 'sites/all/libraries/facebook-php-sdk/src/facebook.php';
 
 - Your theme needs the following attribute at the end of the <html> tag:
-  
-  xmlns:fb="http://www.facebook.com/2008/fbml" 
+
+  xmlns:fb="http://www.facebook.com/2008/fbml"
 
   Typically, this means editing your theme's page.tpl.php file.  See
   http://www.drupalforfacebook.org/node/1106.  Note this applies to
@@ -66,7 +66,7 @@ To install:
   fb_canvas.module for Canvas Page apps.
 
 
-To support Facebook Connect and/or Canvas Pages, read on...  
+To support Facebook Connect and/or Canvas Pages, read on...
 
 
 - You must enable clean URLs.  If you don't, some links that drupal
@@ -100,7 +100,7 @@ Enable the fb_devel.module and add the block it provides (called
 Disable Global Redirect, if you have that module installed.  Users
 have reported problems with it and Drupal for Facebook.
 
-Bug reports and feature requests may be submitted.  
+Bug reports and feature requests may be submitted.
 Here's an idea: check the issue queue before you submit
 http://drupal.org/project/issues/fb
 

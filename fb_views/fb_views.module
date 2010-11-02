@@ -90,12 +90,12 @@ function fb_views_views_data() {
 
 /**
  * Introduce a theme style that mimics a facebook discussion board.
- * 
+ *
  * To use: make a theme which provides a page view, and select view type
  * 'Facebook Discussion'.  Then under Fields, include Node: Title, Node:
  * Created Time, Node: Author Name, Comment: Count, Comment: Last Comment
  * Author, Comment: Last Comment Time.
- * 
+ *
  * It may not look exactly like a facebook discussion, but comes close.
  */
 function fb_views_views_style_plugins() {
@@ -119,7 +119,7 @@ function fb_views_views_style_plugins() {
 
 function theme_views_fb_discussion($view, $nodes, $type) {
   //drupal_set_message("theme_views_fb_discussion, type is '$type'" . print_r($view, 1) . dprint_r($nodes, 1));  // debug
-  
+
   if ($type == 'page') {
     // use tablesort code to generate the sort links.
     $sorts = array();
@@ -129,7 +129,7 @@ function theme_views_fb_discussion($view, $nodes, $type) {
       $sorts[] = $th['data'];
     }
     $output .= theme('sortable_header_links', $sorts);
-    
+
     $output .= theme('fb_discussion_nodes', $view, $nodes);
   }
   elseif ($type == 'block') {

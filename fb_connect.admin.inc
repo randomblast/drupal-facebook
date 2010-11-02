@@ -3,7 +3,7 @@
 /**
  * @file
  * Admin pages and forms for connect settings.
- * 
+ *
  */
 
 /**
@@ -28,7 +28,7 @@ function fb_connect_get_connect_url($fb_app) {
   global $base_url;
 
   return $base_url . '/';
-  
+
 }
 
 
@@ -46,7 +46,7 @@ function fb_connect_admin_settings() {
     drupal_set_message($message, 'error');
     return array('help' => array('#value' => $message));
   }
-  
+
   $form[FB_CONNECT_VAR_PRIMARY] = array(
     '#type' => 'select',
     '#options' => $options,
@@ -54,7 +54,7 @@ function fb_connect_admin_settings() {
     '#description' => t('Inialize one application on every page.'),
     '#default_value' => variable_get(FB_CONNECT_VAR_PRIMARY, NULL),
   );
-  
+
   $form['theme_settings'] = array(
     '#type' => 'fieldset',
     '#title' => t('Theme overrides'),

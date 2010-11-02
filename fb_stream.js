@@ -4,7 +4,7 @@
 FB_Stream = function(){};
 
 /**
- * Display a stream dialog on Facebook Connect pages, via 
+ * Display a stream dialog on Facebook Connect pages, via
  * http://developers.facebook.com/docs/reference/javascript/FB.ui
  *
  * @param json is the json-encoded output of fb_stream_get_stream_dialog_data().

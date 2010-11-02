@@ -22,7 +22,7 @@ Drupal.behaviors.fb_connect = function(context) {
 
   // Support markup for dialog boxes.
   FB_Connect.enablePopups(context);
-  
+
 };
 
 
@@ -72,11 +72,11 @@ FB_Connect.enablePopups = function(context) {
       $(this).next().remove(); // Remove FBML so facebook does not expand it.
     })
     // Handle clicks on the link element.
-    .bind('click', 
+    .bind('click',
           function (e) {
             var popup;
             //console.log('Clicked!  Will show ' + this.fbml_popup); // debug
-	    
+
 	    // http://forum.developers.facebook.net/viewtopic.php?pid=243983
 	    var size = FB.UIServer.Methods["fbml.dialog"].size;
 	    if (this.fbml_popup_width) {
@@ -86,7 +86,7 @@ FB_Connect.enablePopups = function(context) {
 	      size.height=this.fbml_popup_height;
 	    }
 	    FB.UIServer.Methods['fbml.dialog'].size = size;
-	    
+
 	    // http://forum.developers.facebook.net/viewtopic.php?id=74743
 	    var markup = this.fbml_popup;
 	    if ($(this).attr('title')) {
@@ -102,12 +102,12 @@ FB_Connect.enablePopups = function(context) {
 	    var popup = FB.ui(dialog, function (response) {
 	      console.log(response);
 	    });
-	    
+
 	    // Start a timer to keep popups centered.
 	    // @TODO - avoid starting timer more than once.
 	    window.setInterval(FB_Connect.centerPopups, 500);
-	    
-            e.preventDefault();      
+
+            e.preventDefault();
           })
     .parent().show();
 };

@@ -10,7 +10,7 @@ var Ahah = Ahah || {};
 
 Ahah.update = function(e) {
 
-  e.preventDefault(); // prevent click from submitting.  
+  e.preventDefault(); // prevent click from submitting.
   var target = e.target;
   var element = target.fb_ahah_element;
   var wrapper = document.getElementById(element.wrapper);
@@ -18,15 +18,15 @@ Ahah.update = function(e) {
 
   // let user know something is going on
   e.target.setDisabled(true);
-  
+
   wrapper.setStyle('opacity', '0.3');
-  
+
   var progress = document.createElement('div').setClassName('ahah_progress').setStyle({position: 'absolute', opacity: '1'});
   progress.setInnerXHTML('<img src="' + imgSrc + '" />');
   wrapper.insertBefore(progress);
 
   var uri = Drupal.settings.fbjs.baseUrlFb + element.path;
-  
+
   var ajax = new Ajax();
   ajax.responseType = Ajax.RAW;
   ajax.onerror = function() {
@@ -44,7 +44,7 @@ Ahah.update = function(e) {
     // In case the new data includes AHAH elements, we need to process them again
     Ahah.attach_all_bindings();
   };
-  
+
   // TODO: make requireLogin dynamic
   //ajax.requireLogin = false;
   ajax.post(uri);
@@ -63,7 +63,7 @@ Ahah.attach_to_element = function(element) {
       elem.addEventListener(element.event, Ahah.update);
     }
   }
-}; 
+};
 
 /**
  *  Attach listeners to all elements

@@ -9,7 +9,7 @@ window.fbAsyncInit = function() {
     settings.status = true;
     settings.cookie = true;
   }
-  
+
   FB.init(settings);
 
   // Async function to complete init.
@@ -24,7 +24,7 @@ window.fbAsyncInit = function() {
 
     // Q: what the heck is "edge.create"? A: the like button was clicked.
     FB.Event.subscribe('edge.create', FB_JS.edgeCreate);
-    
+
     // Other events that may be of interest...
     //FB.Event.subscribe('auth.login', FB_JS.debugHandler);
     //FB.Event.subscribe('auth.logout', FB_JS.debugHandler);
@@ -84,7 +84,7 @@ FB_JS.reload = function(destination) {
   else {
     destination = window.location.href;
   }
-  
+
   // Split and parse destination
   var path;
   if (destination.indexOf('?') == -1) {
@@ -95,7 +95,7 @@ FB_JS.reload = function(destination) {
     vars = FB_JS.getUrlVars(destination);
     path = destination.substr(0, destination.indexOf('?'));
   }
-  
+
   // Add _fb_js_fbu to params before reload.
   if (fbu) {
     vars.push('_fb_js_fbu=' + fbu);
@@ -109,7 +109,7 @@ FB_JS.reload = function(destination) {
 // Facebook pseudo-event handlers.
 FB_JS.sessionChange = function(response) {
   var status = {'changed': false, 'fbu': null, 'session': response.session, 'response' : response};
-  
+
   if (response.session) {
     status.fbu = response.session.uid;
     if (Drupal.settings.fb.fbu != status.fbu) {
@@ -120,12 +120,12 @@ FB_JS.sessionChange = function(response) {
   else if (Drupal.settings.fb.fbu) {
     // A user has logged out.
     status.changed = true;
-    
+
     // Sometimes Facebook's invalid cookies are left around.  Let's try to clean up their crap.
     // @TODO - delete cookie only if it exists.
     FB_JS.deleteCookie('fbs_' + Drupal.settings.fb.apikey, '/', '');
   }
-  
+
   if (status.changed) {
     // fbu has changed since server built the page.
     jQuery.event.trigger('fb_session_change', status);
@@ -133,12 +133,12 @@ FB_JS.sessionChange = function(response) {
     // Remember the fbu.
     Drupal.settings.fb.fbu = status.fbu;
   }
-  
+
 };
 
 FB_JS.edgeCreate = function(href, widget) {
   var status = {'href': href};
-  FB_JS.ajaxEvent('edge.create', status);  
+  FB_JS.ajaxEvent('edge.create', status);
 };
 
 // Helper function for developers.
@@ -152,7 +152,7 @@ FB_JS.sessionChangeHandler = function(context, status) {
   var data = {
     'event_type': 'session_change'
   };
-  
+
   if (status.session) {
     data.fbu = status.session.uid;
     // Suppress facebook-controlled session.
@@ -219,7 +219,7 @@ Drupal.behaviors.fb = function(context) {
   if (!events || !events.fb_session_change) {
     jQuery(document).bind('fb_session_change', FB_JS.sessionChangeHandler);
   }
-  
+
   if (typeof(FB) == 'undefined') {
     // Include facebook's javascript.  @TODO - determine locale dynamically.
     jQuery.getScript(Drupal.settings.fb.js_sdk_url);

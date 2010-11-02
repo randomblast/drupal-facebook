@@ -3,7 +3,7 @@
 /**
  * @file
  * Admin pages and forms for Drupal for Facebook.
- * 
+ *
  */
 
 
@@ -22,27 +22,27 @@ define('FB_ADMIN_OP_LOCAL_LINKS', 'fb_admin_links');
 function fb_admin_page() {
   $apps = fb_get_all_apps();
   $output = ''; // Avoid PHP notice.
-  
+
   if (count($apps)) {
     $header = array(
-      t('Label'), 
-      t('About'), 
-      t('Canvas'), 
-      t('Local Operations'), 
+      t('Label'),
+      t('About'),
+      t('Canvas'),
+      t('Local Operations'),
       t('Remote Settings'),
     );
-    
+
     foreach ($apps as $fb_app) {
       // Get properties from facebook.
       fb_admin_get_app_properties($fb_app);
-      
+
       $row = array();
       // Title.
       $row[] = $fb_app->label . ($fb_app->status ? '' : ' ' . t('(<em>not enabled</em>)'));
-      
+
       // About.
       $row[] = l($fb_app->application_name, 'http://www.facebook.com/apps/application.php?id=' . $fb_app->id);
-      
+
       // Canvas Page.
       if (FALSE && $fb_app->canvas_name != $fb_app->canvas) { // @TODO: re-enable when app props are supported.
         drupal_set_message(t('Canvas page for %label is out of sync!  Facebook believes it is %fbcanvas, while our database believes %canvas.  Edit and save the application to remedy this.', array('%label' => $fb_app->label, '%fbcanvas' => $fb_app->canvas_name, '%canvas' => $fb_app->canvas)), 'error');
@@ -61,7 +61,7 @@ function fb_admin_page() {
                         t('set props') => FB_PATH_ADMIN_APPS . '/' . $fb_app->label . '/fb/set_props',
                   ),
                   FB_ADMIN_HOOK);
-      
+
       $links = array();
       foreach ($local_links as $title => $href) {
         $links[] = array(
@@ -70,15 +70,15 @@ function fb_admin_page() {
         );
       }
       $row[] = theme('links', $links);
-      
+
       // Remote Settings
       $row[] = l($fb_app->id, 'http://www.facebook.com/developers/editapp.php?app_id=' . $fb_app->id);
-      
+
       $rows[] = $row;
     }
-    
+
     $output .= theme('table', $header, $rows);
-    
+
   }
   else {
     $output = t('Start by creating an application.');
@@ -100,8 +100,8 @@ function fb_admin_app_page($fb_app = NULL) {
 
   // @TODO use an actual theme function and make render more appealing.
   // Hide a couple things...
-  unset($fb_app->secret); 
-  unset($fb_app->data); 
+  unset($fb_app->secret);
+  unset($fb_app->data);
 
   // Warn user if values have changed since last edit.
   foreach (array('canvas_name' => 'canvas', 'application_name' => 'title') as $prop => $key) {
@@ -110,7 +110,7 @@ function fb_admin_app_page($fb_app = NULL) {
                            array('%prop' => $prop, '%value' => $fb_app->$prop)), 'error');
     }
   }
-  
+
   $props_map = array(
     t('Name') => 'name',
     t('Label') => 'label',
@@ -126,7 +126,7 @@ function fb_admin_app_page($fb_app = NULL) {
   }
   $output .= "</dl>\n";
   //$output .=  '<pre>' . print_r($fb_app, 1) . '</pre>'; // debug
-  
+
   return $output;
 }
 
@@ -151,7 +151,7 @@ function fb_admin_get_app_properties(&$fb_app) {
     );
     $props_map = fb_invoke(FB_ADMIN_OP_LIST_PROPERTIES, array('fb_app' => $fb_app), $props_map, FB_ADMIN_HOOK);
   }
-  
+
   if (!isset($cache[$fb_app->apikey])) {
     if ($fb = fb_api_init($fb_app)) {
       try {
@@ -167,7 +167,7 @@ function fb_admin_get_app_properties(&$fb_app) {
   else {
     $props = $cache[$fb_app->apikey];
   }
-  
+
   // Update $fb_app with the values we got from facebook api.
   foreach ($props_map as $key) {
     if ($props[$key]) {
@@ -207,7 +207,7 @@ function fb_admin_set_properties_form(&$form_state, $fb_app) {
   $props = fb_invoke(FB_ADMIN_OP_SET_PROPERTIES, array('fb_app' => $fb_app), array(), FB_ADMIN_HOOK);
 
   $form['#fb_props'] = $props;
-  
+
   $form['desc'] = array(
     '#type' => 'markup',
     '#value' => t('This will attempt to set the following application properties on facebook.com.'),
@@ -246,7 +246,7 @@ function fb_admin_set_properties_form_submit($form, &$form_state) {
                                  ));
         // Success.
         $form_state['redirect'] = FB_PATH_ADMIN_APPS . '/' . $fb_app->label;
-        
+
         drupal_set_message(t('Note that it may take several minutes for property changes to propagate to all facebook servers.'));
         if (fb_verbose()) {
           drupal_set_message(t('Set the following properties for %label application:<br/><pre>!props</pre>', array('%label' => $fb_app->label, '!props' => print_r($props, 1))));
