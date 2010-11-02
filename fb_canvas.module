@@ -1,12 +1,12 @@
 <?php
 /**
  * @file
- * 
+ *
  * This module provides support for Canvas page applications.  Use
  * Drupal to power traditional Facebook Apps.  
  *
  * See also fb_connect.module for Facebook Connect.
- * 
+ *
  */
 
 // Option to require_login() on all canvas pages.
@@ -184,6 +184,7 @@ function fb_canvas_fb($op, $data, &$return) {
         // Unfortunately, other modules' hook_exit() may not be called.
         if (fb_verbose()) {
           watchdog('fb_debug', "FB_OP_EXIT on canvas page redirecting to $app_destination (original destination was $destination).");
+          session_write_close(); // Call this now because  our call to fb_canvas_redirect will not return.
           fb_canvas_redirect($app_destination);
         }
       }
@@ -277,17 +278,10 @@ function fb_canvas_fix_url($url, $fb_app) {
   // Here we hard-wire apps.facebook.com.  Is there an API to get that?
   $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
 
-  // Page type helps themes support multiple iframes.
-  $patterns[] = "|" . FB_SETTINGS_CB_TYPE . "/[^/]*/|";
-  $replacements[] = "";
-  $patterns[] = "|" . FB_SETTINGS_CB_SESSION . "/[^/]*/|";
-  $replacements[] = "";
-
-  
   // Fully qualified paths.
   $patterns[] = "|" . url('', array('absolute' => TRUE)) . "|";
   $replacements[] = "http://apps.facebook.com/{$fb_app->canvas}/";
-  
+
 
   // Facebook will prepend "appNNN_" all our ids
   $patterns[] = "|#([^\?]*)|";
@@ -333,7 +327,7 @@ function fb_canvas_url_outbound_alter(&$path, &$options, $original_path) {
         (isset($options['fb_canvas']) && $options['fb_canvas'])) {
       // Make a url starting with apps.facebook.com/...
       $options['external'] = TRUE;
-      $options['fb_url_alter'] = FALSE; // prevent fb_url_rewrite.inc from altering.
+      $options[FB_SETTINGS_CB] = FALSE; // prevent fb_url_rewrite.inc from altering.
       $options['absolute'] = TRUE;
       $options['base_url'] = 'http://apps.facebook.com/' . $_fb_app->canvas;
     }
@@ -344,7 +338,7 @@ function fb_canvas_url_outbound_alter(&$path, &$options, $original_path) {
       else {
         //dpm($options, "fb_canvas_url_outbound_alter($path)");
       }
-      
+
       // Drupal has a habit of adding ?destination=... to some URLs.
       // And Facebook for no good reason screws up when you do that.
       if ($options['query']) {
@@ -389,7 +383,7 @@ function fb_canvas_process($output, $options = array()) {
   if ($_fb) {
     if (function_exists('fb_url_outbound_alter')) {
       $base_before_rewrite = '';
-      $rewrite_options = array();
+      $rewrite_options = array(FB_SETTINGS_CB_SESSION => FALSE, FB_SETTINGS_CB_TYPE => FALSE);
       $base = $base_path . fb_url_outbound_alter($base_before_rewrite, $rewrite_options, '');  // short URL with rewrite applied.
     }
     else {

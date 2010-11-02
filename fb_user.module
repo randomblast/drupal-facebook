@@ -119,8 +119,12 @@ function fb_user_fb($op, $data, &$return) {
   if ($op == FB_OP_POST_INIT) {
     $fbu = fb_facebook_user();
     if (isset($_SESSION['fb_user_fbu']) &&
-        $_SESSION['fb_user_fbu'] != $fbu) {
-      // User has logged out of facebook, and drupal is only now learning about it.
+        $_SESSION['fb_user_fbu'] != $fbu &&
+        !(fb_settings(FB_SETTINGS_CB_SESSION) && !$fbu)) {
+      // User has logged out of facebook, and drupal is only now learning
+      // about it.  Check disabled when using FB_SETTINGS_CB_SESSION, because
+      // we aren't always passed a signed_request in that case, which would
+      // otherwise trigger this.
       _fb_user_logout();
       if (!fb_controls(FB_USER_CONTROL_NO_REDIRECT)) {
         drupal_goto($_GET['q']); // @TODO - need request params here?
@@ -134,6 +138,12 @@ function fb_user_fb($op, $data, &$return) {
       fb_controls(FB_USER_CONTROL_NO_CREATE_MAP, TRUE);
       fb_controls(FB_USER_CONTROL_NO_CREATE_ACCOUNT, TRUE);
     }
+    if (isset($_REQUEST['_fb_js_fbu'])) {
+      // fb.js has triggered a reload.  Don't redirect again, as that will
+      // cause infinite loop if browser not accepting third-party cookies.
+      fb_controls(FB_USER_CONTROL_NO_REDIRECT, TRUE);
+    }
+
 
     if ($rid = $fb_user_data['connected_user_rid']) {
       if ($fbu) {
@@ -185,10 +195,10 @@ function fb_user_fb($op, $data, &$return) {
 
 function fb_user_footer() {
   if (($fbu = fb_facebook_user()) &&
-    !fb_is_tab() && // $fbu is page id, not visitor id, on tabs.
-    $fbu != fb_get_fbu($GLOBALS['user']) &&
-    $_GET['q'] !== variable_get('site_403', FALSE) &&
-    $_GET['q'] !== variable_get('site_404', FALSE)) {
+      !fb_is_tab() && // $fbu is page id, not visitor id, on tabs.
+      $fbu != fb_get_fbu($GLOBALS['user']) &&
+      $_GET['q'] !== variable_get('site_403', FALSE) &&
+      $_GET['q'] !== variable_get('site_404', FALSE)) {
     $uid = $GLOBALS['user']->uid; // Remember original uid.
     _fb_user_process_authorized_user();
     if ($uid != $GLOBALS['user']->uid) {
@@ -238,24 +248,29 @@ function _fb_user_external_login($account = NULL) {
           $account &&
           $account->uid != $GLOBALS['user']->uid &&
           !fb_controls(FB_USER_CONTROL_NO_HONOR_MAP)) {
-    
+
     // Map exists.  Log in as local user.
+    $session_id = session_id();
     if (fb_verbose() === 'extreme') { // debug
       watchdog("fb_user", "fb_user_fb changing user to $account->uid");
-      $session_id = session_id();
     }
-    
+
     // user_external_login() fails if already logged in, so log out first.
     if ($GLOBALS['user']->uid) {
       _fb_user_logout();
     }
-    
+
     $valid_user = user_external_login($account);
-    
+
+    // Special effort to support browsers without third-party cookies.
+    if (function_exists('fb_sess_regenerate_hack')) {
+      fb_sess_regenerate_hack();
+    }
+
     if (fb_verbose() === 'extreme') { // debug
       watchdog("fb_user", "fb_user_fb changed session from $session_id to " . session_id());
     }
-    
+
     if ($valid_user) {
       // Session changed after external login.  Invoking hook here allows modules to drupal_set_message().
       fb_invoke(FB_OP_POST_EXTERNAL_LOGIN, array('account' => $account));
@@ -355,12 +370,12 @@ function _fb_user_create_local_account() {
 function _fb_user_process_authorized_user() {
   $fbu = fb_facebook_user();
   $mapped = FALSE;
-  
+
   if ($fbu && _fb_user_check_session($fbu)) {
     // First check if map already exists.
     $account = fb_user_get_local_user($fbu, $GLOBALS['_fb_app']);
     $config = _fb_user_get_config($GLOBALS['_fb_app']);
-    
+
     if (!$account) {
       if ($GLOBALS['user']->uid > 0 &&
           $config['map_account'][FB_USER_OPTION_MAP_ALWAYS]) {
@@ -372,18 +387,18 @@ function _fb_user_process_authorized_user() {
         // Create map if email matches.
         $mapped = _fb_user_create_map_by_email();
       }
-      
+
       if (!$mapped &&
           $config['create_account'] == FB_USER_OPTION_CREATE_LOGIN) {
         // Create new local account with map.
         $mapped = _fb_user_create_local_account();
       }
-      
+
       if ($mapped) {
         $account = fb_user_get_local_user($fbu, $GLOBALS['_fb_app']);
       }
     }
-    
+
     if ($account) {
       // Ensure the user has any roles associated with this app.
       $rid = $config['new_user_rid'];
@@ -645,18 +660,18 @@ function fb_user_user($op, &$edit, &$account, $category = NULL) {
             '#prefix' => "\n<p>",
             '#suffix' => "</p>\n",
           );
-          
+
         }
         elseif (!$fbu) {
           // they are not connected to facebook; give option to connect here
-          $fb_button = theme('fb_login_button', t('Connect with Facebook'), array('form_id' => $form_id));
+          $fb_button = theme('fb_login_button', t('Connect with Facebook'));
           $form['fb_user'] = array(
             '#value' => $fb_button,
             '#type' => 'markup',
             '#weight' => -1,
             '#prefix' => "\n<p>",
             '#suffix' => "</p>\n",
-          );          
+          );
         }
       }
       else {

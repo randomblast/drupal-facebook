@@ -21,10 +21,10 @@ define('FB_SETTINGS_CB_TYPE', 'fb_cb_type');
 define('FB_SETTINGS_CB_SESSION', 'fb_sess');
 
 // Things we can learn from the facebook session.
-define('FB_SETTINGS_SESSION_KEY', 'session_key');  // no longer used.
 define('FB_SETTINGS_APIKEY', 'apikey');
 define('FB_SETTINGS_ID', 'app_id');
 define('FB_SETTINGS_FBU', 'fbu');
+define('FB_SETTINGS_TOKEN', 'token');
 define('FB_SETTINGS_PROFILE_ID', 'profile_id');
 define('FB_SETTINGS_TYPE', 'type'); // page type not same as cb type
 define('FB_SETTINGS_COOKIE_DOMAIN', 'cookie_domain');
@@ -100,6 +100,7 @@ function _fb_settings_honor_signed_request($sr) {
   }
 
   if (isset($sr['oauth_token'])) {
+    fb_settings(FB_SETTINGS_TOKEN, $sr['oauth_token']);
     $tokens = explode('|', $sr['oauth_token']);
     if ($app_id = $tokens[0]) {
       fb_settings(FB_SETTINGS_ID, $app_id);
@@ -184,6 +185,7 @@ elseif (isset($_REQUEST['session'])) {
   $session = json_decode($_REQUEST['session'], TRUE);
   fb_settings(FB_SETTINGS_TYPE, FB_SETTINGS_TYPE_CANVAS);
   fb_settings(FB_SETTINGS_FBU, $session['uid']);
+  fb_settings(FB_SETTINGS_TOKEN, $session['access_token']);
   // Which app?
   $access_tokens = explode('|', $session['access_token']);
   if ($app_id = $access_tokens[0]) {
@@ -235,6 +237,3 @@ if (fb_settings(FB_SETTINGS_FBU)) {
   // Disable Drupal cache when logged into facebook.
   $conf['cache'] = 0;
 }
-
-
-

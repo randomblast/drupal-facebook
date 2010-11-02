@@ -2,24 +2,59 @@
 // $Id$
 /**
  * @file
- * This file is a replacement for Drupal's session.inc.
- * Although not truly a replacement, as we include the default session.inc to do the heavy lifting.
- * In this file we set up some variables and functions to handle facebook-controlled sessions.
+ * This file is a replacement for Drupal's session.inc.  Although not
+ * truly a replacement, as we include the default session.inc to do the heavy
+ * lifting.
+ *
+ * In this file we handle some special cases for iframe canvas pages by faking
+ * cookies in cases where browsers do not accept them.  We do this here
+ * because we must set session_id early in the bootstrap process, and Drupal
+ * gives us no way to easily do that.
  */
-
 
 // Default session handler functions.
 require('includes/session.inc');
 
-if (function_exists('fb_settings_session_helper')) {
-  fb_settings_session_helper();
+// When Drupal's bootstrap includes this file, we have a chance to spoof a
+// session cookie.
+if (count($_COOKIE)) {
+  // Forget anything we thought we knew about session.
+  fb_settings(FB_SETTINGS_CB_SESSION, FALSE);
+}
+elseif (fb_settings(FB_SETTINGS_TYPE) &&
+        fb_settings(FB_SETTINGS_TYPE) != 'connect') {
+  $session_id = NULL;
+  if ($token = fb_settings(FB_SETTINGS_TOKEN)) {
+    // Learned token from signed_request or session.
+    $session_id = md5($token);
+  }
+  elseif (isset($_REQUEST['signed_request']) || isset($_REQUEST['session'])) {
+    // Signed request, but no token means not logged in.
+    fb_settings(FB_SETTINGS_CB_SESSION, FALSE);
+    $session_id = FALSE;
+  }
+
+  // Parse session from URL.
+  if ($session_id === NULL && function_exists('_fb_settings_parse')) {
+    $session_id = _fb_settings_parse(FB_SETTINGS_CB_SESSION);
+  }
+
+  // Spoof a cookie so Drupal's session.inc works as expected.
+  if ($session_id) {
+    session_id($session_id);
+    fb_settings(FB_SETTINGS_CB_SESSION, $session_id);
+    $_COOKIE[session_name()] = session_id();
+    $_COOKIE['_fb_session_cookie_fake'] = TRUE;
+  }
 }
 
 /**
- * Helper function called when handing off from drupal-controlled session to facebook-controlled session.
+ * When spoofing cookies, sess_regenerate causes problems when it changes the
+ * session id.  Here we undo that change.  Called from fb_user.module.
  */
-function fb_session_destroy() {
-  global $user;
-  session_destroy(); // Destroy local drupal session, not session controlled by facebook cookies.
-  $user = drupal_anonymous_user();
+function fb_sess_regenerate_hack() {
+  if ($session_id = fb_settings(FB_SETTINGS_CB_SESSION)) {
+    db_query("UPDATE {sessions} SET sid = '%s' WHERE sid = '%s'", $session_id, session_id());
+    session_id($session_id);
+  }
 }

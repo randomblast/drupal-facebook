@@ -26,7 +26,7 @@
  * include 'sites/all/modules/fb/fb_url_rewrite.inc'; // For canvas pages support.
  * include 'sites/all/modules/fb/fb_settings.inc'; // Always include this.
  */
-   
+
 /**
  * Returns a list of the values which we prepend to paths when rewriting urls.
  */
@@ -35,7 +35,7 @@ function _fb_settings_url_rewrite_prefixes() {
   if (!isset($prefixes)) {
     $prefixes = array(
       FB_SETTINGS_CB,
-      FB_SETTINGS_CB_TYPE, 
+      FB_SETTINGS_CB_TYPE,
       FB_SETTINGS_CB_SESSION,
     );
   }
@@ -102,14 +102,17 @@ if (!function_exists('custom_url_rewrite_outbound')) {
 function fb_url_outbound_alter(&$path, &$options, $original_path) {
   if (!isset($options['fb_url_alter']) || $options['fb_url_alter']) {
     $pre = '';
-    
+
     // Prefix each known value to the URL
     foreach (_fb_settings_url_rewrite_prefixes() as $prefix) {
-      if ($value = fb_settings($prefix))
-        $pre .= $prefix . '/'. $value . '/';
+      if (!isset($options[$prefix]) || $options[$prefix] !== FALSE) {
+        if ($value = fb_settings($prefix))
+          $pre .= $prefix . '/'. $value . '/';
+      }
     }
     $path  = $pre . $path;
   }
+
   return $path;
 }
 
@@ -128,7 +131,8 @@ function fb_url_inbound_alter(&$result, $path, $path_language) {
     while (count($args) && in_array($args[0], _fb_settings_url_rewrite_prefixes())) {
       $key = array_shift($args);
       $value = array_shift($args);
-      fb_settings($key, $value); // Store for use later.
+      if (fb_settings($key) === NULL) // defer to previously set values
+        fb_settings($key, $value); // Store for use later.
     }
     if (fb_settings(FB_SETTINGS_CB)) {
       if (count($args)) {
