@@ -253,7 +253,7 @@ function fb_devel_fb($op, $data, &$return) {
                   ), 'setting');
   }
   elseif ($op == FB_OP_AJAX_EVENT) {
-    if (fb_verbose() == 'extreme') {
+    if (fb_verbose() == 'extreme' && FALSE) { // disabled to prevent console not defined error.
       $session_id = session_id();
       $session_name = session_name();
       $return[] = "console.log('fb_devel.module extreme verbosity: original session_id is ' + Drupal.settings.fb_devel.session_name + ':' + Drupal.settings.fb_devel.session_id + ', session_id during FB_OP_AJAX_EVENT is $session_name:$session_id');";
@@ -305,7 +305,8 @@ function fb_devel_page() {
   if (isset($GLOBALS['fb_connect_apikey'])) {
     drupal_set_message(t("fb_connect_apikey = " . $GLOBALS['fb_connect_apikey']));
   }
-  
+
+  dpm(fb_settings(), 'fb_settings()');
   dpm($_COOKIE, 'cookie');
   dpm($_REQUEST, "Request");
   //dpm($_fb_app, "fb_app");
@@ -683,6 +684,16 @@ function fb_devel_fb_tab($op, $data, &$return) {
       '#value' => __FUNCTION__ . ':' . print_r($data, 1),
       '#prefix' => '<pre>',
       '#suffix' => '</pre>',
+      '#weight' => 99,
     );
+    if ($data['profile_id']) {
+      $return['fb_devel']['profile_id'] = array(
+        '#type' => 'markup',
+        '#value' => __FUNCTION__ . ':' . print_r($data['fb']->api($data['profile_id']), 1),
+        '#prefix' => '<pre>',
+        '#suffix' => '</pre>',
+        '#weight' => 99,
+      );
+    }
   }
 }
