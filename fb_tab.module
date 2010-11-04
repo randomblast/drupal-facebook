@@ -31,6 +31,12 @@ function fb_tab_menu() {
     'type' => MENU_CALLBACK,
   );
 
+  $items[FB_TAB_PATH_FORM] = array(
+    'title' => 'Configure Tabs',
+    'page callback' => 'fb_tab_pages',
+    'access arguments' => array('access content'),
+  );
+
   $items[FB_TAB_PATH_FORM . '/%'] = array(
     'page callback' => 'drupal_get_form',
     'page arguments' => array('fb_tab_config_form', FB_TAB_PATH_FORM_ARGS),
@@ -198,6 +204,9 @@ function fb_tab_view() {
   return drupal_render($content);
 }
 
+/**
+ * Build the tab config form.  Invokes hook_fb_tab() to get the custom settings.
+ */
 function fb_tab_config_form($form_state, $profile_id) {
   $fb_app = $GLOBALS['_fb_app'];
   $fb = $GLOBALS['_fb'];
@@ -237,10 +246,14 @@ function fb_tab_config_form($form_state, $profile_id) {
       '#type' => 'value',
       '#value' => $profile_id,
     ),
+    'data' => array(
+      // Modules will add their fields here.
+      '#tree' => TRUE,
+    ),
     'submit' => array(
       '#type' => 'submit',
       '#value' => t('Submit'),
-      '#weight' => 99,
+      '#weight' => 90,
     ),
   );
 
@@ -251,8 +264,7 @@ function fb_tab_config_form($form_state, $profile_id) {
     );
   }
 
-  $data = array('#tree' => TRUE);
-  $form['data'] = fb_invoke(FB_TAB_OP_FORM, $data, $data, FB_TAB_HOOK);
+  $form['data'] = fb_invoke(FB_TAB_OP_FORM, $data, $form['data'], FB_TAB_HOOK);
 
   //print('<pre>' . print_r($data, 1) . '</pre>'); flush();
   //print(print_r($content, 1)); flush();
@@ -260,12 +272,22 @@ function fb_tab_config_form($form_state, $profile_id) {
   return $form;
 }
 
+/**
+ * Submit handler for tab config form.
+ */
 function fb_tab_config_form_submit($form, &$form_state) {
-  fb_tab_write_config($form_state['values']);
+  if ($profile_id = $form_state['values']['profile_id']) {
+    fb_tab_write_config($form_state['values']);
+    $data = fb_fql_query($GLOBALS['_fb'], "SELECT page_id, name, pic_small, page_url, type FROM page WHERE page_id=$profile_id"); // FQL, no {curly_brackets}
+    drupal_set_message(t('The tab settings for <a href="!url">%page</a> have been updated.', array(
+                           '!url' => $data[0]['page_url'],
+                           '%page' => $data[0]['name'],
+                         )));
+  }
 }
 
 /*
- * Store configuration data for a tab by application
+ * Store configuration data for a tab by application.
  */
 function fb_tab_write_config(&$row) {
   if (!isset($row['created']))
@@ -292,6 +314,53 @@ function fb_tab_fetch_config($fb_app, $profile_id) {
   }
 }
 
-function fb_tab_config_url() {
-  return url(FB_TAB_PATH_FORM . '/' . fb_settings(FB_SETTINGS_PROFILE_ID));
+/**
+ * This page callback will show the user a list of pages they have authority to configure.
+ */
+function fb_tab_pages() {
+  if ($fbu = fb_facebook_user()) {
+    $result = fb_fql_query($GLOBALS['_fb'], "SELECT page_id, name, pic_small, page_url, type FROM page WHERE has_added_app=1 AND page_id IN (SELECT page_id FROM page_admin WHERE uid=$fbu)"); // FQL, no {curly_brackets}
+    //dpm($result, __FUNCTION__);
+    if (count($result)) {
+      $output['pages'] = array(
+        '#prefix' => '<ul>',
+        '#suffix' => '</ul>',
+      );
+      foreach ($result as $data) {
+        $output['pages'][$data['page_id']] = array(
+          '#value' => l($data['name'],fb_tab_config_url($data['page_id'], array('fb_canvas' => fb_is_canvas()))),
+          '#prefix' => '<li>',
+          '#suffix' => '</li>',
+        );
+      }
+      $output['intro'] = array(
+        '#value' => t('Select one of your pages to configure:'),
+        '#prefix' => '<p>',
+        '#suffix' => '</p>',
+      );
+    }
+    else {
+      $output['intro'] = array(
+        '#value' => t('Found no pages to configure.'),
+        '#prefix' => '<p>',
+        '#suffix' => '</p>',
+      );
+    }
+    return drupal_render($output);
+  }
+  else {
+    fb_access_denied();
+  }
 }
+
+
+/**
+ * Provides the URL of the settings page for a given facebook page.
+ */
+function fb_tab_config_url($profile_id = NULL, $options = array()) {
+  if (!$profile_id) {
+    $profile_id = fb_settings(FB_SETTINGS_PROFILE_ID);
+  }
+  return url(FB_TAB_PATH_FORM . '/' . $profile_id, $options);
+}
+

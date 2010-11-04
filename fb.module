@@ -1131,3 +1131,15 @@ function fb_ajax_event($event_type) {
   drupal_json($js_array);
   exit();
 }
+
+/**
+ * Convenience wrapper around drupal_access_denied().  Call on pages where the
+ * access is denied because the user is not logged into facebook.
+ */
+function fb_access_denied() {
+  if (!fb_facebook_user()) {
+    drupal_set_message(t('You must <a href="#" onclick="FB.login(function(response) {}, {perms:Drupal.settings.fb.perms}); return false;">log into facebook to view this page</a>.'));
+  }
+  drupal_access_denied();
+  exit();
+}
