@@ -5,6 +5,8 @@ More information:
 http://www.drupalforfacebook.org, http://drupal.org/project/fb
 
 Primary author and maintainer: Dave Cohen (http://www.dave-cohen.com/contact)
+Do  NOT contact  the  maintainer  with a question  that  can be  easily
+answered with a web search.  You will not receive a reply.
 
 Branch: HEAD (version 3.x for Drupal 6.x)
 
