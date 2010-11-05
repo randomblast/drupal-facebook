@@ -55,6 +55,11 @@ function fb_example_fb_friend_invite_page_wrap_alter(&$elem) {
   }
 }
 
+/**
+ * Implements hook_fb_friend_invite_app_alter().
+ *
+ * Customizes aspects of the invitation form.
+ */
 function fb_example_fb_friend_invite_app_alter(&$fbml) {
   $fbml['selector']['#attributes']['cols'] = 3;
   $fbml['selector']['#attributes']['email_invite'] = FALSE;

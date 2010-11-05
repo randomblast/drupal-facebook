@@ -1093,9 +1093,13 @@ function fb_js_cb() {
 /**
  * Ajax callback handles an event from facebook's javascript sdk.
  *
- * @see fb.js and http://developers.facebook.com/docs/reference/javascript/FB.Event.subscribe
+ * @see
+ *   fb.js and
+ *   http://developers.facebook.com/docs/reference/javascript/FB.Event.subscribe
  *
- * @return Array of javascript to be evaluated by the page which called this callback.
+ * @return
+ *   Array of javascript to be evaluated by the page which called this
+ *   callback.
  */
 function fb_ajax_event($event_type) {
   global $_fb, $_fb_app;
@@ -1115,16 +1119,18 @@ function fb_ajax_event($event_type) {
 
       $js_array = fb_invoke(FB_OP_AJAX_EVENT, $data, array());
 
-      if ($event_type == 'session_change' && !count($js_array)) {
-        // Refresh page on session change, if no module has provided alternate actions.
-        //$js_array[] = 'debugger;'; // debug
-        $js_array[] = 'FB_JS.reload();';
+      if ($event_type == 'session_change') {
+        if (!count($js_array)) {
+          // Refresh page on session change, if no module has provided
+          // alternate actions.
+          $js_array[] = 'FB_JS.reload();';
+        }
       }
     }
   }
   else {
     if (fb_verbose()) {
-      $js_array[] = 'debugger;';
+      //$js_array[] = 'alert("fb_ajax_event called badly.  Not passed apikey.");'; // debug
     }
     watchdog('fb', 'fb_ajax_event called badly.  Not passed apikey.', array(), WATCHDOG_ERROR);
   }
