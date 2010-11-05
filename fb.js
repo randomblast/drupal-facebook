@@ -108,6 +108,10 @@ FB_JS.reload = function(destination) {
 
 // Facebook pseudo-event handlers.
 FB_JS.sessionChange = function(response) {
+  if (response.status == 'unknown') {
+    // @TODO can we test if third-party cookies are disabled?
+  }
+
   var status = {'changed': false, 'fbu': null, 'session': response.session, 'response' : response};
 
   if (response.session) {
@@ -169,13 +173,16 @@ FB_JS.ajaxEvent = function(event_type, data) {
   if (Drupal.settings.fb.ajax_event_url) {
 
     // Session data helpful on canvas pages (but tricks fb_settings.inc on connect pages).
-    if (Drupal.settings.fb.page_type != 'connect') {
+    if (Drupal.settings.fb.page_type &&
+        Drupal.settings.fb.page_type != 'connect') {
       data.session = JSON.stringify(FB.getSession());
     }
 
     // Other values to always include.
     data.apikey = FB._apiKey;
-    data.fb_controls = Drupal.settings.fb.controls;
+    if (Drupal.settings.fb.controls) {
+      data.fb_controls = Drupal.settings.fb.controls;
+    }
 
     jQuery.post(Drupal.settings.fb.ajax_event_url + '/' + event_type, data,
 		function(js_array, textStatus, XMLHttpRequest) {

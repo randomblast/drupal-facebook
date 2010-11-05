@@ -138,8 +138,8 @@ function fb_user_fb($op, $data, &$return) {
       fb_controls(FB_USER_CONTROL_NO_CREATE_MAP, TRUE);
       fb_controls(FB_USER_CONTROL_NO_CREATE_ACCOUNT, TRUE);
     }
-    if (isset($_REQUEST['_fb_js_fbu'])) {
-      // fb.js has triggered a reload.  Don't redirect again, as that will
+    if (isset($_REQUEST['_fb_user_fbu'])) {
+      // We've triggered a reload.  Don't redirect again, as that will
       // cause infinite loop if browser not accepting third-party cookies.
       fb_controls(FB_USER_CONTROL_NO_REDIRECT, TRUE);
     }
@@ -183,10 +183,11 @@ function fb_user_fb($op, $data, &$return) {
       if (($fbu = fb_facebook_user($data['fb'])) &&
           $fbu != fb_get_fbu($GLOBALS['user'])) {
 
-        // There's no need to honor maps in ajax callback.  If honored,
-        // could lead to new session start which would not actually have any
-        // effect in ajax callback.
-        fb_controls(FB_USER_CONTROL_NO_HONOR_MAP, TRUE);
+        // In ajax callback, there's no reason to redirect even if user
+        // changes. But we should honor session, as even ajax can set a new
+        // cookie.
+        fb_controls(FB_USER_CONTROL_NO_REDIRECT, TRUE);
+
         _fb_user_process_authorized_user();
       }
     }
@@ -204,7 +205,8 @@ function fb_user_footer() {
     if ($uid != $GLOBALS['user']->uid) {
       // during user processing, we started a new session.
       if (!fb_controls(FB_USER_CONTROL_NO_REDIRECT)) {
-        drupal_goto($_GET['q']); // @TODO - need request params here?
+        // Pass _fb_user_fbu to avoid infinite refreshes.
+        drupal_goto($_GET['q'], array('_fb_user_fbu' => $fbu));
       }
     }
   }
