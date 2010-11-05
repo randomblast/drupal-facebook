@@ -184,9 +184,8 @@ function fb_canvas_fb($op, $data, &$return) {
         // Unfortunately, other modules' hook_exit() may not be called.
         if (fb_verbose()) {
           watchdog('fb_debug', "FB_OP_EXIT on canvas page redirecting to $app_destination (original destination was $destination).");
-          session_write_close(); // Call this now because  our call to fb_canvas_redirect will not return.
-          fb_canvas_redirect($app_destination);
         }
+        fb_canvas_redirect($app_destination);
       }
     }
     if (isset($output)) {
