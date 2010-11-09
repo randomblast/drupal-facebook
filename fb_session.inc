@@ -17,7 +17,7 @@ require('includes/session.inc');
 
 // When Drupal's bootstrap includes this file, we have a chance to spoof a
 // session cookie.
-if (count($_COOKIE)) {
+if (isset($_COOKIE[session_name()])) {
   // Forget anything we thought we knew about session.
   fb_settings(FB_SETTINGS_CB_SESSION, FALSE);
 }
