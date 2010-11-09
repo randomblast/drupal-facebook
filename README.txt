@@ -15,7 +15,7 @@ Online documentation: http://drupal.org/node/195035, has more detail.
 
 To upgrade:
 
-- Read the upgrade instructions: http://drupal.org/node/761886
+- Read the upgrade instructions: http://drupal.org/node/936958
 
 To install:
 
