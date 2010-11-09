@@ -509,6 +509,9 @@ function fb_devel_info() {
     if (!fb_api_check_session($_fb)) {
       $info['fb_api_check_session()'] = t('Returned FALSE');
     }
+    else {
+      $info['fb_api_check_session()'] = t('Returned TRUE');
+    }
   }
   else {
     $info['Page Status'] = t('Not a canvas page.');
