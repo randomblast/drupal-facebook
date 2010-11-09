@@ -185,21 +185,29 @@ FB_JS.ajaxEvent = function(event_type, data) {
     }
 
     jQuery.post(Drupal.settings.fb.ajax_event_url + '/' + event_type, data,
-		function(js_array, textStatus, XMLHttpRequest) {
-		  //debugger; // debug
-		  for (var i = 0; i < js_array.length; i++) {
-		    eval(js_array[i]);
-		  }
-		}, 'json');
+                function(js_array, textStatus, XMLHttpRequest) {
+                  //debugger; // debug
+                  if (js_array.length > 0) {
+                    for (var i = 0; i < js_array.length; i++) {
+                      eval(js_array[i]);
+                    }
+                  }
+                  else {
+                    if (event_type == 'session_change') {
+                      // No instructions from ajax, reload entire page.
+                      FB_JS.reload();
+                    }
+                  }
+                }, 'json');
   }
 };
 
 // Delete a cookie.
 FB_JS.deleteCookie = function( name, path, domain ) {
   document.cookie = name + "=" +
-  ( ( path ) ? ";path=" + path : "") +
-  ( ( domain ) ? ";domain=" + domain : "" ) +
-  ";expires=Thu, 01-Jan-1970 00:00:01 GMT";
+    ( ( path ) ? ";path=" + path : "") +
+    ( ( domain ) ? ";domain=" + domain : "" ) +
+    ";expires=Thu, 01-Jan-1970 00:00:01 GMT";
 };
 
 // Test the FB settings to see if we are still truly connected to facebook.
@@ -208,9 +216,9 @@ FB_JS.sessionSanityCheck = function() {
     Drupal.settings.fb.checkSemaphore=true;
     FB.api('/me', function(response) {
       if (response.id != Drupal.settings.fb.fbu) {
-	// We are no longer connected.
-	var status = {'changed': true, 'fbu': null, 'check_failed': true};
-	jQuery.event.trigger('fb_session_change', status);
+        // We are no longer connected.
+        var status = {'changed': true, 'fbu': null, 'check_failed': true};
+        jQuery.event.trigger('fb_session_change', status);
       }
       Drupal.settings.fb.checkSemaphore=null;
     });

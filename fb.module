@@ -1119,13 +1119,6 @@ function fb_ajax_event($event_type) {
 
       $js_array = fb_invoke(FB_OP_AJAX_EVENT, $data, array());
 
-      if ($event_type == 'session_change') {
-        if (!count($js_array)) {
-          // Refresh page on session change, if no module has provided
-          // alternate actions.
-          $js_array[] = 'FB_JS.reload();';
-        }
-      }
     }
   }
   else {
