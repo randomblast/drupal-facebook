@@ -506,11 +506,13 @@ function fb_devel_info() {
     //$info['link test'] = "<a href=\"$link_test\">link test (processed)</a>";
     //$info['link test 2'] = "<a href='$link_test'>link test (not processed)</a>";
 
-    if (!fb_api_check_session($_fb)) {
-      $info['fb_api_check_session()'] = t('Returned FALSE');
-    }
-    else {
-      $info['fb_api_check_session()'] = t('Returned TRUE');
+    if ($fbu) {
+      if (!fb_api_check_session($_fb)) {
+        $info['fb_api_check_session()'] = t('Returned FALSE');
+      }
+      else {
+        $info['fb_api_check_session()'] = t('Returned TRUE');
+      }
     }
   }
   else {
