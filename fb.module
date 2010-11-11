@@ -36,9 +36,11 @@ define('FB_OP_GET_FBU', 'get_fbu'); // Query the local user's FB account
 define('FB_OP_GET_UID', 'get_uid'); // Query the facebook user's local account
 define('FB_OP_GET_USER_SESSION', 'get_user_sess');
 
-define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
-define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
-define('FB_OP_POST_EXTERNAL_LOGIN', 'post_external_login'); // user map has changed global user.
+// These have moved to fb_user.module!
+//define('FB_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
+//define('FB_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
+//define('FB_OP_POST_EXTERNAL_LOGIN', 'post_external_login'); // user map has changed global user.
+
 define('FB_OP_APP_IS_AUTHORIZED', 'app_authorized');  // Invoked if user has authorized an app.  Triggers creation of user accounts or fb_user entries
 
 define('FB_OP_JS', 'fb_op_js');  // A chance to inject javascript onto the page.
@@ -127,12 +129,9 @@ function fb_init() {
     $GLOBALS['fb_init_no_settings'] = TRUE;
   }
 
-  // Values needed by fb.js.
-  $js_settings = array(
-    'ajax_event_url' => url(FB_PATH_AJAX_EVENT, array('absolute' => TRUE)),
-    // @TODO - replace en_US with dynamically determined locale.
-    'js_sdk_url' => variable_get('fb_js_sdk', 'http://connect.facebook.net/en_US/all.js'),
-  );
+
+  // Javascript settings needed by fb.js.
+  fb_js_settings('ajax_event_url', url(FB_PATH_AJAX_EVENT, array('absolute' => TRUE)));
 
   // Figure out which app the current request is for.
   $_fb_app = fb_invoke(FB_OP_CURRENT_APP);
@@ -140,10 +139,10 @@ function fb_init() {
   if ($_fb_app) {
     // An App is configured.
 
-    // Initialize javascript.
-    $js_settings['apikey'] = $_fb_app->apikey;
-    $js_settings['label'] = $_fb_app->label;
-    $js_settings['page_type'] = fb_settings(FB_SETTINGS_TYPE); // canvas or connect.
+    // Javascript settings needed by fb.js.
+    fb_js_settings('apikey', $_fb_app->apikey);
+    fb_js_settings('label', $_fb_app->label);
+    fb_js_settings('page_type', fb_settings(FB_SETTINGS_TYPE)); // canvas or connect.
 
     // Initialize the PHP API.
     $_fb = fb_api_init($_fb_app);
@@ -162,13 +161,13 @@ function fb_init() {
                     'fb' => $_fb,
                     'fbu' => $_fb->getUser(),
                   ));
-        $js_settings['fbu'] = $_fb->getUser();
+        fb_js_settings('fbu', $_fb->getUser());
       }
       else {
         // Add perms to settings, for calling FB.login().
         $perms = array();
         drupal_alter('fb_required_perms', $perms);
-        $js_settings['perms'] = implode(',', $perms);
+        fb_js_settings('perms', implode(',', $perms));
       }
     }
     else
@@ -187,21 +186,68 @@ function fb_init() {
       $destination = fb_scrub_urls($destination); // Needed?
     }
 
-    $js_settings['reload_url'] = url($destination, array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
+    fb_js_settings('reload_url', url($destination, array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas())));
   }
   // Allow third-parties to act, even if we did not initialize $_fb.
   fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
                                    'fb' => $_fb));
 
-  $js_settings['controls'] = implode(',', fb_controls());
+  fb_js_settings('controls', implode(',', fb_controls()));
+
+  if (!fb_js_settings('js_sdk_url')) {
+    if (isset($_SESSION['fb_locale']) && variable_get('fb_language_override', 'override')) {
+      $fb_lang = $_SESSION['fb_locale'];
+    }
+    else {
+      $user_language = user_preferred_language($GLOBALS['user']);
+      $fb_lang = variable_get('fb_language_' . $user_language->language, 'en_US');
+    }
+    fb_js_settings('js_sdk_url', variable_get('fb_js_sdk', 'http://connect.facebook.net/' . $fb_lang . '/all.js'));
+  }
 
   // Add javascript to all pages.
   drupal_add_js(drupal_get_path('module', 'fb') . '/fb.js');
-
-  // @TODO - move this to fb_preprocess_page().  See og_preprocess_page for example.
-  drupal_add_js(array('fb' => $js_settings), 'setting');
 }
 
+/**
+ * Implements hook_preprocess_page().
+ *
+ * We add our javascript settings here, as late as possible in the page
+ * request, so that third-party modules have a chance to customize by calling
+ * fb_js_settings().
+ */
+function fb_preprocess_page(&$variables) {
+  $js_settings = fb_js_settings();
+  drupal_add_js(array('fb' => $js_settings), 'setting');
+
+  $variables['scripts'] = drupal_get_js();
+}
+
+/**
+ *
+ * Adds the javascript setting with the supplied key/value.  This function merely keeps track
+ * of the settings and writes them as late as possible (in the fb_preprocess_page function).
+ *
+ * @param $key
+ *   The javascript setting name.  If the key is null then nothing is modified and the settings are returned.
+ * @param $value
+ *   The value of the javascript setting.  If the key is not null by the value is the setting is removed
+ * @return
+ *    The associative array containing the current fb javascript settings
+ */
+function fb_js_settings($key = null, $value = null) {
+  static $fb_js_settings = array();
+
+  if (isset($key) && isset($value)) {
+    $fb_js_settings[$key] = $value;
+  }
+  elseif (isset($key)) {
+    return isset($fb_js_settings[$key]) ? $fb_js_settings[$key] : NULL;
+  }
+  else {
+    return $fb_js_settings;
+  }
+}
 
 
 /**
@@ -429,22 +475,15 @@ function fb_is_tab() {
 function fb_api_check_session($fb) {
   $success = FALSE;
   try {
-    $session = $fb->getSession();
-    // Newer API uses access_token
-    if (isset($session['access_token'])) {
-      $is_user = $fb->api(array(
-                            'method' => 'users.isAppUser',
-                          ));
-      // Does not matter what is returned, as long as exception is not thrown.
-      $success = TRUE;
+    $me = $fb->api('me');
+
+    // Store the locale if set.
+    if (isset($me['locale'])) {
+      $_SESSION['fb_locale'] = $me['locale'];
     }
-    // Older API used session_key.  Still needed?
-    elseif (isset($session['session_key'])) {
-      $is_user = $fb->api(array(
-                            'method' => 'users.isAppUser',
-                          ));
-      $success = TRUE;
-    }
+
+    // Does not matter what is returned, as long as exception is not thrown.
+    $success = TRUE;
   }
   catch (Exception $e) {
     if (fb_verbose()) {
@@ -457,6 +496,7 @@ function fb_api_check_session($fb) {
   }
   return $success;
 }
+
 
 /**
  * Returns the facebook user id currently visiting a canvas page, or if
@@ -743,6 +783,16 @@ function fb_menu() {
     'type' => MENU_DEFAULT_LOCAL_TASK,
   );
 
+  //Languages (fb locales) mapping
+  $items[FB_PATH_ADMIN . '/languages'] = array(
+    'title' => 'Languages',
+    'access arguments' => array(FB_PERM_ADMINISTER),
+    'weight' => 0,
+    'type' => MENU_LOCAL_TASK,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('fb_admin_languages'),
+    'file' => 'fb.admin.inc',
+  );
   // Admin pages for each app.
   $items[FB_PATH_ADMIN_APPS . '/%fb'] = array(
     'title' => 'Application Detail',
