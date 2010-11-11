@@ -39,6 +39,12 @@ define('FB_USER_CONTROL_NO_CREATE_MAP', 'fb_user_no_map_create');
 define('FB_USER_CONTROL_NO_HONOR_MAP', 'fb_user_no_map');
 define('FB_USER_CONTROL_NO_REDIRECT', 'fb_user_no_redirect');
 
+// hook_fb_user().
+define('FB_USER_OP_PRE_USER', 'pre_user'); // Before account creation, fb_user.module
+define('FB_USER_OP_POST_USER', 'post_user'); // After account creation, fb_user.module
+define('FB_USER_OP_POST_EXTERNAL_LOGIN', 'post_external_login'); // user map has changed global user.
+
+
 /**
  * Implements hook_perm().
  */
@@ -116,7 +122,7 @@ function fb_user_fb($op, $data, &$return) {
     $fb_user_data = _fb_user_get_config($fb_app);
   }
 
-  if ($op == FB_OP_POST_INIT) {
+  if ($op == FB_OP_POST_INIT && $fb) {
     $fbu = fb_facebook_user();
     if (isset($_SESSION['fb_user_fbu']) &&
         $_SESSION['fb_user_fbu'] != $fbu &&
@@ -143,7 +149,6 @@ function fb_user_fb($op, $data, &$return) {
       // cause infinite loop if browser not accepting third-party cookies.
       fb_controls(FB_USER_CONTROL_NO_REDIRECT, TRUE);
     }
-
 
     if ($rid = $fb_user_data['connected_user_rid']) {
       if ($fbu) {
@@ -275,7 +280,7 @@ function _fb_user_external_login($account = NULL) {
 
     if ($valid_user) {
       // Session changed after external login.  Invoking hook here allows modules to drupal_set_message().
-      fb_invoke(FB_OP_POST_EXTERNAL_LOGIN, array('account' => $account));
+      fb_invoke(FB_USER_OP_POST_EXTERNAL_LOGIN, array('account' => $account), NULL, 'fb_user');
       return $account;
     }
   }
@@ -824,11 +829,12 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
 
     // Allow third-party module to adjust any of our data before we create
     // the user.
-    $edit = fb_invoke(FB_OP_PRE_USER, array('fbu' => $fbu,
-                                            'fb' => $GLOBALS['_fb'],
-                                            'fb_app' => $fb_app,
-                                            'info' => $info),
-                      $edit);
+    $edit = fb_invoke(FB_USER_OP_PRE_USER, array(
+                        'fbu' => $fbu,
+                        'fb' => $GLOBALS['_fb'],
+                        'fb_app' => $fb_app,
+                        'info' => $info,
+                      ), $edit, 'fb_user');
 
     if ($edit['fb_user_do_create']) {
       unset($edit['fb_user_do_create']); // Don't confuse user_save.
@@ -847,7 +853,7 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
       // Merge defaults
       $edit = array_merge($defaults, $edit);
 
-      // Confirm username is not taken.  FB_OP_PRE_USER may have changed it.
+      // Confirm username is not taken.  FB_USER_OP_PRE_USER may have changed it.
       if ($uid = db_result(db_query("SELECT uid FROM {users} WHERE name='%s'", $edit['name']))) {
         // The desired name is taken.
         watchdog('fb_user', 'Failed to create new user %name.  That name is already in the users table.',
@@ -864,9 +870,11 @@ function fb_user_create_local_user($fb, $fb_app, $fbu,
                  WATCHDOG_NOTICE, l(t('edit'), 'user/'. $account->uid .'/edit'));
 
         // Allow third-party modules to act after account creation.
-        fb_invoke(FB_OP_POST_USER, array('account' => $account,
-                                         'fb_app' => $fb_app,
-                                         'fb' => $fb));
+        fb_invoke(FB_USER_OP_POST_USER, array(
+                    'account' => $account,
+                    'fb_app' => $fb_app,
+                    'fb' => $fb,
+                  ), NULL, 'fb_user');
       }
     }
   }

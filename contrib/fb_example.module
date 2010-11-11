@@ -237,10 +237,8 @@ function fb_example_fb_required_perms_alter(&$perms) {
  *   asking for information.
  *   - FB_OP_INITIALIZE - The facebook sdk has been initialized.  This tells a
  *     facebook application is enable for the current request.
- *   - FB_OP_PRE_USER - You have a chance to the name or other account
- *     attributes, before a new user account is created.
- *   - FB_OP_POST_USER - A new user account was created for a facebook use who authorized an app.
- *   - FB_OP_APP_IS_AUTHORIZED - The visitor to this page has authorized the application.
+ *   - FB_OP_APP_IS_AUTHORIZED - The visitor to this page has authorized the
+ *     application.
  *
  * @param $data
  *   Associative array of information specific to this operation. Usually, but not always, contains:
@@ -274,4 +272,42 @@ function fb_example_fb($op, $data, &$return) {
       $return[] = "FB_JS.reload();";
     }
   }
+}
+
+/**
+ * Implements hook_fb_user().
+ *
+ * This hook provided by fb_user.module will notify us when a new account is
+ * created or a local account is logged in via facebook.
+ *
+ * @param $op
+ *   Indicates what operation is currently being performed, or which behavior
+ *   can be customized.  There are a number of these.  In some cases,
+ *   modules/fb is informing other modules, and in other operations it is
+ *   asking for information.
+ *   - FB_USER_OP_PRE_USER - You have a chance to the name or other account
+ *     attributes, before a new user account is created.
+ *   - FB_OP_POST_USER - A new user account was created for a facebook user
+ *     who authorized an app.
+ *
+ * @param $data
+ *   Associative array of information specific to this operation.
+ *   Usually, but not always, contains:
+ *   - 'fb' - The API provided by the facebook-php-sdk.
+ *   - 'fb_app' - The data about this application stored by fb_app.module.
+ *   - 'fbu' - If the current user is known, their facebook id.
+ *
+ * @param $return
+ *   An op-specific return value.  Your hook should change this reference
+ *   variable, and not return it.  Some operations return an array of data,
+ *   which may be collaboratively built by multiple implementations of this
+ *   hook.
+ *
+ * @TODO - this documentation is very incomplete!
+ */
+function fb_example_fb_user($op, $data, &$return) {
+  $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
+  $fb = isset($data['fb']) ? $data['fb'] : NULL;
+
+  // @TODO provide example.
 }

@@ -156,4 +156,12 @@ function fb_user_update_6007() {
   return $ret;
 }
 
-
+function fb_user_update_6008() {
+  $ret = array();
+  $message = 'Manual action required!  If you have a custom implementation of hook_fb() which responds to user operations (i.e. FB_OP_PRE_USER or FB_OP_POST_USER), those operations have been moved to a new hook, hook_fb_user().  You will have to edit your code.';
+  $args = array();
+  drupal_set_message(t($message, $args), 'warning', FALSE);
+  watchdog('fb_user', $message, $args, WATCHDOG_WARNING);
+  $ret[] = array('success' => FALSE, 'query' => $message, array());
+  return $ret;
+}
