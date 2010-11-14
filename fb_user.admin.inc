@@ -157,9 +157,9 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
     // Choose a role to be granted only while connected.
     $form['fb_app_data']['fb_user']['connected_user_rid'] = array(
       '#type' => 'select',
-      '#title' => t('Temporary role, only when connected'),
+      '#title' => t('Temporary role, only when connected <em>(experimental)</em>'),
       '#options' => $options,
-      '#description' => t('Role granted <em>temporarily</em> while any user (even <em>Anonymous</em>) is connected to facebook.'),
+      '#description' => t('Role granted <em>temporarily</em> while any user (even <em>Anonymous</em>) is connected to facebook. <br/><strong>Important:</strong> Create a role dedicated explicitly for this purpose.  Do not select <em>authenticated user</em> or any role that you assign to users on a permanent basis.'),
       '#default_value' => $fb_user_data['connected_user_rid'],
     );
   }
