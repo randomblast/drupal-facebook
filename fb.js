@@ -30,7 +30,6 @@ window.fbAsyncInit = function() {
     //FB.Event.subscribe('auth.logout', FB_JS.debugHandler);
     //FB.Event.subscribe('auth.statusChange', FB_JS.debugHandler);
     //FB.Event.subscribe('auth.sessionChange', FB_JS.debugHandler);
-
   });
 };
 
@@ -70,7 +69,7 @@ FB_JS.reload = function(destination) {
   // Avoid infinite reloads
   ///@TODO - does not work on iframe because facebook does not pass url args to canvas frame when cookies not accepted.  http://forum.developers.facebook.net/viewtopic.php?id=77236
   var vars = FB_JS.getUrlVars(window.location.href);
-  if (vars._fb_js_fbu === fbu) {
+  if (vars._fb_js_fbu == fbu) {
     return; // Do not reload (again)
   }
 
@@ -97,9 +96,7 @@ FB_JS.reload = function(destination) {
   }
 
   // Add _fb_js_fbu to params before reload.
-  if (fbu) {
-    vars.push('_fb_js_fbu=' + fbu);
-  }
+  vars.push('_fb_js_fbu=' + fbu);
 
   // Use window.top for iframe canvas pages.
   destination = path + '?' + vars.join('&');
@@ -126,8 +123,8 @@ FB_JS.sessionChange = function(response) {
     status.changed = true;
 
     // Sometimes Facebook's invalid cookies are left around.  Let's try to clean up their crap.
-    // @TODO - delete cookie only if it exists.
-    FB_JS.deleteCookie('fbs_' + Drupal.settings.fb.apikey, '/', '');
+    // Commented out because facebook's JS apparently does this now.
+    // FB_JS.deleteCookie('fbs_' + Drupal.settings.fb.apikey, '/', '');
   }
 
   if (status.changed) {
@@ -203,6 +200,7 @@ FB_JS.ajaxEvent = function(event_type, data) {
 };
 
 // Delete a cookie.
+// ??? Still needed?  Facebook's JS SDK may take care of this now.
 FB_JS.deleteCookie = function( name, path, domain ) {
   document.cookie = name + "=" +
     ( ( path ) ? ";path=" + path : "") +

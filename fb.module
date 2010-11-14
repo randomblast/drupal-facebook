@@ -187,7 +187,15 @@ function fb_init() {
     }
 
     fb_js_settings('reload_url', url($destination, array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas())));
+
+    // Facebook's javascript will attempt to set cookies, but doesn't hurt to
+    // set the old-fashioned way, too.
+    if ($_fb->getSession() && !isset($_COOKIE['fbs_' . $_fb_app->apikey])) {
+      // ??? Does this actually help?  Is this ever reached?
+      $_fb->setSession($_fb->getSession(), TRUE);
+    }
   }
+
   // Allow third-parties to act, even if we did not initialize $_fb.
   fb_invoke(FB_OP_POST_INIT, array('fb_app' => $_fb_app,
                                    'fb' => $_fb));
@@ -195,14 +203,18 @@ function fb_init() {
   fb_js_settings('controls', implode(',', fb_controls()));
 
   if (!fb_js_settings('js_sdk_url')) {
-    if (isset($_SESSION['fb_locale']) && variable_get('fb_language_override', 'override')) {
+    if (isset($_SESSION['fb_locale']) &&
+        variable_get('fb_language_override', 'override')) {
       $fb_lang = $_SESSION['fb_locale'];
     }
     else {
       $user_language = user_preferred_language($GLOBALS['user']);
       $fb_lang = variable_get('fb_language_' . $user_language->language, 'en_US');
     }
-    fb_js_settings('js_sdk_url', variable_get('fb_js_sdk', 'http://connect.facebook.net/' . $fb_lang . '/all.js'));
+
+    $default = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') ? 'https' : 'http';
+    $default .= "://connect.facebook.net/$fb_lang/all.js";
+    fb_js_settings('js_sdk_url', variable_get('fb_js_sdk', $default));
   }
 
   // Add javascript to all pages.
@@ -240,6 +252,7 @@ function fb_js_settings($key = null, $value = null) {
 
   if (isset($key) && isset($value)) {
     $fb_js_settings[$key] = $value;
+    return $value;
   }
   elseif (isset($key)) {
     return isset($fb_js_settings[$key]) ? $fb_js_settings[$key] : NULL;
@@ -493,6 +506,15 @@ function fb_api_check_session($fb) {
     if (fb_verbose()) {
       fb_log_exception($e, t("fb_api_check_session failed."));
     }
+
+    // Unsetting the javasript fbu can be helpful when third-party cookies disabled.
+    fb_js_settings('fbu', 0);
+
+    // Might as well try to clean up the mess.
+    if (isset($_COOKIE['fbs_' . $fb->getAppId()])) {
+      setcookie('fbs_' . $fb->getAppId(), '', time() - 42000, '/');
+    }
+
   }
   return $success;
 }
