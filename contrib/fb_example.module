@@ -252,7 +252,9 @@ function fb_example_fb_required_perms_alter(&$perms) {
  *   which may be collaboratively built by multiple implementations of this
  *   hook.
  *
- * @TODO - this documentation is very incomplete!
+ *
+ * Note, some example code is disabled.  Change the FALSE to TRUE in
+ * variable_get calls to test the code.
  */
 function fb_example_fb($op, $data, &$return) {
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
@@ -264,12 +266,39 @@ function fb_example_fb($op, $data, &$return) {
   if ($op == FB_OP_AJAX_EVENT) {
     // We get FB_OP_AJAX_EVENT when fb.js calls us in reponse to a javascript event.
     if ($data['event_type'] == 'edge.create' && variable_get('fb_example_like_thanks', FALSE)) {
-      // edge.create is facebook's bizarrely cryptic code-word for Like button has been clicked.
+      // Facebook calls this event 'edge.create', because there's a new 'edge'
+      // in the open graph.
       drupal_set_message(t('Thanks for clicking Like!'));
       // reloading allows user to see message.  This example is contrived,
       // there's no real reason to reload page here, and it prevents users
       // from adding a comment.  In practice, you could put some other javascript here.
       $return[] = "FB_JS.reload();";
+    }
+    if ($data['event_type'] == 'session_change' && variable_get('fb_example_session_change_redirect', FALSE)) {
+      if (!isset($GLOBALS['fb_example_new_user'])) {
+        // The user has clicked the connect button, or logged into/out-of
+        // facebook in another browser window, then refreshed.
+        if ($fbu = fb_facebook_user()) {
+          // The user has connected (as opposed to logged out).  Let's redirect
+          // them to our 'welcome' page.  Replace 'welcome' with the path you
+          // really want.
+          $url = url('welcome',
+                     array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
+          // We return javascript to be evaluated by fb.js.
+          $return[] = "FB_JS.reload('$url');";
+        }
+      }
+      elseif ($GLOBALS['fb_example_new_user']) {
+        // The user has clicked the connect button and that results in a new
+        // user being created.  Note this will work only when fb_example.module
+        // has heavier weight than fb_user.module.  See fb_example.install.
+
+        // Send the user to their edit page.
+        $url = url('user/' . $GLOBALS['user']->uid . '/edit',
+                   array('absolute' => TRUE, 'fb_canvas' => fb_is_canvas()));
+        // We return javascript to be evaluated by fb.js.
+        $return[] = "FB_JS.reload('$url');";
+      }
     }
   }
 }
@@ -303,11 +332,44 @@ function fb_example_fb($op, $data, &$return) {
  *   which may be collaboratively built by multiple implementations of this
  *   hook.
  *
- * @TODO - this documentation is very incomplete!
  */
 function fb_example_fb_user($op, $data, &$return) {
   $fb_app = isset($data['fb_app']) ? $data['fb_app'] : NULL;
   $fb = isset($data['fb']) ? $data['fb'] : NULL;
 
-  // @TODO provide example.
+  if ($op == FB_USER_OP_POST_USER) {
+    // Set a global that can be checked in hook_fb, above.  Note for this to
+    // work properly, fb_example.module must be weighted heavier then
+    // fb_user.module.  (See fb_example.install).
+    $GLOBALS['fb_example_new_user'] = TRUE;
+  }
+}
+
+
+/**
+ * Implements hook_preprocess_page().
+ *
+ * Under admin >> site building >> facebook apps >> canvas pages, you'll find
+ * some settings regarding the "processing" of canvas pages.  This processing
+ * changes links for the entire page, so that all links point to
+ * http://apps.facebook.com/... instead of Drupal's normal base_url.
+ *
+ * If instead you only want some of the links on a page to work this way, and
+ * leave some unmodified, you can take the approach shown here.  In this hook
+ * we process the text in some regions of the page, but not all.  So for
+ * example links in the normal 'content' will not be modified.
+ *
+ * The code shown here could also be located in your theme's preprocess
+ * function, or even in a page template.
+ *
+ * Note this function is only relavent when the checkboxes on admin >> site
+ * building >> facebook apps >> canvas pages are disabled.
+ */
+function fb_example_preprocess_page(&$variables) {
+  if (fb_canvas_is_iframe()) {
+    // Process links in these regions.
+    foreach (array('header', 'footer', 'left', 'preface_first', 'preface_middle', 'preface_last') as $region) {
+      $variables[$region] = fb_canvas_process($variables[$region], array('add_target' => TRUE, 'absolute_links' => TRUE));
+    }
+  }
 }
