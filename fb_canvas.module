@@ -354,15 +354,17 @@ function fb_canvas_url_outbound_alter(&$path, &$options, $original_path) {
  * to URLs that begin http://apps.facebook.com/...
  *
  * Call this method from themes when producing iframe canvas
- * pages.  This is a relatively expensive operation.  Its unfortunate that we
- * must do it on every page request.  However to the best of my knowledge,
- * Drupal provides no better way.
+ * pages, or from a page_preprocess hook.
+ *
+ * This is a relatively expensive operation.  In the past, this had to be run
+ * on all FBML canvas pages.  Now with iframe canvas pages, this is not
+ * strictly needed, but remains useful.  If processed, links on the page will
+ * change the parent frame (the one with the URL shown in the browser).  If
+ * not processed, the links will change only the iframe.
  *
  * In Drupal 7.x, there may be a way to alter URLs before they are
  * rendered.  That could provide a more efficient solution.  Until
  * then we are stuck with this.
- *
- * @TODO - is there any way to avoid needing this function?
  *
  * @param $output is the page (or iframe block) about to be returned.
  *
