@@ -145,6 +145,8 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
     );
 
     $options = array(0 => t('<none>')) + user_roles(1);
+    unset($options[DRUPAL_ANONYMOUS_RID]);
+    unset($options[DRUPAL_AUTHENTICATED_RID]);
     // Choose a role to be granted to anyone who authorizes the app.
     $form['fb_app_data']['fb_user']['new_user_rid'] = array(
       '#type' => 'select',
@@ -157,9 +159,9 @@ function fb_user_admin_form_alter(&$form, &$form_state, $form_id) {
     // Choose a role to be granted only while connected.
     $form['fb_app_data']['fb_user']['connected_user_rid'] = array(
       '#type' => 'select',
-      '#title' => t('Temporary role, only when connected <em>(experimental)</em>'),
+      '#title' => t('Temporary role only when connected <em>(advanced feature, use caution)</em>'),
       '#options' => $options,
-      '#description' => t('Role granted <em>temporarily</em> while any user (even <em>Anonymous</em>) is connected to facebook. <br/><strong>Important:</strong> Create a role dedicated explicitly for this purpose.  Do not select <em>authenticated user</em> or any role that you assign to users on a permanent basis.'),
+      '#description' => t('Role granted <em>temporarily</em> while any user (even <em>Anonymous</em>) is connected to facebook. <br/><strong>Important:</strong> Create a role explicitly for this purpose.  Do not select a role that you assign to users on a permanent basis.'),
       '#default_value' => $fb_user_data['connected_user_rid'],
     );
   }
