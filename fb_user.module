@@ -106,7 +106,9 @@ function _fb_user_special_page() {
  */
 function _fb_user_logout() {
   session_destroy();
-  $user = drupal_anonymous_user();
+  // Fix for http://bugs.php.net/bug.php?id=32330
+  session_set_save_handler('sess_open', 'sess_close', 'sess_read', 'sess_write', 'sess_destroy_sid', 'sess_gc');
+  $GLOBALS['user'] = drupal_anonymous_user();
 }
 
 /**
@@ -161,9 +163,9 @@ function fb_user_fb($op, $data, &$return) {
       }
       else {
         // User is not connected to facebook.
-        // Out of paranoia, unset role.  This should not be reached.
-        if (isset($user->roles[$rid])) {
-          //dpm("unsetting user->roles[$rid]", __FUNCTION__); // debug
+        if ($rid != DRUPAL_AUTHENTICATED_RID && isset($user->roles[$rid])) {
+          // Out of paranoia, unset role.  This will be reached only if the
+          //user was somehow saved while connected to facebook.
           unset($user->roles[$rid]);
           // Reload user permissions.
           user_access(NULL, $user, TRUE);
