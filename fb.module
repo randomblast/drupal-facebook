@@ -190,7 +190,7 @@ function fb_init() {
 
     // Facebook's javascript will attempt to set cookies, but doesn't hurt to
     // set the old-fashioned way, too.
-    if ($_fb->getSession() && !isset($_COOKIE['fbs_' . $_fb_app->apikey])) {
+    if ($_fb && $_fb->getSession() && !isset($_COOKIE['fbs_' . $_fb_app->apikey])) {
       // ??? Does this actually help?  Is this ever reached?
       $_fb->setSession($_fb->getSession(), TRUE);
     }
