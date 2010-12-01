@@ -77,13 +77,15 @@ function fb_devel_init() {
   }
 
   // fb_user table sanity check
-  if (db_result(db_query("SELECT count(*) FROM {authmap} WHERE module='fb_user'"))) {
-    $message = 'fb_user data has not been migrated from authmap table.  Run update.php.';
-    $args = array();
-    if (user_access('access administration pages')) {
-      drupal_set_message(t($message, $args), 'error');
+  if (module_exists('fb_user')) {
+    if (db_result(db_query("SELECT count(*) FROM {authmap} WHERE module='fb_user'"))) {
+      $message = 'fb_user data has not been migrated from authmap table.  Run update.php.';
+      $args = array();
+      if (user_access('access administration pages')) {
+        drupal_set_message(t($message, $args), 'error');
+      }
+      watchdog('fb_devel', $message, $args, WATCHDOG_ERROR);
     }
-    watchdog('fb_devel', $message, $args, WATCHDOG_ERROR);
   }
 }
 
@@ -419,18 +421,19 @@ function fb_devel_fbu_page($fbu = NULL) {
       fb_log_exception($e, t('Failed to lookup friends of facebook user %fbu', array('%fbu' => $fbu)));
     }
 
+    if (module_exists('fb_user')) {
+      $local_friends = fb_user_get_local_friends($fbu);
 
-    $local_friends = fb_user_get_local_friends($fbu);
-
-    $items = array();
-    foreach ($local_friends as $uid) {
-      $account = user_load(array('uid' => $uid));
-      $items[] = theme('username', $account);
-    }
-    if (count($items)) {
-      $output .= "\n<p>Local friends:<ul><li>";
-      $output .= implode("</li>\n  <li>", $items);
-      $output .= "</li></ul></p>\n\n";
+      $items = array();
+      foreach ($local_friends as $uid) {
+        $account = user_load(array('uid' => $uid));
+        $items[] = theme('username', $account);
+      }
+      if (count($items)) {
+        $output .= "\n<p>Local friends:<ul><li>";
+        $output .= implode("</li>\n  <li>", $items);
+        $output .= "</li></ul></p>\n\n";
+      }
     }
   }
   else
