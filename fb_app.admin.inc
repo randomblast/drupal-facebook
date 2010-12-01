@@ -45,7 +45,7 @@ function fb_app_edit_form($form_state, $fb_app = NULL) {
   // If app is managed by this module, it has fba_id.
   if (isset($fb_app) && !$fb_app->fba_id) {
     drupal_set_message(t('Application %label not found.', array(
-                           '%label' => $label)),
+                           '%label' => $fb_app->label)),
                        'warning');
     drupal_not_found();
     exit();
