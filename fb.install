@@ -131,7 +131,7 @@ function fb_update_6003() {
 }
 
 /**
- * Convenience function to display messages like the one from update 6003.
+ * Convenience function to display messages like the one from fb_app_update_6003.
  */
 function fb_install_property_message(&$ret, $reason) {
   $result = db_query("SELECT * FROM {fb_app}");
