@@ -234,6 +234,7 @@ function fb_app_user($op, &$edit, &$account, $category = NULL) {
     }
     if (count($items)) {
       $account->content['fb_app'] = $items;
+      $account->content['fb_app']['#weight'] = 6; // Appear after history (user.module)
     }
   }
 }
