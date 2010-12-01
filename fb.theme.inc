@@ -8,7 +8,11 @@
  */
 
 
-function theme_fb_login_button($text = '', $options = array()) {
+function theme_fb_login_button($text = NULL, $options = array()) {
+  // Facebook used to provide default text.  No longer, apparently.
+  if (!$text) {
+    $text = t('Connect');
+  }
   // Merge in defaults
   $options += array(
     'attributes' => array(),
