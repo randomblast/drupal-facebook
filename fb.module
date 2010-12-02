@@ -403,6 +403,17 @@ function fb_call_method($fb, $method, $params = array()) {
     }
     return $data;
   }
+  else {
+    // Should we throw FacebookApiException, or plain old exception?
+    throw new FacebookApiException(
+      array(
+        'error_msg' => t('fb_call_method failed calling !method.  !detail', array(
+                           '!method' => $method,
+                           '!detail' => $http->error,
+                         )),
+        'error_code' => $http->code,
+      ));
+  }
 }
 
 /**

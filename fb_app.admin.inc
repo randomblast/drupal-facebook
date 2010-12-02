@@ -188,7 +188,9 @@ function fb_app_edit_form_validate($form, &$form_state) {
     // Getting properties confirms apikey and secret.
     fb_admin_get_app_properties($fb_app);
     if (!$fb_app->application_name) {
-      form_set_error('fb_app][apikey', t('Unable to get application properties.  Confirm both apikey and secret.'));
+      // Don't use form_set_error, as that will prevent the user from saving any data.
+      drupal_set_message("Unable to get application properties.  Possibly, you've given the wrong apikey or secret.  Possibly, this server is unable to reach facebook's servers.  Your application will not work properly!", 'error');
+      $fb_app->application_name = 'UNKOWN';
     }
   }
 }
