@@ -40,30 +40,29 @@ function fb_app_fb($op, $data, &$return) {
                'label' => "'%s'",
              ) as $key => $type) {
       if (isset($data[$key])) {
-        $where[] = "$key = $type";
-        $args[] = $data[$key];
+        $where[] = "$key = :$key";
+        $args[":$key"] = $data[$key];
       }
     }
     // Status is a special query.  Admin pages include disabled apps.
     if (isset($data['status'])) {
-      $where[] = "status >= %d";
-      $args[] = $data['status'];
+      $where[] = "status >= :status";
+      $args[':status'] = $data['status'];
     }
     else {
       $where[] = "status > 0";
     }
 
     if (count($args)) {
-      $fb_app = db_fetch_object(db_query("SELECT * FROM {fb_app} fba WHERE " . implode(' AND ', $where), $args));
+      $fb_app = db_query("SELECT * FROM {fb_app} fba WHERE " . implode(' AND ', $where), $args);
     }
-    if ($fb_app) {
-      $return = $fb_app;
+    if (count($fb_app)) {
+      $return = $fb_app[0];
     }
   }
   elseif ($op == FB_OP_GET_ALL_APPS) {
     // Return all known applications, including disabled.
-    $result = db_query("SELECT fba.* FROM {fb_app} fba");
-    while ($app = db_fetch_object($result)) {
+    foreach(db_query("SELECT fba.* FROM {fb_app} fba") as $app) {
       $return[] = $app;
     }
   }
