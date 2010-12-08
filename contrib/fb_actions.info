@@ -3,4 +3,4 @@ description = Since facebook has deprecated user profiles, there is little reaso
 package = Drupal for Facebook - contrib
 dependencies[] = fb
 dependencies[] = trigger
-;;core = 6.x @TODO - port or deprecate
+core = 7.x @TODO - port or deprecate

@@ -3,4 +3,4 @@ description = <a href=http://developers.facebook.com/docs/authentication/permiss
 package = Drupal for Facebook - contrib
 dependencies[] = fb
 dependencies[] = fb_app
-core = 6.x
+core = 7.x

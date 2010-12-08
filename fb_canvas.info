@@ -3,4 +3,4 @@ description = Host <a href=http://developers.facebook.com/docs/guides/canvas/ ta
 package = Drupal for Facebook
 dependencies[] = fb
 dependencies[] = fb_app
-core = 6.x
+core = 7.x

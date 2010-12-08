@@ -3,7 +3,7 @@ description = Catch errors and solve problems before they surprise you.  Display
 package = Drupal for Facebook
 dependencies[] = fb
 dependencies[] = devel
-core = 6.x
+core = 7.x
 
 
 

@@ -3,4 +3,4 @@ description = Keep records of users most recent visits to your apps.  Note that 
 package = Drupal for Facebook - contrib
 dependencies[] = fb
 dependencies[] = fb_app
-core = 6.x
+core = 7.x

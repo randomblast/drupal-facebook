@@ -2,5 +2,5 @@ name = Facebook Apps (fb_app.module)
 description = Host and administer <a href=http://developers.facebook.com target=_blank>Facebook apps</a>.
 package = Drupal for Facebook
 dependencies[] = fb
-core = 6.x
+core = 7.x
 

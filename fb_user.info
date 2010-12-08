@@ -3,4 +3,4 @@ description = Maps local user accounts to facebook user ids.  Creates local acco
 package = Drupal for Facebook
 dependencies[] = fb
 dependencies[] = fb_app
-core = 6.x
+core = 7.x

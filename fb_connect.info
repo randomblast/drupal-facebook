@@ -1,6 +1,6 @@
 name = Facebook Connect (fb_connect.module)
 description = Host <a href=http://developers.facebook.com/docs/guides/web target=_blank>Facebook Connect apps</a>.  Login buttons and FBML helpers that are useful on iframe canvas pages as well.
 package = Drupal for Facebook
-core = 6.x
+core = 7.x
 dependencies[] = fb
 dependencies[] = fb_app
